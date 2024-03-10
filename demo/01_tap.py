@@ -2,8 +2,10 @@
 # query the MWA TAP server with ADQL using the pyvo library
 # details: https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/24970532/MWA+ASVO+VO+Services
 
-import pyvo; from astropy.time import Time, TimeDelta
-# proprietary period is 18 months
+import pyvo
+from astropy.time import Time, TimeDelta
+from sys import stdout, stderr, argv
+# get gpstime of proprietary period, 18 months (548 days) ago
 proprietary = (Time.now() - TimeDelta(548, format='jd')).gps
 tap = pyvo.dal.TAPService("http://vo.mwatelescope.org/mwa_asvo/tap")
 obs = tap.search(f"""
@@ -25,7 +27,16 @@ AND gpubox_files_archived > 1                  -- data available
 -- AND mwa_array_configuration = 'Phase II Compact' -- (optional) compact => more short baselines
 ORDER BY obs_id DESC
 """).to_table().to_pandas().dropna(axis=1, how='all')
-print(len(obs))
-print(obs[['obs_id', 'starttime_utc', 'obsname']])
-obs['obs_id'].astype(int).to_csv(f'obsids-cena.csv', index=False, header=False)
-obs.to_csv(f'cena.csv', index=False, header=True)
+print(f"{len(obs)} results. preview:", file=stderr)
+print(obs[['obs_id', 'starttime_utc', 'obsname']], file=stderr)
+
+out_obsids = "obsids.csv"
+if len(argv) > 1:
+    out_obsids = argv[1]
+    assert not out_obsids.endswith('.py'), "output file should not end with .py"
+out_details = "details.csv"
+if len(argv) > 2:
+    out_details = argv[2]
+    assert not out_details.endswith('.py'), "output file should not end with .py"
+obs['obs_id'].astype(int).to_csv(out_obsids, index=False, header=False)
+obs.to_csv(out_details, index=False, header=True)
