@@ -7,15 +7,16 @@ import numpy as np
 from astropy.time import Time
 
 data_files = sys.argv[1:]
-if len(data_files) < 2:
+if len(data_files) > 1 and data_files[-1].endswith('.fits'):
+    metafits = data_files[0]
+    # output name is basename of metafits, or uvfits if provided
+    base,_ = os.path.splitext(metafits)
+elif len(data_files) == 1:
+    vis = data_files[-1]
+    base,_ = os.path.splitext(vis)
+else:
     print(f"Usage: {sys.argv[:1]} <metafits> <data ...>")
     sys.exit(1)
-
-metafits = data_files[0]
-# output name is basename of metafits, or uvfits if provided
-base,_ = os.path.splitext(metafits)
-if len(data_files) == 2 and data_files[1].endswith('.uvfits'):
-    base, _ = os.path.splitext(data_files[1])
 
 # sky-subtract https://ssins.readthedocs.io/en/latest/sky_subtract.html
 ss = SS()
@@ -35,6 +36,7 @@ else:
     # just look at autos
     unflagged_ants = np.unique(ss.ant_1_array)
     ss=ss.select(antenna_nums=[(a,a) for a in unflagged_ants], inplace=False)
+    ss.apply_flags(flag_choice='original')
     ss.write_uvh5(cache)
     print(f"wrote ss to {cache=}")
 

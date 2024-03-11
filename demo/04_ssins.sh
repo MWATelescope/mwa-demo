@@ -15,7 +15,7 @@ export obsid=${obsid:-1341914000}
 # RAW #
 # ### #
 # check for raw files
-export raw_glob=${raw_glob:-${outdir}/${obsid}/raw/${obsid}_2\*.fits}
+export raw_glob=${outdir}/${obsid}/raw/${obsid}_2\*.fits
 if ! eval ls -1 $raw_glob; then
     echo "raw not present: $raw_glob , try ${SCRIPT_BASE}/02_download.sh"
     exit 1

@@ -57,6 +57,10 @@ so hyperdrive and birli will only work via Docker x86_64 emulation
 A lightweight, cross-platform, cpu-only `Dockerfile` is provided which encapsulates
 most of the software dependencies.
 
+Some of the software requires emulation on arm64, for this you will likely need
+to use a newer version of Docker. This
+may require a newer version of macos.
+
 You can build this for your local platform with `docker build`, or for multiple
 platforms using `docker buildx`. See Dockerfile for details.
 
@@ -102,6 +106,22 @@ docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:late
 docker build --platform linux/amd64 -t d3vnull0/mwa-demo-amd64:latest -f amd64.Dockerfile .
 ```
 
+### ASVO account
+
+Please register for an ASVO account: [asvo.mwatelescope.org/registration](https://asvo.mwatelescope.org/registration)
+Visibility data is made public 18 months after observation. For any support
+enquiries, please email <asvo_support@mwatelescope.org>
+
+Once you have your ASVO account, log in to <https://asvo.mwatelescope.org/profile>
+to obtain your API key and set it as an environment variable:
+
+```bash
+export MWA_ASVO_API_KEY="..."
+```
+
+you may want to add this to your `~/.bashrc` to persist it
+across sessions, but remember to keep this key secret!
+
 ### Customization
 
 You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.:
@@ -124,14 +144,13 @@ Here is a walkthrough of the demo:
 # DEMO: open a bash shell
 # DEMO: change directory into the root of this repository.
 # set up the software environment
-source demo/00_software.sh
+demo/00_software.sh
 # check that everything is working (and pull docker images)
-source demo/00_test.sh
+demo/00_test.sh
 # query the MWA TAP server with ADQL using the pyvo library
 clear; demo/01_tap.sh
 # display giant-squid commands to download observations
 clear; demo/02_download.sh
-clear;
 # mwalib read observation metadata
 demo/03_mwalib.sh
 # SSINS find RFI
@@ -148,10 +167,18 @@ for obsid in 1341914000 1121334536; do
   demo/05_prep.sh && demo/06_cal.sh && demo/07_img.sh || break
 done
 
-# now uncomment this line in 00/06_cal.sh to apply bad antennas and see how the image changes!
+# DEMO: The images look a bit weird, let's enable calqa flags and try again.
+# uncomment this line in 00/06_cal.sh to apply bad antennas and see how the image changes!
 # export cal_bad_ants=""
-rm -rf $outdir/{1341914000,combined}/{cal,prep,img}
+rm -rf $outdir/{1341914000,combined}/{cal,img}
+
+# did aoflagger really get all the RFI?
 export obsid=1341914000
+export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
+export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
+export cal_ms="${outdir}/${obsid}/cal/hyp_cal_${obsid}.ms"
+eval $python ${SCRIPT_BASE}/04_ssins.py $prep_uvfits
+eval $python ${SCRIPT_BASE}/04_ssins.py $cal_ms
 
 # combine them all into a single image
 obsid="combined" cal_ms=$(ls -1d ${outdir}/*/cal/hyp_cal_*.ms ) demo/07_img.sh
