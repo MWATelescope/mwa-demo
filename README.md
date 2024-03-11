@@ -1,10 +1,23 @@
 # MWA Demo
 
-## Data
+## Downloads
 
-download the demo data to the root of this repository from [here](https://curtin-my.sharepoint.com/:u:/g/personal/285446d_curtin_edu_au/EQF1Dl93KixAimsD7wi7TcYBjAUs7Y6LO08An5rKSB2cmg?e=nMtGhu)
+Download the demo data to the root of this repository from [here](https://curtin-my.sharepoint.com/:u:/g/personal/285446d_curtin_edu_au/EQF1Dl93KixAimsD7wi7TcYBjAUs7Y6LO08An5rKSB2cmg?e=nMtGhu)
 
 `unzip -n demo2.zip` (`-n` = do not replace pre-existing files)
+
+You may want to start downloading the docker images too.
+
+```bash
+# on either platform
+docker pull --platform linux/amd64 d3vnull0/mwa-demo-amd64:latest
+
+# then either...
+# ... on macos arm64 (Apple Silicon, M series)
+docker pull --platform linux/arm64 d3vnull0/mwa-demo:test
+# ... on linux amd64
+docker pull --platform linux/amd64 d3vnull0/mwa-demo:test
+```
 
 ## Software dependencies
 
