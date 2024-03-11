@@ -92,6 +92,7 @@ eval $plot_calqa $calqa --save --out ${hyp_soln%%.fits}
 # extract bad antennas from calqa json with jq
 export cal_bad_ants=$(eval $jq -r $'\'.BAD_ANTS|join(" ")\'' $calqa)
 
+# deliberately disabling this for the first round :)
 export cal_bad_ants=""
 
 # apply calibration solutions to preprocessed visibilities

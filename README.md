@@ -144,7 +144,7 @@ Here is a walkthrough of the demo:
 # DEMO: open a bash shell
 # DEMO: change directory into the root of this repository.
 # set up the software environment
-demo/00_software.sh
+source demo/00_software.sh
 # check that everything is working (and pull docker images)
 demo/00_test.sh
 # query the MWA TAP server with ADQL using the pyvo library
