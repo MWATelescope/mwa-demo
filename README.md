@@ -101,21 +101,21 @@ docker buildx create --driver=docker-container --name=multi --use
 # - (optional) use build args to specify software versions.
 # - use --push instead to push to dockerhub
 # - or use --load to load the image into the local docker daemon
-export EVERYBEAM_VERSION=0.5.2
-export IDG_VERSION=1.2.0
-export WSCLEAN_VERSION=3.4
-export tag=${DOCKER_USER}/mwa-demo:everybeam${EVERYBEAM_VERSION}-idg${IDG_VERSION}-wsclean${WSCLEAN_VERSION}
+export EVERYBEAM_BRANCH="v0.5.2"
+export IDG_BRANCH="v1.2.0"
+export WSCLEAN_BRANCH="v3.4"
+export tag=${DOCKER_USER}/mwa-demo:everybeam${EVERYBEAM_BRANCH}-idg${IDG_BRANCH}-wsclean${WSCLEAN_BRANCH}
 docker buildx build \
   -f Dockerfile \
   --platform linux/amd64,linux/arm64 \
-  --build-arg="EVERYBEAM_VERSION=${EVERYBEAM_VERSION}" \
-  --build-arg="IDG_VERSION=${IDG_VERSION}" \
-  --build-arg="WSCLEAN_VERSION=${WSCLEAN_VERSION}" \
+  --build-arg="EVERYBEAM_BRANCH=${EVERYBEAM_BRANCH}" \
+  --build-arg="IDG_BRANCH=${IDG_BRANCH}" \
+  --build-arg="WSCLEAN_BRANCH=${WSCLEAN_BRANCH}" \
   -t $tag \
   --push \
   .
 
-docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile .
+docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile --push .
 docker build --platform linux/amd64 -t d3vnull0/mwa-demo-amd64:latest -f amd64.Dockerfile .
 ```
 
@@ -187,6 +187,7 @@ rm -rf $outdir/{1341914000,combined}/{cal,img}
 
 # did aoflagger really get all the RFI?
 export obsid=1341914000
+# export obsid=1121334536
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
 export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
 export cal_ms="${outdir}/${obsid}/cal/hyp_cal_${obsid}.ms"

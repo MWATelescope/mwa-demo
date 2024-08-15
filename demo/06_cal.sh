@@ -11,7 +11,6 @@ source $SCRIPT_BASE/00_env.sh
 
 export obsid=${obsid:-1341914000}
 
-
 # #### #
 # PREP #
 # #### #
@@ -62,7 +61,7 @@ if [[ ! -f "$hyp_soln" ]]; then
         --data $metafits $prep_uvfits \
         --source-list $srclist \
         --outputs $hyp_soln \
-        $( [[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants )
+        $([[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants)
 fi
 
 # plot solutions file
@@ -102,5 +101,5 @@ if [[ ! -d "$cal_ms" ]]; then
         --data $metafits $prep_uvfits \
         --solutions $hyp_soln \
         --outputs $cal_ms \
-        $( [[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants )
+        $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
 fi
