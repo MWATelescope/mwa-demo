@@ -23,10 +23,6 @@ export obsid=${obsid:-1341914000} # mwax
 # MWALib to the rescue!
 
 mkdir -p ${outdir}/${obsid}/raw
-export raw_glob=${outdir}/${obsid}/raw/${obsid}_2\*.fits
-if ! eval ls -1 $raw_glob; then
-    echo "raw not present: $raw_glob , try ${SCRIPT_BASE}/02_download.sh"
-fi
 
 # DEMO: check for metafits, download unless present
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
@@ -41,3 +37,7 @@ eval $python ${SCRIPT_BASE}/03_mwalib.py $metafits
 # DEMO: antenna info
 
 # DEMO: mwalib can also be used to read raw visibility data!
+export raw_glob=${outdir}/${obsid}/raw/${obsid}_2\*.fits
+if ! eval ls -1 $raw_glob; then
+    echo "raw not present: $raw_glob , try ${SCRIPT_BASE}/02_download.sh"
+fi
