@@ -23,7 +23,7 @@ df = DataFrame({
 })
 df['flagged'] = [a.rfinput_x.flagged | a.rfinput_y.flagged for a in ctx.antennas]
 # get elements from antenna rfinput_x, assuming it's the same as rfinput_y
-rfheader=['flavour', 'has_whitening_filter']
+rfheader=['rec_number', 'flavour', 'has_whitening_filter']
 for h in rfheader:
     df[h] = [getattr(a.rfinput_x, h) for a in ctx.antennas]
 # rec_type is "ReceiverType.RRI", I want just "RRI"
