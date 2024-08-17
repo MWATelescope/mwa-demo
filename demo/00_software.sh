@@ -1,17 +1,15 @@
 #!/bin/bash
 
-export docker_base="docker run --rm -it -v \${PWD}:\${PWD} -v \${outdir}:\${outdir}"
-# uncomment me to enable docker gpu support ()
-# export gpus="all"
-if [[ -n "${gpus:-}" ]]; then
-    export docker_base="$docker_base --gpus=$gpus"
-fi
+export docker_base="docker run --rm -it"
 
 # silly hacks for Windows / Git Bash
 if [[ -n "$OS" && "$OS" == "Windows_NT" ]]; then
-    export docker_base="$docker_base -w //\${PWD}"
+    export docker_base="$docker_base -v /\${PWD}:\${PWD} -w /\${PWD}"
+    export outdir='./demo/data'
+    export SCRIPT_BASE='./demo'
+    export force_docker=true
 else
-    export docker_base="$docker_base -w \${PWD}"
+    export docker_base="$docker_base -v \${PWD}:\${PWD} -v \${outdir}:\${outdir} -w \${PWD}"
 fi
 
 export docker_img=${docker_img:="d3vnull0/mwa-demo:latest"}
@@ -25,7 +23,7 @@ if [[ "$force_docker" != "false" ]] || ! command -v jq >/dev/null 2>&1; then exp
 if [[ "$force_docker" != "false" ]] || ! command -v wsclean >/dev/null 2>&1; then export wsclean="$docker_base --entrypoint=wsclean '${docker_img}'"; fi
 # python
 if [[ "$force_docker" != "false" ]] || ! command -v python >/dev/null 2>&1; then export python="$docker_base --entrypoint=python '${docker_img}'"; fi
-if [[ "$force_docker" != "false" ]] || ! command -v plot_calqa.py >/dev/null 2>&1; then export plot_calqa="$docker_base --entrypoint=python '${docker_img}' /usr/local/bin/plot_calqa.py "; fi
-if [[ "$force_docker" != "false" ]] || ! command -v plot_prepvisqa.py >/dev/null 2>&1; then export plot_prepqa="$docker_base --entrypoint=python '${docker_img}' /usr/local/bin/plot_prepvisqa.py "; fi
-if [[ "$force_docker" != "false" ]] || ! command -v run_calqa.py >/dev/null 2>&1; then export run_calqa="$docker_base --entrypoint=python '${docker_img}' /usr/local/bin/run_calqa.py "; fi
-if [[ "$force_docker" != "false" ]] || ! command -v run_prepvisqa.py >/dev/null 2>&1; then export run_prepqa="$docker_base --entrypoint=python '${docker_img}' /usr/local/bin/run_prepvisqa.py"; fi
+if [[ "$force_docker" != "false" ]] || ! command -v plot_calqa.py >/dev/null 2>&1; then export plot_calqa="$docker_base --entrypoint=plot_calqa.py '${docker_img}'"; fi
+if [[ "$force_docker" != "false" ]] || ! command -v plot_prepvisqa.py >/dev/null 2>&1; then export plot_prepqa="$docker_base --entrypoint=plot_prepvisqa.py '${docker_img}'"; fi
+if [[ "$force_docker" != "false" ]] || ! command -v run_calqa.py >/dev/null 2>&1; then export run_calqa="$docker_base --entrypoint=run_calqa.py '${docker_img}'"; fi
+if [[ "$force_docker" != "false" ]] || ! command -v run_prepvisqa.py >/dev/null 2>&1; then export run_prepqa="$docker_base --entrypoint=run_prepvisqa.py '${docker_img}'"; fi

@@ -7,7 +7,7 @@
 export outdir=${outdir:-${PWD}/demo/data/}
 
 # these variables can sometimes be set to a location inaccessible from Docker,
-# so we explicitly unset them here. comment this out if you want to use your own
+# so we explicitly unset them here.
 unset srclist
 unset MWA_BEAM_FILE
 export srclist=${srclist:-${outdir}/srclist_pumav3_EoR0LoBES_EoR1pietro_CenA-GP_2023-11-07.yaml}

@@ -158,6 +158,8 @@ RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https:
     ldconfig && \
     cd / && \
     rm -rf /aoflagger
+# set up aoflagger python library
+ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
 
 ARG BIRLI_BRANCH=main
 RUN git clone --depth 1 --branch=${BIRLI_BRANCH} https://github.com/MWATelescope/Birli.git /Birli && \
