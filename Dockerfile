@@ -3,7 +3,6 @@
 # amd64, arm32v7, arm64v8
 # ref: https://docs.docker.com/build/building/multi-platform/
 ARG BASE_IMG="ubuntu:20.04"
-
 FROM ${BASE_IMG} as base
 
 ENV DEBIAN_FRONTEND="noninteractive"
@@ -50,6 +49,8 @@ RUN apt-get update && \
     python3 \
     python3-dev \
     python3-pip \
+    python3-wheel \
+    python3-importlib-metadata \
     tzdata \
     unzip \
     wget \
@@ -59,43 +60,42 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     apt-get -y autoremove
 
+# Get Rust
+ARG RUST_VERSION=stable
+ENV RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo PATH="/opt/cargo/bin:${PATH}"
+RUN mkdir -m755 $RUSTUP_HOME $CARGO_HOME && ( \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    --profile=minimal \
+    --default-toolchain=${RUST_VERSION} \
+    )
+
 # use python3 as the default python
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # install python prerequisites
-RUN python -m pip install --upgrade pip && \
-    python -m pip install \
-    kneed \
-    matplotlib \
-    maturin[patchelf] \
-    numpy>=1.21.0 \
-    pandas \
-    pip \
-    pyuvdata \
-    pyvo \
-    tabulate \
-    seaborn \
+RUN python -m pip install --force-reinstall \
+    importlib_metadata==8.2.0 \
+    kneed==0.8.5 \
+    matplotlib==3.7.5 \
+    maturin[patchelf]==1.7.0 \
+    numpy==1.24.4 \
+    pandas==2.0.3 \
+    pyuvdata==2.4.1 \
+    pyvo==1.5.2 \
+    tabulate==0.9.0 \
+    seaborn==0.13.2 \
+    pip==24.2 \
     ;
 
-# install ssins
 ARG SSINS_BRANCH=master
 RUN git clone --depth 1 --branch=${SSINS_BRANCH} https://github.com/mwilensky768/SSINS.git /ssins && \
     python -m pip install /ssins && \
     rm -rf /ssins
 
-# install mwa_qa
 ARG MWAQA_BRANCH=dev
 RUN git clone --depth 1 --branch=${MWAQA_BRANCH} https://github.com/d3v-null/mwa_qa.git /mwa_qa && \
     python -m pip install /mwa_qa && \
     rm -rf /mwa_qa
-
-# Get Rust
-ARG RUST_VERSION=1.75
-ENV RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo PATH=/opt/cargo/bin:$PATH
-RUN mkdir -m755 $RUSTUP_HOME $CARGO_HOME && \
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
-    --profile=minimal \
-    --default-toolchain=${RUST_VERSION}-$(uname -m)-unknown-linux-gnu
 
 ARG MWALIB_BRANCH=v1.4.0
 RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescope/mwalib.git /mwalib && \
@@ -145,9 +145,6 @@ RUN git clone --depth 1 --branch=${GIANTSQUID_BRANCH} https://github.com/MWATele
     cd / && \
     rm -rf /giant-squid ${CARGO_HOME}/registry
 
-# download latest Leap_Second.dat file
-RUN python -c "from astropy.time import Time; print(Time.now().gps)"
-
 ARG AOFLAGGER_BRANCH=v3.4.0
 RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
     cd /aoflagger && \
@@ -175,3 +172,6 @@ RUN git clone --depth 1 --branch=${HYPERDRIVE_BRANCH} https://github.com/MWATele
     cargo install --path . --locked && \
     cd / && \
     rm -rf /hyperdrive ${CARGO_HOME}/registry
+
+# download latest Leap_Second.dat, IERS finals2000A.all
+RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"

@@ -1,0 +1,4 @@
+external-sources=true
+source-path=demo/
+source=00_env.sh
+disable=SC2046,2086

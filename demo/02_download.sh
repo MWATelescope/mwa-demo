@@ -38,11 +38,11 @@ echo " -> get human-readable list of jobs that are queued or processing"
 echo $giant_squid list $obsids_csv
 
 echo " -> (advanced) get a machine readable list of jobs that are queued or processing"
-echo $giant_squid list $obsids_csv --states queued,processing --json > $outdir/jobs.json
+echo $giant_squid list $obsids_csv --states queued,processing --json >$outdir/jobs.json
 echo $jq -r $'\'[.[]|.jobId]|join(" ")\'' $outdir/jobs.json
 
 echo " -> wait until a job is ready"
 echo $giant_squid wait $obsids_csv
 
-echo "download a job"
+echo " -> download a job"
 echo $giant_squid download jobid

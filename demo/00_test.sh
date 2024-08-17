@@ -19,23 +19,23 @@ set -eu
 # BINS #
 # #### #
 # DEMO: check software is installed
-if ! eval $giant_squid --version ; then
+if ! eval $giant_squid --version; then
     echo "giant-squid not found. https://github.com/MWATelescope/giant-squid?tab=readme-ov-file#installation "
     return 1
 fi
-if ! eval $wsclean --version ; then
+if ! eval $wsclean --version; then
     echo "wsclean not found. https://wsclean.readthedocs.io/en/latest/installation.html "
     return 1
 fi
-if ! eval $hyperdrive --version ; then
+if ! eval $hyperdrive --version; then
     echo "hyperdrive not found. https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html "
     return 1
 fi
-if ! eval $jq --version ; then
+if ! eval $jq --version; then
     echo "jq not found. https://jqlang.github.io/jq/download/ "
     return 1
 fi
-if ! eval $python --version ; then
+if ! eval $python --version; then
     echo "python not found. https://www.python.org/downloads/ "
     return 1
 fi
@@ -51,7 +51,8 @@ fi
 # ####### #
 # DEMO: download srclist unless it exists
 if [[ $srclist =~ srclist_puma && ! -f "$srclist" ]]; then
-    wget -O $srclist "https://github.com/JLBLine/srclists/raw/master/${srclist##*/}"
+    echo "downloading srclist ${srclist} from github"
+    curl -L -o $srclist "https://github.com/JLBLine/srclists/raw/master/${srclist##*/}"
 fi
 # DEMO: verify srclist
 eval $hyperdrive srclist-verify $srclist
@@ -61,7 +62,8 @@ eval $hyperdrive srclist-verify $srclist
 # #### #
 # DEMO: download beam unless it exists
 if [[ ! -f "$MWA_BEAM_FILE" ]]; then
-    wget -O $MWA_BEAM_FILE "http://ws.mwatelescope.org/static/${MWA_BEAM_FILE##*/}"
+    echo "downloading beam ${MWA_BEAM_FILE} from mwatelescope.org"
+    curl -L -o $MWA_BEAM_FILE "http://ws.mwatelescope.org/static/${MWA_BEAM_FILE##*/}"
 fi
 # DEMO: verify beam
 eval $hyperdrive beam fee --output /dev/null
@@ -73,34 +75,34 @@ echo "recommended software, not on the critical path:"
 set +eux
 
 ## verify ASVO API Key
-eval $giant_squid list > /dev/null
+eval $giant_squid list >/dev/null
 
 # DEMO: check wsclean features
 eval $wsclean --version | tee .wsclean_version
 while IFS='|' read -r feature details; do
-    if ! grep -q "${feature} is available" .wsclean_version ; then
+    if ! grep -q "${feature} is available" .wsclean_version; then
         echo "warning: wsclean $feature not found. recompile wsclean after installing $feature"
         echo details: $details
     fi
-done << 'EoF'
+done <<'EoF'
 IDG|       https://gitlab.com/astron-idg/idg
 EveryBeam| https://everybeam.readthedocs.io/en/latest/build-instructions.html
 EoF
 rm .wsclean_version
 
 # DEMO: check python version
-if ! eval $python -c $'"assert __import__(\'sys\').version_info>=(3,8)"' >/dev/null ; then
+if ! eval $python -c $'"assert __import__(\'sys\').version_info>=(3,8)"' >/dev/null; then
     echo "warning: python version 3.8+ not found https://www.python.org/downloads/ "
     eval $python --version
 fi
 
 # DEMO: check python packages
 while IFS='|' read -r package details; do
-    if ! eval $python -m pip show $package >/dev/null ; then
+    if ! eval $python -m pip show $package >/dev/null; then
         echo "recommended: python package $package not found."
         echo details: $details
     fi
-done << 'EoF'
+done <<'EoF'
 pyvo|    https://pyvo.readthedocs.io/en/latest/#installation
 mwalib|  https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users
 ssins|   https://github.com/mwilensky768/SSINS?tab=readme-ov-file#installation

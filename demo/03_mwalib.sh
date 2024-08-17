@@ -28,7 +28,7 @@ mkdir -p ${outdir}/${obsid}/raw
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
 if [[ ! -f "$metafits" ]]; then
     echo "metafits not present, downloading $metafits"
-    wget -O "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
+    curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
 fi
 
 # get channel and antenna info

@@ -7,7 +7,7 @@
 # ### #
 # see: 00_env.sh
 export SCRIPT_BASE=${SCRIPT_BASE:-${PWD}/demo/}
-source $SCRIPT_BASE/00_env.sh
+source "$SCRIPT_BASE/00_env.sh"
 
 export obsid=${obsid:-1341914000}
 
@@ -24,7 +24,7 @@ fi
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
 if [[ ! -f "$metafits" ]]; then
     echo "metafits not present, downloading $metafits"
-    wget -O "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
+    curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
 fi
 
 # #### #
@@ -36,20 +36,20 @@ fi
 # uncomment to modify preprocessing settings
 # export freqres_khz=10     # frequency resolution to average to in kHz
 # export birli_args=""      # extra birli args if any
-export timeres_s=8          # time resolution to average to in seconds
-export edgewidth_khz=80     # edge width to flag on each coarse channel in kHz
+export timeres_s=8      # time resolution to average to in seconds
+export edgewidth_khz=80 # edge width to flag on each coarse channel in kHz
 
-mkdir -p ${outdir}/${obsid}/prep
+mkdir -p "${outdir}/${obsid}/prep"
 export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
 export prepqa="${prep_uvfits%%.uvfits}_qa.json"
 
-set -eux
+set -eu
 if [[ ! -f $prep_uvfits ]]; then
     eval $birli ${birli_args:-} \
         -m "${metafits}" \
-        $( [[ -n "${edgewidth_khz:-}" ]] && echo "--flag-edge-width ${edgewidth_khz}" ) \
-        $( [[ -n "${freqres_khz:-}" ]] && echo "--avg-freq-res ${freqres_khz}" ) \
-        $( [[ -n "${timeres_s:-}" ]] && echo "--avg-time-res ${timeres_s}" ) \
+        $([[ -n "${edgewidth_khz:-}" ]] && echo "--flag-edge-width ${edgewidth_khz}") \
+        $([[ -n "${freqres_khz:-}" ]] && echo "--avg-freq-res ${freqres_khz}") \
+        $([[ -n "${timeres_s:-}" ]] && echo "--avg-time-res ${timeres_s}") \
         -u "${prep_uvfits}" \
         $raw_glob
 fi
@@ -66,7 +66,7 @@ fi
 
 # DEMO: extract bad antennas from prepqa json with jq
 # - both of the provided observations pass QA, so no bad antennas are reported
-export prep_bad_ants=$(eval $jq -r $'\'.BAD_ANTS|join(" ")\'' $prepqa)
+prep_bad_ants=$(eval $jq -r $'\'.BAD_ANTS|join(" ")\'' $prepqa)
 
 # DEMO: plot the prep qa results
 # - RMS plot: RMS of all autocorrelation values for each antenna

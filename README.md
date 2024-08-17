@@ -9,14 +9,10 @@ Download the demo data to the root of this repository from [here](https://curtin
 You may want to start downloading the docker images too.
 
 ```bash
-# on either platform
-docker pull --platform linux/amd64 d3vnull0/mwa-demo-amd64:latest
-
-# then either...
 # ... on macos arm64 (Apple Silicon, M series)
-docker pull --platform linux/arm64 d3vnull0/mwa-demo:test
+docker pull --platform linux/arm64 d3vnull0/mwa-demo:latest
 # ... on linux amd64
-docker pull --platform linux/amd64 d3vnull0/mwa-demo:test
+docker pull --platform linux/amd64 d3vnull0/mwa-demo:latest
 ```
 
 ## Software dependencies
@@ -54,7 +50,7 @@ For best results, use an x86 Linux machine.
   - pyvo <https://pyvo.readthedocs.io/en/latest/#installation>
   - mwalib <https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users>
   - ssins <https://github.com/mwilensky768/SSINS?tab=readme-ov-file#installation>
-  - mwa_qa `git clone https://github.com/d3v-null/mwa_qa.git ; pip install mwa_qa`
+  - mwa_qa `git clone https://github.com/d3v-null/mwa_qa.git ; pip install .`
 - jq <https://jqlang.github.io/jq/download/>
 - hyperdrive <https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html>
 - giant-squid <https://github.com/MWATelescope/giant-squid?tab=readme-ov-file#installation>
@@ -78,8 +74,8 @@ You can build this for your local platform with `docker build`, or for multiple
 platforms using `docker buildx`. See Dockerfile for details.
 
 ```bash
-# quick start: pull the images from dockerhub
-docker pull d3vnull0/mwa-demo:latest d3vnull0/mwa-demo-amd64:latest
+# quick start: pull the images from dockerhub.
+docker pull d3vnull0/mwa-demo:latest # on macos or linux arm64 (Apple M series), add --platform linux/arm64
 
 # if you have any issues, you can override the image with a fresh build for your local platform
 docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
@@ -116,8 +112,16 @@ docker buildx build \
   .
 
 docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile --push .
-docker build --platform linux/amd64 -t d3vnull0/mwa-demo-amd64:latest -f amd64.Dockerfile .
 ```
+
+### Windows
+
+Some dependencies like casacore simply do not work on Windows, so you will need to use Docker or WSL.
+The demo scripts are written for a Bash shell, and won't work in PowerShell or CMD.
+
+This demo has been tested on Windows 11 with:
+
+- Docker Desktop 4.33.1 on a Git Bash shell.
 
 ### ASVO account
 
@@ -168,9 +172,9 @@ clear; demo/02_download.sh
 demo/03_mwalib.sh
 # SSINS find RFI
 demo/04_ssins.sh
-# Birli preprocess raw files, quality analysis
+# Birli preprocess raw files, quality analysis, write uvfits
 demo/05_prep.sh
-# hyperdrive direciton independent calibrate, qa and apply solutions
+# hyperdrive direction independent calibrate, qa, apply solutions, write measurement set
 demo/06_cal.sh
 # wsclean cal_ms
 demo/07_img.sh

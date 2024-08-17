@@ -4,11 +4,14 @@
 
 import pyvo
 from astropy.time import Time, TimeDelta
-from sys import stdout, stderr, argv
+from sys import stderr, argv
+
 # get gpstime of proprietary period, 18 months (548 days) ago
-proprietary = (Time.now() - TimeDelta(548, format='jd')).gps
+proprietary = (Time.now() - TimeDelta(548, format="jd")).gps
 tap = pyvo.dal.TAPService("http://vo.mwatelescope.org/mwa_asvo/tap")
-obs = tap.search(f"""
+obs = (
+    tap.search(
+        f"""
 SELECT TOP 10 *
 FROM mwa.observation
 WHERE CONTAINS(
@@ -26,17 +29,22 @@ AND gpubox_files_archived > 1                  -- data available
 -- AND int_time <= 1                           -- (optional) 1s integration or less
 -- AND mwa_array_configuration = 'Phase II Compact' -- (optional) compact => more short baselines
 ORDER BY obs_id DESC
-""").to_table().to_pandas().dropna(axis=1, how='all')
+"""
+    )
+    .to_table()
+    .to_pandas()
+    .dropna(axis=1, how="all")
+)
 print(f"{len(obs)} results. preview:", file=stderr)
-print(obs[['obs_id', 'starttime_utc', 'obsname']], file=stderr)
+print(obs[["obs_id", "starttime_utc", "obsname"]], file=stderr)
 
 out_obsids = "obsids.csv"
 if len(argv) > 1:
     out_obsids = argv[1]
-    assert not out_obsids.endswith('.py'), "output file should not end with .py"
+    assert not out_obsids.endswith(".py"), "output file should not end with .py"
 out_details = "details.csv"
 if len(argv) > 2:
     out_details = argv[2]
-    assert not out_details.endswith('.py'), "output file should not end with .py"
-obs['obs_id'].astype(int).to_csv(out_obsids, index=False, header=False)
+    assert not out_details.endswith(".py"), "output file should not end with .py"
+obs["obs_id"].astype(int).to_csv(out_obsids, index=False, header=False)
 obs.to_csv(out_details, index=False, header=True)
