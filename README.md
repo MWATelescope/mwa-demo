@@ -2,9 +2,23 @@
 
 ## Downloads
 
-Download the demo data to the root of this repository from [here](https://curtin-my.sharepoint.com/:u:/g/personal/285446d_curtin_edu_au/EQF1Dl93KixAimsD7wi7TcYBjAUs7Y6LO08An5rKSB2cmg?e=nMtGhu)
+Download demo data (from Pawsey)
 
-`unzip -n demo2.zip` (`-n` = do not replace pre-existing files)
+```bash
+cd mwa-demo # or wherever the root of this repository is.
+mkdir -p demo/data/1121334536/raw
+curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=3bbbe461c87641ec9f4233718a7ca461%2F20240819%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240819T040154Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=82b63ade9dcdf988a0eb46c6929d8ca6a328492545d1954150208e322f6bb757'
+mkdir -p demo/data/1341914000/raw
+curl -L -o demo/data/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=3bbbe461c87641ec9f4233718a7ca461%2F20240819%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240819T040441Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=8d2a1bc404878a1a7a777c942bd130072f40edc6d4234db39309a09e70d32d53'
+```
+
+Alternatively , you can download the same demo data from AWS:
+
+```bash
+curl -L -o mwa_demo2.zip 'https://mwa-project-meeting-2024.s3.ap-southeast-2.amazonaws.com/data/mwa_demo2.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAUM6XOPSVEE5U3DUE%2F20240819%2Fap-southeast-2%2Fs3%2Faws4_request&X-Amz-Date=20240819T040249Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEDQaDmFwLXNvdXRoZWFzdC0yIkYwRAIgaQM6JEdCpgFn8jeSFLfg%2F92Ffybx5DR71TB%2B0DmadGwCICnFl1fPG3HYRQyANtudq2Y8avAg2PnuEYbVtphMc%2BZmKoAECD0QBRoMMzAyNzEwMTYwNTU0IgxqDGhQ2S2xpUkpyW0q3QMhvsdgqa9X%2FyxaTZS5wGWxe1intMHq2z%2FhZznPnizGBD%2BCEsA%2BR0JepBQ8zRu3AdLgtiljYLN8vknuBaYIyylriHMDTmIrjVsKuXNqfUfY6uuHkXQI6vJho9wwaMOANNu55y9F6Ph66xe7%2BOgdWwNtQsUVTDwYVejR%2FhZre0AZwzGhPmXlvi9HeBGqihy8VtgaQGBSQ0ROJaSdNrQ%2Btn64TOCMNN1xjLRMHVaFbGv1n7w57umm8Y1g%2B430OifvI3sMfub7rj7VVoKErDCwQCYZftvnwhpxwb0su2feva%2Buc4h1bvkgp%2F9qQi9ZNJCeAzr8DRb7MKy65WgB9s%2FWEcAC%2B06V9Le12J0VmSILMvbrNDMRLChlZmQoLQgQXMOQ0cfyRTrl3zUbLz9yK2gHiQ2nnMne0gHgT8rL4wC%2FMKaZvnK1bHyYwNkXSo5EbQ7DyDOXobhkFQXmnmo1c0c%2BUGJphejIhX6eDKdZB6M66TNC1oIe8VUBhzpMAnCksDlWo9M7qicHCPoyVC1sT1Cvmi1ZO03ZuFIh9nEOY5vSw873fThbNp0UWOVrj0pf94aaTauwdQVoBwldtqbl6rHla1%2BlXUvNraARU3Dv%2Bj%2B46i9%2FsyqMBdWzd2ISzXXxXq4wqvqKtgY6lQIFOAJtlr8pXfOPNOxzzYXRUmLgoZfz1OFr7tSpsNAzI%2FFtU5IVXctjKUJZu6xzuwTCVTbJ9c44Ts2yizpfwhD%2BJfQcAX%2BaM7E1kN07TJqyZ7oypmrLKJtAUBVyrX4SSsNUcau2tcHelMRgr7fW%2FYUKA4NTufdhooubebloPXegqW4fbU6r43rbOnfowSdUHYrpy8gnXGS0p0hKUU%2FRjGUG%2BXG7L2s0haaHp66dma1G9H6fk82D7UGJ5tDiGqGaUzGSscdFHZ9yNexFd4g0Zdw5aY1jv9vt70xmhg1UCppIdY0V11OIi86ZqxMgz3a6eoNIDnpd%2FROcvBHD9R43TPN22Oc7QcnSPCAyHR%2Bbaaq8IQlyTxzm&X-Amz-Signature=408b5e905a6355fe6ad393f8fe7e8ca0f6e071d0b24e0a0a3f8f45187c8f140f'
+
+unzip -n demo2.zip # `-n` = do not replace pre-existing files
+```
 
 You may want to start downloading the docker images too.
 
@@ -58,17 +72,10 @@ For best results, use an x86 Linux machine.
   - recommended: EveryBeam <https://everybeam.readthedocs.io/en/latest/build-instructions.html>
   - recommended: IDG <https://idg.readthedocs.io/en/latest/build-instructions.html>
 
-note: there is currently an issue binding to casacore on macOS arm64 (Apple Silicon, M series),
-so hyperdrive and birli will only work via Docker x86_64 emulation
-
 ### Docker
 
 A lightweight, cross-platform, cpu-only `Dockerfile` is provided which encapsulates
 most of the software dependencies.
-
-Some of the software requires emulation on arm64, for this you will likely need
-to use a newer version of Docker. This
-may require a newer version of macos.
 
 You can build this for your local platform with `docker build`, or for multiple
 platforms using `docker buildx`. See Dockerfile for details.
@@ -77,11 +84,19 @@ platforms using `docker buildx`. See Dockerfile for details.
 # quick start: pull the images from dockerhub.
 docker pull d3vnull0/mwa-demo:latest # on macos or linux arm64 (Apple M series), add --platform linux/arm64
 
-# if you have any issues, you can override the image with a fresh build for your local platform
+# if you have any issues, you can override the image with a fresh build on your local machine
+# docker image prune d3vnull0/mwa-demo:latest
 docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
 
-# advanced: build the image for multiple platforms and push to dockerhub
+# If you still encounter issues on macOS arm64 (Apple Silicon, M series),
+# the same image is also available via Docker x86_64 emulation. Make sure to update
+# your Docker Desktop to the latest version, as this features is relatively new.
+docker pull --platform linux/amd64 d3vnull0/mwa-demo:latest
+```
 
+Here's how to customize and build the image for multiple platforms and push to dockerhub
+
+```bash
 # (optional) get your docker username
 docker login
 export DOCKER_USER=$(docker info | sed '/Username:/!d;s/.* //');
@@ -111,7 +126,7 @@ docker buildx build \
   --push \
   .
 
-docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile --push .
+# DEV: docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile --push .
 ```
 
 ### Windows
@@ -160,9 +175,9 @@ Here is a walkthrough of the demo:
 ```bash
 # DEMO: open a bash shell
 # DEMO: change directory into the root of this repository.
-# set up the software environment
+# set up the software environment to use Docker for any binaries not on your system
 source demo/00_software.sh
-# check that everything is working (and pull docker images)
+# check that everything is working (and pull Docker images)
 demo/00_test.sh
 # query the MWA TAP server with ADQL using the pyvo library
 clear; demo/01_tap.sh
