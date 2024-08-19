@@ -1,5 +1,14 @@
 # MWA Demo
 
+## System Requirements
+
+This demo runs best on a linux x86_64 machine with at least 16GB of RAM, and
+20GB free disk space. macOS arm64 should work too. Windows users may need to
+use WSL or Docker Desktop.
+
+Some Windows users with 8GB of RAM have reported that the demo runs out of memory.
+It may be necessary to close other programs you have open.
+
 ## Downloads
 
 Download demo data (from Pawsey)
@@ -26,9 +35,9 @@ You may want to start downloading the docker images too.
 
 ```bash
 # ... on macos arm64 (Apple Silicon, M series)
-docker pull --platform linux/arm64 d3vnull0/mwa-demo:latest
-# ... on linux amd64
-docker pull --platform linux/amd64 d3vnull0/mwa-demo:latest
+docker pull d3vnull0/mwa-demo:latest-arm64
+# ... on linux amd64 (x86_64)
+docker pull d3vnull0/mwa-demo:latest-amd64
 ```
 
 ## Software dependencies
@@ -45,7 +54,7 @@ the methods above. For example:
 
 ```bash
 # you can use the docker image
-export giant_squid="docker run ... mwatelescope/giant-squid"
+export giant_squid="docker run <arguments> mwatelescope/giant-squid"
 # or the giant-squid binary if that is available on your system
 export giant_squid="giant-squid"
 # the script can handle either case
@@ -87,7 +96,7 @@ platforms using `docker buildx`. See Dockerfile for details.
 docker pull d3vnull0/mwa-demo:latest # on macos or linux arm64 (Apple M series), add --platform linux/arm64
 
 # if you have any issues, you can override the image with a fresh build on your local machine
-# docker image prune d3vnull0/mwa-demo:latest
+# docker rmi d3vnull0/mwa-demo:latest
 docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
 
 # If you still encounter issues on macOS arm64 (Apple Silicon, M series),

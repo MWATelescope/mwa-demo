@@ -1,6 +1,10 @@
 #!/bin/bash
 
 export docker_base="docker run --rm -it"
+if [[ "$(uname -s)" == "Darwin" && "$(uname -p)" == "arm" ]]; then
+    export docker_base="$docker_base --platform=linux/arm64"
+    export docker_img="d3vnull0/mwa-demo:latest-arm64"
+fi
 
 # silly hacks for Windows / Git Bash
 if [[ -n "$OS" && "$OS" == "Windows_NT" ]]; then
