@@ -20,6 +20,8 @@ curl -L -o mwa_demo2.zip 'https://mwa-project-meeting-2024.s3.ap-southeast-2.ama
 unzip -n demo2.zip # `-n` = do not replace pre-existing files
 ```
 
+Third backup download [link](https://curtin-my.sharepoint.com/:u:/g/personal/285446d_curtin_edu_au/EQF1Dl93KixAimsD7wi7TcYBjAUs7Y6LO08An5rKSB2cmg?e=nMtGhu)
+
 You may want to start downloading the docker images too.
 
 ```bash

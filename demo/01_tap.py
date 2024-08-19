@@ -6,6 +6,16 @@ import pyvo
 from astropy.time import Time, TimeDelta
 from sys import stderr, argv
 
+if not argv:
+    print(
+        f"""
+          Usage: {argv[0]}
+          or: {argv[0]} obsids.csv details.csv
+          """,
+        file=stderr,
+    )
+    exit(1)
+
 # get gpstime of proprietary period, 18 months (548 days) ago
 proprietary = (Time.now() - TimeDelta(548, format="jd")).gps
 tap = pyvo.dal.TAPService("http://vo.mwatelescope.org/mwa_asvo/tap")
@@ -35,8 +45,21 @@ ORDER BY obs_id DESC
     .to_pandas()
     .dropna(axis=1, how="all")
 )
+obs["config"] = obs["mwa_array_configuration"].str.split(" ").str[-1]
+obs["gigabytes"] = obs["total_archived_data_bytes"] / 1e9
 print(f"{len(obs)} results. preview:", file=stderr)
-print(obs[["obs_id", "starttime_utc", "obsname"]], file=stderr)
+print(
+    obs[
+        [
+            "obs_id",
+            "starttime_utc",
+            "obsname",
+            "config",
+            "gigabytes",
+        ]
+    ],
+    file=stderr,
+)
 
 out_obsids = "obsids.csv"
 if len(argv) > 1:
