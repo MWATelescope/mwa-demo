@@ -4,7 +4,8 @@
 # ENV #
 # ### #
 # see: 00_env.sh
-export SCRIPT_BASE=${SCRIPT_BASE:-${PWD}/demo/}
+if [ -n "$ZSH_VERSION" ]; then ME="${0:A}"; else ME=$(realpath ${BASH_SOURCE:0}); fi
+export SCRIPT_BASE=${SCRIPT_BASE:-$(dirname $ME)}
 source "$SCRIPT_BASE/00_env.sh"
 
 export obsid=${obsid:-1341914000}
