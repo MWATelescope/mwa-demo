@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 from SSINS import SS, INS, MF
 import os
-import sys
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import numpy as np
 from astropy.time import Time
+from sys import argv, exit
 
-data_files = sys.argv[1:]
+data_files = argv[1:]
 if len(data_files) > 1 and data_files[-1].endswith(".fits"):
     metafits = data_files[0]
     # output name is basename of metafits, or uvfits if provided
@@ -16,15 +16,15 @@ elif len(data_files) == 1:
     vis = data_files[-1]
     base, _ = os.path.splitext(vis)
 else:
-    print(f"Usage: {sys.argv[:1]} <metafits> <data ...>")
-    sys.exit(1)
+    print(f"Usage: {argv[0]} <metafits> <data ...>")
+    exit(1)
 
 # sky-subtract https://ssins.readthedocs.io/en/latest/sky_subtract.html
 ss = SS()
 cache = f"{base}.ssa.h5"
 if os.path.exists(cache):
     print(f"reading from {cache=}")
-    ss.read_uvh5(cache, read_data=True)
+    ss.read_uvh5(cache, read_data=True, use_future_array_shapes=True)
 else:
     print(f"reading from {data_files=}")
     ss.read(
@@ -47,7 +47,7 @@ ins = INS(ss, spectrum_type="auto")
 
 # match filter https://ssins.readthedocs.io/en/latest/match_filter.html
 threshold = 5
-mf = MF(ss.freq_array[0], threshold, streak=True, narrow=False)
+mf = MF(ss.freq_array, threshold, streak=True, narrow=False)
 mf.apply_match_test(ins)
 ins.sig_array[~np.isfinite(ins.sig_array)] = 0
 
@@ -74,7 +74,7 @@ subplots = plt.subplots(
 time_labels = [*Time(np.unique(ss.time_array), format="jd").iso]
 ntimes_visible = figsize[1] * 72 / fontsize / 2.4 / subplot_rows
 time_stride = int(max(1, len(time_labels) // ntimes_visible))
-chan_labels = [f"{ch: 8.3f}" for ch in ss.freq_array[0] / 1e6]
+chan_labels = [f"{ch: 8.3f}" for ch in ss.freq_array / 1e6]
 nchans_visible = figsize[0] * 72 / fontsize / 2.0 / len(pols)
 chan_stride = int(max(1, len(chan_labels) // nchans_visible))
 print(f"{time_stride=}, {chan_stride=}")
