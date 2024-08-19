@@ -9,6 +9,13 @@ use WSL or Docker Desktop.
 Some Windows users with 8GB of RAM have reported that the demo runs out of memory.
 It may be necessary to close other programs you have open.
 
+## Clone the repository
+
+```bash
+git clone https://github.com/MWATelescope/mwa-demo.git
+cd mwa-demo
+```
+
 ## Downloads
 
 Download demo data (from Pawsey)
