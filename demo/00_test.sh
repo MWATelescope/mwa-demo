@@ -30,10 +30,12 @@ set -eu
 # #### #
 # DEMO: check raw files are present
 if command -v md5sum &>/dev/null; then
-    echo "validating raw files with md5sum"
-    md5sum -c demo_data.md5sum
+    if [[ -f "demo_data.md5sum" ]]; then
+        echo "validating raw files with md5sum"
+        md5sum -c demo_data.md5sum
+    fi
 else
-    echo "md5sum or md5 not found. couldn't validate raw files."
+    echo "md5sum not found, . couldn't validate raw files."
     exit 1
 fi
 

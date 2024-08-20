@@ -222,11 +222,24 @@ docker build -t mwatelescope/mwa-demo:latest -f Dockerfile .
 
 ### Hybrid
 
-If you have some software dependencies installed locally, you can use Docker to run the rest. Just comment out the packages you don't need in `demo/00_software.sh` and source it in your shell.
+If you have some software dependencies installed locally, you can use Docker to run the rest.
+
+This will create fake binaries in the `./bin` directory that just call Docker for any missing commands.
 
 ```bash
-source demo/00_software.sh
+demo/00_hybrid.sh
+export PATH=${PATH}:./bin/
 ```
+
+```txt
+birli already exists, skipping
+giant-squid already exists, skipping
+hyperdrive already exists, skipping
+jq already exists, skipping
+wsclean not found, creating bin/wsclean
+```
+
+This is probably bad practice for a production pipeline!
 
 ## ASVO account
 
@@ -265,10 +278,10 @@ docker images.
 
 Below is a walkthrough of the demo. Ensure that:
 
-- (if using [Docker](#docker)) you are in a Docker shell, not your host system.
-- (if [hybrid](#hybrid)), you have sourced `demo/00_software.sh` in your host shell.
 - everything is run from the root of the repository
   (don't `cd` into the `demo` directory).
+- (if using [Docker](#docker)) you are in a Docker shell, not your host system.
+- (if [hybrid](#hybrid)), you have run `demo/00_hybrid.sh` and `export PATH=${PATH}:./bin/`
 - you don't `source` the scripts, they are `chmod +x` and should be run directly.
 
 ```bash
