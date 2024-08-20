@@ -1,15 +1,109 @@
 # MWA Demo
 
+This is demonstation of a simple data processing pipeline for Murchison Widefield Array (MWA) data,
+from downloading raw data to creating an image.
+
+## Flow
+
+```mermaid
+flowchart TD;
+classDef in fill:#2aa198;
+classDef out fill:#d33682;
+classDef file fill:#268bd2;
+classDef proc fill:#b58900;
+classDef decision fill:#cb4b16;
+
+subgraph s01 ["01. TAP"]
+  mwaTap([fa:fa-search MWA TAP ]); class mwaTap in;
+  obsids[/"fa:fa-table obsids.csv "/]; class obsids file;
+  mwaTap --> obsids;
+end
+
+subgraph s02 ["02. Download"]
+  mwaAsvo([fa:fa-download MWA ASVO]); class mwaAsvo in;
+  giant-squid[[fa:fa-download giant-squid ]]; class giant-squid proc;
+  raw[/ fa:fa-file raw data /]; class raw file;
+  metafits[/ fa:fa-file metafits /]; class metafits file;
+  obsids --> giant-squid --> mwaAsvo --> raw & metafits;
+end
+
+subgraph s03 ["03. MWALib"]
+  mwalib[[fa:fa-wrench MWALib]]; class mwalib proc;
+  mwalibOut[/fa:fa-table antennas and channels /]; class mwalibOut file;
+  %% channels[/fa:fa-table channels.csv/]; class channels file;
+  metafits --> mwalib --> mwalibOut;
+end
+
+subgraph s04 ["04. SSINS"]
+  ssins[[fa:fa-flag SSINS]]; class ssins proc;
+  flags[/fa:fa-file-image flag plots/]; class flags file;
+  raw & metafits --> ssins --> flags;
+end
+
+s02 -.....->|raw| s05
+
+subgraph s05 ["05. Preprocess"]
+  birli[[fa:fa-bolt Birli ]]; class birli proc;
+  prepUVFits[/fa:fa-file preprocessed uvfits /]; class prepUVFits file;
+  prepQA[[fa:fa-gem prepQA]]; class prepQA proc;
+  prepQAJson[/fa:fa-file-code prepQA json /]; class prepQAJson file;
+  %% local copy of metafits and raw to simplify graph
+  metafits05[/fa:fa-file metafits /]; class metafits05 file;
+  raw05[/ fa:fa-file raw data /]; class raw05 file;
+
+  metafits05 & raw05 --> birli --> prepUVFits;
+  metafits05 & prepUVFits --> prepQA --> prepQAJson;
+end
+
+subgraph s06 ["06. calibrate"]
+  hypCalSol[[fa:fa-wrench hyperdrive di-cal]]; class hypCalSol proc
+  calSol[/fa:fa-file-excel cal solutions/]; class calSol file
+  prepUVFits[/fa:fa-file prep uvfits/]; class prepUVFits file
+  calQA[[fa:fa-gem calQA]]; class calQA proc;
+  calQAJson[/"fa:fa-file calqa.json "/]; class calQAJson file
+  plotSolutions[[fa:fa-gem hyperdrive solutions-plot]]; class plotSolutions proc
+  plotSol[/"fa:fa-file-image solution plots "/]; class plotSol file
+  hypApply[[fa:fa-times-circle hyperdrive solutions-apply ]]; class hypApply proc
+  calMS[/fa:fa-file calibrated CASA Measurement Set /]; class calMS file
+  %% local copy of metafits to simplify graph
+  metafits06[/fa:fa-file metafits /]; class metafits06 file;
+
+  metafits06 --> hypCalSol
+  prepUVFits -----> hypCalSol --> calSol
+  metafits06 & calSol --> calQA --> calQAJson
+  metafits06 & calSol --> plotSolutions --> plotSol
+
+  calQAJson -.->|bad antennas| hypApply
+  calSol & prepUVFits --> hypApply --> calMS
+end
+
+subgraph s07 ["07. image"]
+  imgDConv[/"fa:fa-file-image wsclean*.fits "/]; class imgDConv file
+  wscleanDConv[[fa:fa-image wsclean ]]; class wscleanDConv proc
+  %% imgMetricsJson[/fa:fa-file img_metrics.json /]; class imgMetricsJson file
+  %% imgQA[[fa:fa-gem imgQA]]; class imgQA proc;
+  calMS --> wscleanDConv --> imgDConv
+  %% --> imgQA --> imgMetricsJson
+end
+```
+
 ## System Requirements
 
-This demo runs best on a linux x86_64 machine with at least 16GB of RAM, and
-20GB free disk space. macOS arm64 should work too. Windows users may need to
-use WSL or Docker Desktop.
+This demo runs best on a linux amd64 (x86_64) machine with at least:
 
-Some Windows users with 8GB of RAM have reported that the demo runs out of memory.
-It may be necessary to close other programs you have open.
+- 16GB of RAM
+- 20GB free disk space
 
-## Clone the repository
+macOS amd64 (Intel) and arm64 (M-Series) will work, but CPU-only.
+
+Windows users will need to use WSL2 or Docker Desktop with Git Bash.
+
+Some Windows users with 8GB of RAM have reported that the demo runs out of memory
+running Docker withing WSL. It may be necessary to change
+
+## Setup
+
+Clone this repository to a macine that meets the [system requirements](#system-requirements).
 
 ```bash
 git clone https://github.com/MWATelescope/mwa-demo.git
@@ -18,145 +112,104 @@ cd mwa-demo
 
 ## Downloads
 
-Download demo data (from Pawsey)
+Download demo data (from Pawsey). You should be in the root of the repository.
 
 ```bash
-cd mwa-demo # or wherever the root of this repository is.
 mkdir -p demo/data/1121334536/raw
-curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=3bbbe461c87641ec9f4233718a7ca461%2F20240819%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240819T040154Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=82b63ade9dcdf988a0eb46c6929d8ca6a328492545d1954150208e322f6bb757'
+curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
 mkdir -p demo/data/1341914000/raw
-curl -L -o demo/data/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=3bbbe461c87641ec9f4233718a7ca461%2F20240819%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20240819T040441Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Signature=8d2a1bc404878a1a7a777c942bd130072f40edc6d4234db39309a09e70d32d53'
+curl -L -o demo/data/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits'
 ```
 
-Alternatively , you can download the same demo data from AWS:
+Alternatively , you can download the same demo data in your browser [here](https://curtin-my.sharepoint.com/:u:/g/personal/285446d_curtin_edu_au/EQF1Dl93KixAimsD7wi7TcYBjAUs7Y6LO08An5rKSB2cmg?e=nMtGhu) and extract it to the `demo/data` directory.
 
 ```bash
-curl -L -o mwa_demo2.zip 'https://mwa-project-meeting-2024.s3.ap-southeast-2.amazonaws.com/data/mwa_demo2.zip?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=ASIAUM6XOPSVEE5U3DUE%2F20240819%2Fap-southeast-2%2Fs3%2Faws4_request&X-Amz-Date=20240819T040249Z&X-Amz-Expires=604800&X-Amz-SignedHeaders=host&X-Amz-Security-Token=IQoJb3JpZ2luX2VjEDQaDmFwLXNvdXRoZWFzdC0yIkYwRAIgaQM6JEdCpgFn8jeSFLfg%2F92Ffybx5DR71TB%2B0DmadGwCICnFl1fPG3HYRQyANtudq2Y8avAg2PnuEYbVtphMc%2BZmKoAECD0QBRoMMzAyNzEwMTYwNTU0IgxqDGhQ2S2xpUkpyW0q3QMhvsdgqa9X%2FyxaTZS5wGWxe1intMHq2z%2FhZznPnizGBD%2BCEsA%2BR0JepBQ8zRu3AdLgtiljYLN8vknuBaYIyylriHMDTmIrjVsKuXNqfUfY6uuHkXQI6vJho9wwaMOANNu55y9F6Ph66xe7%2BOgdWwNtQsUVTDwYVejR%2FhZre0AZwzGhPmXlvi9HeBGqihy8VtgaQGBSQ0ROJaSdNrQ%2Btn64TOCMNN1xjLRMHVaFbGv1n7w57umm8Y1g%2B430OifvI3sMfub7rj7VVoKErDCwQCYZftvnwhpxwb0su2feva%2Buc4h1bvkgp%2F9qQi9ZNJCeAzr8DRb7MKy65WgB9s%2FWEcAC%2B06V9Le12J0VmSILMvbrNDMRLChlZmQoLQgQXMOQ0cfyRTrl3zUbLz9yK2gHiQ2nnMne0gHgT8rL4wC%2FMKaZvnK1bHyYwNkXSo5EbQ7DyDOXobhkFQXmnmo1c0c%2BUGJphejIhX6eDKdZB6M66TNC1oIe8VUBhzpMAnCksDlWo9M7qicHCPoyVC1sT1Cvmi1ZO03ZuFIh9nEOY5vSw873fThbNp0UWOVrj0pf94aaTauwdQVoBwldtqbl6rHla1%2BlXUvNraARU3Dv%2Bj%2B46i9%2FsyqMBdWzd2ISzXXxXq4wqvqKtgY6lQIFOAJtlr8pXfOPNOxzzYXRUmLgoZfz1OFr7tSpsNAzI%2FFtU5IVXctjKUJZu6xzuwTCVTbJ9c44Ts2yizpfwhD%2BJfQcAX%2BaM7E1kN07TJqyZ7oypmrLKJtAUBVyrX4SSsNUcau2tcHelMRgr7fW%2FYUKA4NTufdhooubebloPXegqW4fbU6r43rbOnfowSdUHYrpy8gnXGS0p0hKUU%2FRjGUG%2BXG7L2s0haaHp66dma1G9H6fk82D7UGJ5tDiGqGaUzGSscdFHZ9yNexFd4g0Zdw5aY1jv9vt70xmhg1UCppIdY0V11OIi86ZqxMgz3a6eoNIDnpd%2FROcvBHD9R43TPN22Oc7QcnSPCAyHR%2Bbaaq8IQlyTxzm&X-Amz-Signature=408b5e905a6355fe6ad393f8fe7e8ca0f6e071d0b24e0a0a3f8f45187c8f140f'
-
-unzip -n demo2.zip # `-n` = do not replace pre-existing files
-```
-
-Third backup download [link](https://curtin-my.sharepoint.com/:u:/g/personal/285446d_curtin_edu_au/EQF1Dl93KixAimsD7wi7TcYBjAUs7Y6LO08An5rKSB2cmg?e=nMtGhu)
-
-You may want to start downloading the docker images too.
-
-```bash
-# ... on macos arm64 (Apple Silicon, M series)
-docker pull d3vnull0/mwa-demo:latest-arm64
-# ... on linux amd64 (x86_64)
-docker pull d3vnull0/mwa-demo:latest-amd64
+unzip -n demo2.zip # -n = do not replace pre-existing files
 ```
 
 ## Software dependencies
 
 There are several ways that you can provide the software dependencies to run this demo:
 
-- bare metal: install everything to your local machine
-- docker: run the software in Docker containers
-- singularity: (todo!)
+- docker: run the software in a Docker container (best portability)
+- bare metal: install everything to your local machine (best performance)
+- hybrid: use a mix of Docker and local software (advanced)
 
-The scripts in this demo are designed for maximum flexibility. They evaluate environment variables
-to dictate how to run each software package on your system, so you can use a mixture of
-the methods above. For example:
-
-```bash
-# you can use the docker image
-export giant_squid="docker run <arguments> mwatelescope/giant-squid"
-# or the giant-squid binary if that is available on your system
-export giant_squid="giant-squid"
-# the script can handle either case
-eval $giant_squid list
-```
-
-You can customize the Docker images in `demo/00_software.sh`, then source the file
-in your shell before running the demo.
+The scripts in this demo are designed to be run from a Bash shell, with all
+binaries available in `$PATH`.
 
 When your software environment is ready, you can test it by running `demo/00_test.sh`
-
-### Bare Metal
-
-you will need to install the following software.
-For best results, use an x86 Linux machine.
-
-- python 3.8 <https://www.python.org/downloads/>
-  - pyvo <https://pyvo.readthedocs.io/en/latest/#installation>
-  - mwalib <https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users>
-  - ssins <https://github.com/mwilensky768/SSINS?tab=readme-ov-file#installation>
-  - mwa_qa `git clone https://github.com/d3v-null/mwa_qa.git ; pip install .`
-- jq <https://jqlang.github.io/jq/download/>
-- hyperdrive <https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html>
-- giant-squid <https://github.com/MWATelescope/giant-squid?tab=readme-ov-file#installation>
-- wsclean <https://wsclean.readthedocs.io/en/latest/installation.html>
-  - recommended: EveryBeam <https://everybeam.readthedocs.io/en/latest/build-instructions.html>
-  - recommended: IDG <https://idg.readthedocs.io/en/latest/build-instructions.html>
-
-### Docker
-
-A lightweight, cross-platform, cpu-only `Dockerfile` is provided which encapsulates
-most of the software dependencies.
-
-You can build this for your local platform with `docker build`, or for multiple
-platforms using `docker buildx`. See Dockerfile for details.
-
-```bash
-# quick start: pull the images from dockerhub.
-docker pull d3vnull0/mwa-demo:latest # on macos or linux arm64 (Apple M series), add --platform linux/arm64
-
-# if you have any issues, you can override the image with a fresh build on your local machine
-# docker rmi d3vnull0/mwa-demo:latest
-docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
-
-# If you still encounter issues on macOS arm64 (Apple Silicon, M series),
-# the same image is also available via Docker x86_64 emulation. Make sure to update
-# your Docker Desktop to the latest version, as this features is relatively new.
-docker pull --platform linux/amd64 d3vnull0/mwa-demo:latest
-```
-
-Here's how to customize and build the image for multiple platforms and push to dockerhub
-
-```bash
-# (optional) get your docker username
-docker login
-export DOCKER_USER=$(docker info | sed '/Username:/!d;s/.* //');
-if [ -z $DOCKER_USER ]; then
-  export DOCKER_CREDSTORE=docker-credential-$(jq -r .credsStore ~/.docker/config.json);
-  export DOCKER_USER=$( $DOCKER_CREDSTORE list | jq -r ' . | to_entries[] | select( .key | contains("docker.io") ) | last(.value)' )
-fi
-
-# create a new builder instance if not already created
-docker buildx create --driver=docker-container --name=multi --use
-
-# build the image for multiple platforms.
-# - (optional) use build args to specify software versions.
-# - use --push instead to push to dockerhub
-# - or use --load to load the image into the local docker daemon
-export EVERYBEAM_BRANCH="v0.5.2"
-export IDG_BRANCH="v1.2.0"
-export WSCLEAN_BRANCH="v3.4"
-export tag=${DOCKER_USER}/mwa-demo:everybeam${EVERYBEAM_BRANCH}-idg${IDG_BRANCH}-wsclean${WSCLEAN_BRANCH}
-docker buildx build \
-  -f Dockerfile \
-  --platform linux/amd64,linux/arm64 \
-  --build-arg="EVERYBEAM_BRANCH=${EVERYBEAM_BRANCH}" \
-  --build-arg="IDG_BRANCH=${IDG_BRANCH}" \
-  --build-arg="WSCLEAN_BRANCH=${WSCLEAN_BRANCH}" \
-  -t $tag \
-  --push \
-  .
-
-# DEV: docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile --push .
-```
 
 ### Windows
 
 Some dependencies like casacore simply do not work on Windows, so you will need to use Docker or WSL.
-The demo scripts are written for a Bash shell, and won't work in PowerShell or CMD.
+The scripts are written for a Bash shell, and won't work in PowerShell or CMD.
 
-This demo has been tested on Windows 11 with:
+The demo has been tested on Windows 11 with Docker Desktop 4.33.1 on a Git Bash shell.
 
-- Docker Desktop 4.33.1 on a Git Bash shell.
+### Bare Metal
 
-### ASVO account
+For optimal performance, you should compile the following software dependencies directly on your
+machine.
+
+Advanced users can provide additional compiler flags during the build process to optimize for their specific CPU microarchitecture. e.g. `-march=native` for C/C++, or `-C target-cpu=native` for Rust.
+
+The steps in the `Dockerfile` may be a useful guide.
+
+- python 3.8+ <https://www.python.org/downloads/>
+  - pyvo <https://pyvo.readthedocs.io/en/latest/#installation>
+  - mwalib <https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users>
+  - ssins <https://github.com/mwilensky768/SSINS#installation>
+  - mwa_qa `git clone https://github.com/d3v-null/mwa_qa.git ; pip install .`
+- jq <https://jqlang.github.io/jq/download/>
+- AOFlagger <https://aoflagger.readthedocs.io/en/latest/installation.html>
+- wsclean <https://wsclean.readthedocs.io/en/latest/installation.html>
+  - recommended: EveryBeam <https://everybeam.readthedocs.io/en/latest/build-instructions.html>
+  - recommended: IDG <https://idg.readthedocs.io/en/latest/build-instructions.html>
+- rust <https://www.rust-lang.org/tools/install>
+  - giant-squid <https://github.com/MWATelescope/giant-squid#installation>
+  - Birli <https://github.com/MWATelescope/Birli#installation>
+  - hyperdrive <https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html>
+
+### Docker
+
+A cross-platform, cpu-only [`Dockerfile`](Dockerfile) is provided which encapsulates all software
+dependencies.
+
+For maximum portability, generic Docker images have been built for the `linux/amd64` and
+`linux/arm64` platforms, however neither take full advantage of the hardware acceleration
+available on your machine. For maximum performance, you should follow the [bare metal](#bare-metal)
+instructions.
+
+[Windows](https://docs.docker.com/desktop/install/windows-install/) and
+[macOS](https://docs.docker.com/desktop/install/mac-install/) users should install Docker Desktop.
+
+Linux users should Carefully follow these [instructions](https://docs.docker.com/engine/install/)
+to install Docker Engine. Debian and Ubuntu users may be tempted to install `docker` via snap, but
+this is not recommended. I personally use the unofficial `docker.io` package available on apt.
+
+Linux users should also ensure they have permissions to run docker without root:
+`sudo usermod -aG docker $USER`
+
+quick start: pull the images from dockerhub.
+
+```bash
+docker pull d3vnull0/mwa-demo:latest
+```
+
+#### Docker Troubleshooting
+
+If you have any issues, you should delete all traces of the image that was pulled and build the image locally. (this may take a while)
+
+```bash
+# first remove the image that was pulled from dockerhub
+docker rmi d3vnull0/mwa-demo:latest
+docker builder prune --all
+docker buildx prune --all
+docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
+```
+
+## ASVO account
 
 Please register for an ASVO account: [asvo.mwatelescope.org/registration](https://asvo.mwatelescope.org/registration)
 Visibility data is made public 18 months after observation. For any support
@@ -172,7 +225,7 @@ export MWA_ASVO_API_KEY="..."
 you may want to add this to your `~/.bashrc` to persist it
 across sessions, but remember to keep this key secret!
 
-### Customization
+## Customization
 
 You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.:
 
@@ -186,9 +239,13 @@ You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.
 - `$MWA_BEAM_FILE` the
   [beam model](https://mwatelescope.github.io/mwa_hyperdrive/defs/beam.html)
 
+See also: [Extending The Demo](#extending-the-demo) for additional instructions for customizing the
+docker images.
+
 ### Running the demo
 
-Here is a walkthrough of the demo:
+Below is a walkthrough of the demo. Ensure everything is run from the root of the repository
+(don't `cd` into the `demo` directory).
 
 ```bash
 # DEMO: open a bash shell
@@ -238,4 +295,58 @@ carta --top_level_folder . --browser 'open -a Google\ Chrome'
 
 # clean up outdir to start fresh
 demo/99_cleanup.sh
+```
+
+## Extending the demo
+
+If you extend the `Dockerfile`, you may want to publish your modified image for
+multiple platforms using `docker buildx`.
+
+```bash
+# quick start: pull the images from dockerhub.
+docker pull d3vnull0/mwa-demo:latest # on macos or linux arm64 (Apple M series), add --platform linux/arm64
+
+# if you have any issues, you can override the image with a fresh build on your local machine
+# docker rmi d3vnull0/mwa-demo:latest
+docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
+
+# If you still encounter issues on macOS arm64 (Apple Silicon, M series),
+# the same image is also available via Docker x86_64 emulation. Make sure to update
+# your Docker Desktop to the latest version, as this features is relatively new.
+docker pull --platform linux/amd64 d3vnull0/mwa-demo:latest
+```
+
+Here's how to customize and build the image for multiple platforms and push to dockerhub
+
+```bash
+# (optional) get your docker username
+docker login
+export DOCKER_USER=$(docker info | sed '/Username:/!d;s/.* //');
+if [ -z $DOCKER_USER ]; then
+  export DOCKER_CREDSTORE=docker-credential-$(jq -r .credsStore ~/.docker/config.json);
+  export DOCKER_USER=$( $DOCKER_CREDSTORE list | jq -r ' . | to_entries[] | select( .key | contains("docker.io") ) | last(.value)' )
+fi
+
+# create a new builder instance if not already created
+docker buildx create --driver=docker-container --name=multi --use
+
+# build the image for multiple platforms.
+# - (optional) use build args to specify software versions.
+# - use --push instead to push to dockerhub
+# - or use --load to load the image into the local docker daemon
+export EVERYBEAM_BRANCH="v0.5.2"
+export IDG_BRANCH="v1.2.0"
+export WSCLEAN_BRANCH="v3.4"
+export tag=${DOCKER_USER}/mwa-demo:everybeam${EVERYBEAM_BRANCH}-idg${IDG_BRANCH}-wsclean${WSCLEAN_BRANCH}
+docker buildx build \
+  -f Dockerfile \
+  --platform linux/amd64,linux/arm64 \
+  --build-arg="EVERYBEAM_BRANCH=${EVERYBEAM_BRANCH}" \
+  --build-arg="IDG_BRANCH=${IDG_BRANCH}" \
+  --build-arg="WSCLEAN_BRANCH=${WSCLEAN_BRANCH}" \
+  -t $tag \
+  --push \
+  .
+
+# DEV: docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile --push .
 ```

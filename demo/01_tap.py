@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # query the MWA TAP server with ADQL using the pyvo library
 # details: https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/24970532/MWA+ASVO+VO+Services
+# and https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/24970424/TAP+mwa.observation+Schema+and+Examples
 
 import pyvo
 from astropy.time import Time, TimeDelta
