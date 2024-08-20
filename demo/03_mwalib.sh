@@ -33,7 +33,7 @@ if [[ ! -f "$metafits" ]]; then
 fi
 
 # get channel and antenna info
-eval $python ${SCRIPT_BASE}/03_mwalib.py $metafits
+python ${SCRIPT_BASE}/03_mwalib.py $metafits
 
 # DEMO: antenna info
 

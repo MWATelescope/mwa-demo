@@ -1,7 +1,6 @@
 # MWA Demo
 
-This is demonstation of a simple data processing pipeline for Murchison Widefield Array (MWA) data,
-from downloading raw data to creating an image.
+Demonstration pipeline for Murchison Widefield Array (MWA) data
 
 ## Flow
 
@@ -103,7 +102,7 @@ running Docker withing WSL. It may be necessary to change
 
 ## Setup
 
-Clone this repository to a macine that meets the [system requirements](#system-requirements).
+Clone this repository to a machine that meets the [system requirements](#system-requirements).
 
 ```bash
 git clone https://github.com/MWATelescope/mwa-demo.git
@@ -152,7 +151,7 @@ The demo has been tested on Windows 11 with Docker Desktop 4.33.1 on a Git Bash 
 For optimal performance, you should compile the following software dependencies directly on your
 machine.
 
-Advanced users can provide additional compiler flags during the build process to optimize for their specific CPU microarchitecture. e.g. `-march=native` for C/C++, or `-C target-cpu=native` for Rust.
+Advanced users can provide additional compiler flags during the build process to optimize for their specific CPU micro-architecture. e.g. `-march=native` for C/C++, or `-C target-cpu=native` for Rust.
 
 The steps in the `Dockerfile` may be a useful guide.
 
@@ -194,19 +193,39 @@ Linux users should also ensure they have permissions to run docker without root:
 quick start: pull the images from dockerhub.
 
 ```bash
-docker pull d3vnull0/mwa-demo:latest
+docker pull mwatelescope/mwa-demo:latest
+```
+
+When [running the demo](#running-the-demo), you should run the commands in an interactive Docker shell.
+
+```bash
+docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} -e MWA_ASVO_API_KEY=$MWA_ASVO_API_KEY mwatelescope/mwa-demo:latest
 ```
 
 #### Docker Troubleshooting
+
+macOS users: if you see this error: `WARNING: The requested image's platform (linux/amd64) does not match the detected host platform (linux/arm64/v8) and no specific platform was requested`, you should pull the image for the correct platform.
+
+```bash
+docker pull --platform linux/arm64 mwatelescope/mwa-demo:latest
+```
 
 If you have any issues, you should delete all traces of the image that was pulled and build the image locally. (this may take a while)
 
 ```bash
 # first remove the image that was pulled from dockerhub
-docker rmi d3vnull0/mwa-demo:latest
+docker rmi mwatelescope/mwa-demo:latest
 docker builder prune --all
 docker buildx prune --all
-docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
+docker build -t mwatelescope/mwa-demo:latest -f Dockerfile .
+```
+
+### Hybrid
+
+If you have some software dependencies installed locally, you can use Docker to run the rest. Just comment out the packages you don't need in `demo/00_software.sh` and source it in your shell.
+
+```bash
+source demo/00_software.sh
 ```
 
 ## ASVO account
@@ -244,16 +263,17 @@ docker images.
 
 ### Running the demo
 
-Below is a walkthrough of the demo. Ensure everything is run from the root of the repository
-(don't `cd` into the `demo` directory).
+Below is a walkthrough of the demo. Ensure that:
+
+- (if using [Docker](#docker)) you are in a Docker shell, not your host system.
+- (if [hybrid](#hybrid)), you have sourced `demo/00_software.sh` in your host shell.
+- everything is run from the root of the repository
+  (don't `cd` into the `demo` directory).
+- you don't `source` the scripts, they are `chmod +x` and should be run directly.
 
 ```bash
-# DEMO: open a bash shell
-# DEMO: change directory into the root of this repository.
-# set up the software environment to use Docker for any binaries not on your system
-source demo/00_software.sh
-# check that everything is working (and pull Docker images)
-demo/00_test.sh
+# check that everything is working
+demo/00_test.sh # don't source me!
 # query the MWA TAP server with ADQL using the pyvo library
 clear; demo/01_tap.sh
 # display giant-squid commands to download observations
@@ -285,8 +305,8 @@ export obsid=1341914000
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
 export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
 export cal_ms="${outdir}/${obsid}/cal/hyp_cal_${obsid}.ms"
-eval $python ${SCRIPT_BASE}/04_ssins.py $prep_uvfits
-eval $python ${SCRIPT_BASE}/04_ssins.py $cal_ms
+python ${SCRIPT_BASE}/04_ssins.py $prep_uvfits
+python ${SCRIPT_BASE}/04_ssins.py $cal_ms
 
 # combine them all into a single image
 obsid="combined" cal_ms=$(ls -1d ${outdir}/*/cal/hyp_cal_*.ms ) demo/07_img.sh
@@ -304,16 +324,16 @@ multiple platforms using `docker buildx`.
 
 ```bash
 # quick start: pull the images from dockerhub.
-docker pull d3vnull0/mwa-demo:latest # on macos or linux arm64 (Apple M series), add --platform linux/arm64
+docker pull mwatelescope/mwa-demo:latest # on macos or linux arm64 (Apple M series), add --platform linux/arm64
 
 # if you have any issues, you can override the image with a fresh build on your local machine
-# docker rmi d3vnull0/mwa-demo:latest
-docker build -t d3vnull0/mwa-demo:latest -f Dockerfile .
+# docker rmi mwatelescope/mwa-demo:latest
+docker build -t mwatelescope/mwa-demo:latest -f Dockerfile .
 
 # If you still encounter issues on macOS arm64 (Apple Silicon, M series),
 # the same image is also available via Docker x86_64 emulation. Make sure to update
 # your Docker Desktop to the latest version, as this features is relatively new.
-docker pull --platform linux/amd64 d3vnull0/mwa-demo:latest
+docker pull --platform linux/amd64 mwatelescope/mwa-demo:latest
 ```
 
 Here's how to customize and build the image for multiple platforms and push to dockerhub
@@ -348,5 +368,11 @@ docker buildx build \
   --push \
   .
 
-# DEV: docker buildx build --platform linux/amd64,linux/arm64 -t d3vnull0/mwa-demo:latest -f Dockerfile --push .
+# DEV: docker buildx build --platform linux/amd64,linux/arm64 -t mwatelescope/mwa-demo:latest -f Dockerfile --push .
+```
+
+If you add extra raw files, you can add their checksums with
+
+```bash
+md5sum demo/data/*/raw/1*fits | tee demo_data.md5sum
 ```

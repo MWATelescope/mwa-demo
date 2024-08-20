@@ -17,4 +17,4 @@ export details_csv=${details_csv:-"${outdir}/details.csv"}
 # ### #
 # query the MWA TAP server with ADQL using the pyvo library
 # details: https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/24970532/MWA+ASVO+VO+Services
-eval $python $SCRIPT_BASE/01_tap.py $obsids_csv $details_csv
+python $SCRIPT_BASE/01_tap.py $obsids_csv $details_csv

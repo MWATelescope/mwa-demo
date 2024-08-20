@@ -1,7 +1,7 @@
 #!/bin/bash
 
 export docker_base="docker run --rm -it"
-export docker_img=${docker_img:="d3vnull0/mwa-demo:latest"}
+export docker_img=${docker_img:="mwatelescope/mwa-demo:latest"}
 
 # silly hacks for Windows / Git Bash
 if [[ -n "$OS" && "$OS" == "Windows_NT" ]]; then

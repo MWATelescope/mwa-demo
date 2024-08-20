@@ -59,7 +59,7 @@ fi
 set -eu
 
 if [[ ! -f "$hyp_soln" ]]; then
-    eval $hyperdrive di-calibrate ${dical_args:-} \
+    hyperdrive di-calibrate ${dical_args:-} \
         --data "$metafits" "$prep_uvfits" \
         --source-list "$srclist" \
         --outputs "$hyp_soln" \
@@ -68,7 +68,7 @@ fi
 
 # plot solutions file
 if [[ ! -f "${hyp_soln%%.fits}_phases.png" ]]; then
-    eval $hyperdrive solutions-plot \
+    hyperdrive solutions-plot \
         -m "$metafits" \
         --no-ref-tile \
         --max-amp 1.5 \
@@ -84,14 +84,14 @@ fi
 export calqa="${hyp_soln%%.fits}_qa.json"
 
 if [[ ! -f "$calqa" ]]; then
-    eval $run_calqa --pol X --out "$calqa" "$hyp_soln" "$metafits"
+    run_calqa.py --pol X --out "$calqa" "$hyp_soln" "$metafits"
 fi
 
 # plot the cal qa results
-eval $plot_calqa "$calqa" --save --out "${hyp_soln%%.fits}"
+plot_calqa.py "$calqa" --save --out "${hyp_soln%%.fits}"
 
 # extract bad antennas from calqa json with jq
-cal_bad_ants=$(eval $jq -r $'\'.BAD_ANTS|join(" ")\'' "$calqa")
+cal_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' "$calqa")
 export cal_bad_ants
 
 echo "deliberately disabling cal bad ants for the first round :)"
@@ -100,7 +100,7 @@ export cal_bad_ants=""
 # apply calibration solutions to preprocessed visibilities
 # details: https://mwatelescope.github.io/mwa_hyperdrive/user/solutions_apply/intro.html
 if [[ ! -d "$cal_ms" ]]; then
-    eval $hyperdrive apply ${apply_args:-} \
+    hyperdrive apply ${apply_args:-} \
         --data "$metafits" "$prep_uvfits" \
         --solutions "$hyp_soln" \
         --outputs "$cal_ms" \

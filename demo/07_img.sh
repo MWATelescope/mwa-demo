@@ -36,7 +36,7 @@ fi
 
 export imgname="${outdir}/${obsid}/img/wsclean_hyp_${obsid}"
 if [ ! -f "${imgname}-image.fits" ]; then
-    eval $wsclean \
+    wsclean \
         -name "${imgname}" \
         -size 2048 2048 \
         -scale 20asec \

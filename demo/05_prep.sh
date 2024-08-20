@@ -46,7 +46,7 @@ export prepqa="${prep_uvfits%%.uvfits}_qa.json"
 
 set -eu
 if [[ ! -f $prep_uvfits ]]; then
-    eval $birli ${birli_args:-} \
+    birli ${birli_args:-} \
         -m "${metafits}" \
         $([[ -n "${edgewidth_khz:-}" ]] && echo "--flag-edge-width ${edgewidth_khz}") \
         $([[ -n "${freqres_khz:-}" ]] && echo "--avg-freq-res ${freqres_khz}") \
@@ -62,16 +62,16 @@ fi
 # details: https://github.com/d3v-null/mwa_qa (my fork of  https://github.com/Chuneeta/mwa_qa/ )
 
 if [[ ! -f "$prepqa" ]]; then
-    eval $run_prepqa $prep_uvfits $metafits --out $prepqa
+    run_prepvisqa.py $prep_uvfits $metafits --out $prepqa
 fi
 
 # DEMO: extract bad antennas from prepqa json with jq
 # - both of the provided observations pass QA, so no bad antennas are reported
-prep_bad_ants=$(eval $jq -r $'\'.BAD_ANTS|join(" ")\'' $prepqa)
+prep_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' $prepqa)
 
 # DEMO: plot the prep qa results
 # - RMS plot: RMS of all autocorrelation values for each antenna
 # - zscore:
-eval $plot_prepqa $prepqa --save --out ${prep_uvfits%%.uvfits}
+plot_prepvisqa.py $prepqa --save --out ${prep_uvfits%%.uvfits}
 
 echo $obsid $prep_bad_ants
