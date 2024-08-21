@@ -26,20 +26,6 @@ source $SCRIPT_BASE/00_env.sh
 set -eu
 
 # #### #
-# DATA #
-# #### #
-# DEMO: check raw files are present
-if command -v md5sum &>/dev/null; then
-    if [[ -f "demo_data.md5sum" ]]; then
-        echo "validating raw files with md5sum"
-        md5sum -c demo_data.md5sum
-    fi
-else
-    echo "md5sum not found, . couldn't validate raw files."
-    exit 1
-fi
-
-# #### #
 # BINS #
 # #### #
 # DEMO: check software is installed
@@ -91,6 +77,20 @@ if [[ ! -f "$MWA_BEAM_FILE" ]]; then
 fi
 # DEMO: verify beam
 hyperdrive beam fee --output /dev/null
+
+# #### #
+# DATA #
+# #### #
+# DEMO: check raw files are present
+if command -v md5sum &>/dev/null; then
+    if [[ -f "demo_data.md5sum" ]]; then
+        echo "validating raw files with md5sum, see README.md for download links"
+        md5sum -c demo_data.md5sum
+    fi
+else
+    echo "md5sum not found, . couldn't validate raw files."
+    exit 1
+fi
 
 # ######## #
 # OPTIONAL #
