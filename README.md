@@ -130,9 +130,10 @@ unzip -n demo2.zip # -n = do not replace pre-existing files
 
 There are several ways that you can provide the software dependencies to run this demo:
 
-- docker: run the software in a Docker container (best portability)
-- bare metal: install everything to your local machine (best performance)
-- hybrid: use a mix of Docker and local software (advanced)
+- docker: run the software in a Docker container (best for development)
+- bare metal: install everything to your local machine (best for performance)
+- hybrid: use a mix of Docker and local software (good balance)
+- singularity: similar to Docker, but for shared HPC environments
 
 The scripts in this demo are designed to be run from a Bash shell, with all
 binaries available in `$PATH`.
@@ -241,6 +242,15 @@ wsclean not found, creating bin/wsclean
 
 This is probably bad practice for a production pipeline!
 
+### Singularity
+
+Most HPC environments don't allow you to run Docker (for security reasons).
+You can however run Docker images in Singularity.
+
+```bash
+singularity exec -B$PWD -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
+```
+
 ## ASVO account
 
 Please register for an ASVO account: [asvo.mwatelescope.org/registration](https://asvo.mwatelescope.org/registration)
@@ -280,8 +290,9 @@ Below is a walkthrough of the demo. Ensure that:
 
 - everything is run from the root of the repository
   (don't `cd` into the `demo` directory).
-- (if using [Docker](#docker)) you are in a Docker shell, not your host system.
-- (if [hybrid](#hybrid)), you have run `demo/00_hybrid.sh` and `export PATH=${PATH}:./bin/`
+- (if [Docker](#docker)) you are in a Docker shell, not your host system.
+- (if [hybrid](#hybrid)), you have run `demo/00_hybrid.sh` and `export PATH=${PATH}:${PWD}/bin/`
+- (if [singularity](#singularity)), you are in a Singularity shell, `singularity exec -B$PWD -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash`
 - you don't `source` the scripts, they are `chmod +x` and should be run directly.
 
 ```bash

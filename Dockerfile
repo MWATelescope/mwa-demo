@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
-# lightweight, cross-platform, cpu-only dockerfile for demoing MWA software stack on desktops
-# amd64, arm32v7, arm64v8
+# cross-platform, cpu-only dockerfile for demoing MWA software stack
+# on amd64, arm64
 # ref: https://docs.docker.com/build/building/multi-platform/
 ARG BASE_IMG="ubuntu:20.04"
 FROM ${BASE_IMG} as base
@@ -64,7 +64,7 @@ RUN apt-get update && \
 ARG RUST_VERSION=stable
 ENV RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo PATH="/opt/cargo/bin:${PATH}"
 RUN mkdir -m755 $RUSTUP_HOME $CARGO_HOME && ( \
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | env RUSTUP_HOME=$RUSTUP_HOME CARGO_HOME=$CARGO_HOME sh -s -- -y \
     --profile=minimal \
     --default-toolchain=${RUST_VERSION} \
     )
