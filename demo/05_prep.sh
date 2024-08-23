@@ -53,6 +53,8 @@ if [[ ! -f $prep_uvfits ]]; then
         $([[ -n "${timeres_s:-}" ]] && echo "--avg-time-res ${timeres_s}") \
         -u "${prep_uvfits}" \
         $raw_glob
+else
+    echo "prep_uvfits=$prep_uvfits exists, skipping birli"
 fi
 
 # ####### #
@@ -63,6 +65,8 @@ fi
 
 if [[ ! -f "$prepqa" ]]; then
     run_prepvisqa.py $prep_uvfits $metafits --out $prepqa
+else
+    echo "prepqa=$prepqa exists, skipping run_prepvisqa.py"
 fi
 
 # DEMO: extract bad antennas from prepqa json with jq

@@ -52,4 +52,6 @@ if [ ! -f "${imgname}-image.fits" ]; then
         -small-inversion \
         -mwa-path "$beam_path" \
         $cal_ms
+else
+    echo "${imgname}-image.fits exists, skipping wsclean"
 fi

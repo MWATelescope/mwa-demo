@@ -64,6 +64,8 @@ if [[ ! -f "$hyp_soln" ]]; then
         --source-list "$srclist" \
         --outputs "$hyp_soln" \
         $([[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants)
+else
+    echo "hyp_soln=$hyp_soln exists, skipping hyperdrive di-calibrate"
 fi
 
 # plot solutions file
@@ -74,6 +76,8 @@ if [[ ! -f "${hyp_soln%%.fits}_phases.png" ]]; then
         --max-amp 1.5 \
         --output-directory "${outdir}/${obsid}/cal" \
         "$hyp_soln"
+else
+    echo "phases_png=${hyp_soln%%.fits}_phases.png exists, skipping hyperdrive solutions-plot"
 fi
 
 # ###### #
@@ -85,6 +89,8 @@ export calqa="${hyp_soln%%.fits}_qa.json"
 
 if [[ ! -f "$calqa" ]]; then
     run_calqa.py --pol X --out "$calqa" "$hyp_soln" "$metafits"
+else
+    echo "calqa=$calqa exists, skipping run_calqa.py"
 fi
 
 # plot the cal qa results
@@ -105,4 +111,6 @@ if [[ ! -d "$cal_ms" ]]; then
         --solutions "$hyp_soln" \
         --outputs "$cal_ms" \
         $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
+else
+    echo "cal_ms=$cal_ms exists, skipping hyperdrive apply"
 fi
