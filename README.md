@@ -150,35 +150,6 @@ The demo has been tested on Windows 11 with Docker Desktop 4.33.1 on a Git Bash 
 Some Windows users with 8GB of RAM have reported that the demo runs out of memory
 running Docker withing WSL. It may be necessary to change
 
-### Bare Metal
-
-<details>
-  <summary>For advanced users</summary>
-
-For optimal performance, you should compile the following software dependencies directly on your
-machine.
-
-Advanced users can provide additional compiler flags during the build process to optimize for their specific CPU micro-architecture. e.g. `-march=native` for C/C++, or `-C target-cpu=native` for Rust.
-
-The steps in the `Dockerfile` may be a useful guide.
-
-- python 3.8+ <https://www.python.org/downloads/>
-  - pyvo <https://pyvo.readthedocs.io/en/latest/#installation>
-  - mwalib <https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users>
-  - ssins <https://github.com/mwilensky768/SSINS#installation>
-  - mwa_qa `git clone https://github.com/d3v-null/mwa_qa.git ; pip install .`
-- jq <https://jqlang.github.io/jq/download/>
-- AOFlagger <https://aoflagger.readthedocs.io/en/latest/installation.html>
-- wsclean <https://wsclean.readthedocs.io/en/latest/installation.html>
-  - recommended: EveryBeam <https://everybeam.readthedocs.io/en/latest/build-instructions.html>
-  - recommended: IDG <https://idg.readthedocs.io/en/latest/build-instructions.html>
-- rust <https://www.rust-lang.org/tools/install>
-  - giant-squid <https://github.com/MWATelescope/giant-squid#installation>
-  - Birli <https://github.com/MWATelescope/Birli#installation>
-  - hyperdrive <https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html>
-
-</details>
-
 ### Docker
 
 A cross-platform, cpu-only [`Dockerfile`](Dockerfile) is provided which encapsulates all software
@@ -229,6 +200,35 @@ docker buildx prune --all
 docker build -t mwatelescope/mwa-demo:latest -f Dockerfile .
 ```
 
+### Bare Metal
+
+<details>
+  <summary>For advanced users</summary>
+
+For optimal performance, you should compile the following software dependencies directly on your
+machine.
+
+Advanced users can provide additional compiler flags during the build process to optimize for their specific CPU micro-architecture. e.g. `-march=native` for C/C++, or `-C target-cpu=native` for Rust.
+
+The steps in the `Dockerfile` may be a useful guide.
+
+- python 3.8+ <https://www.python.org/downloads/>
+  - pyvo <https://pyvo.readthedocs.io/en/latest/#installation>
+  - mwalib <https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users>
+  - ssins <https://github.com/mwilensky768/SSINS#installation>
+  - mwa_qa `git clone https://github.com/d3v-null/mwa_qa.git ; pip install .`
+- jq <https://jqlang.github.io/jq/download/>
+- AOFlagger <https://aoflagger.readthedocs.io/en/latest/installation.html>
+- wsclean <https://wsclean.readthedocs.io/en/latest/installation.html>
+  - recommended: EveryBeam <https://everybeam.readthedocs.io/en/latest/build-instructions.html>
+  - recommended: IDG <https://idg.readthedocs.io/en/latest/build-instructions.html>
+- rust <https://www.rust-lang.org/tools/install>
+  - giant-squid <https://github.com/MWATelescope/giant-squid#installation>
+  - Birli <https://github.com/MWATelescope/Birli#installation>
+  - hyperdrive <https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html>
+
+</details>
+
 ### Hybrid
 
 <details>
@@ -278,28 +278,6 @@ Detailed instructions here: <https://mwatelescope.atlassian.net/wiki/spaces/MP/p
 
 you may want to add this to your `~/.bashrc` to persist it
 across sessions, but remember to keep this key secret!
-
-## Customization
-
-<details>
-  <summary>For advanced users</summary>
-
-You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.:
-
-- `$outdir` the output directory, where files are written. If you're extending
-  this demo with more observations, you may want to put the files in a directory
-  with more space.
-- `$srclist` the
-  [calibration sourcelist](https://mwatelescope.github.io/mwa_hyperdrive/defs/source_lists.html).
-  Fits catalogue support (not fully tested) is available in
-  [this branch](https://github.com/MWATelescope/mwa_hyperdrive/tree/issue-27)
-- `$MWA_BEAM_FILE` the
-  [beam model](https://mwatelescope.github.io/mwa_hyperdrive/defs/beam.html)
-
-See also: [Extending The Demo](#extending-the-demo) for additional instructions for customizing the
-docker images.
-
-</details>
 
 ### Pre-workshop tests
 
@@ -367,7 +345,29 @@ carta --top_level_folder . --browser 'open -a Google\ Chrome'
 demo/99_cleanup.sh
 ```
 
-## Extending the demo
+## Customization
+
+<details>
+  <summary>For advanced users</summary>
+
+You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.:
+
+- `$outdir` the output directory, where files are written. If you're extending
+  this demo with more observations, you may want to put the files in a directory
+  with more space.
+- `$srclist` the
+  [calibration sourcelist](https://mwatelescope.github.io/mwa_hyperdrive/defs/source_lists.html).
+  Fits catalogue support (not fully tested) is available in
+  [this branch](https://github.com/MWATelescope/mwa_hyperdrive/tree/issue-27)
+- `$MWA_BEAM_FILE` the
+  [beam model](https://mwatelescope.github.io/mwa_hyperdrive/defs/beam.html)
+
+See also: [Extending The Demo](#extending-the-demo) for additional instructions for customizing the
+docker images.
+
+</details>
+
+### Extending the demo
 
 <details>
   <summary>For advanced users</summary>
