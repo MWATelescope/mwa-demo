@@ -97,9 +97,6 @@ macOS amd64 (Intel) and arm64 (M-Series) will work, but CPU-only.
 
 Windows users will need to use WSL2 or Docker Desktop with Git Bash.
 
-Some Windows users with 8GB of RAM have reported that the demo runs out of memory
-running Docker withing WSL. It may be necessary to change
-
 ## Setup
 
 Clone this repository to a machine that meets the [system requirements](#system-requirements).
@@ -108,6 +105,9 @@ Clone this repository to a machine that meets the [system requirements](#system-
 git clone https://github.com/MWATelescope/mwa-demo.git
 cd mwa-demo
 ```
+
+If you originally cloned this repository days before the workshop, it's a good idea
+to check for updates right before the workshop starts with a `git pull`.
 
 ## Downloads
 
@@ -130,7 +130,7 @@ unzip -n demo2.zip # -n = do not replace pre-existing files
 
 There are several ways that you can provide the software dependencies to run this demo:
 
-- docker: run the software in a Docker container (best for development)
+- docker: run the software in a Docker container (**recommended for new users!**)
 - bare metal: install everything to your local machine (best for performance)
 - hybrid: use a mix of Docker and local software (good balance)
 - singularity: similar to Docker, but for shared HPC environments
@@ -147,7 +147,13 @@ The scripts are written for a Bash shell, and won't work in PowerShell or CMD.
 
 The demo has been tested on Windows 11 with Docker Desktop 4.33.1 on a Git Bash shell.
 
+Some Windows users with 8GB of RAM have reported that the demo runs out of memory
+running Docker withing WSL. It may be necessary to change
+
 ### Bare Metal
+
+<details>
+  <summary>For advanced users</summary>
 
 For optimal performance, you should compile the following software dependencies directly on your
 machine.
@@ -170,6 +176,8 @@ The steps in the `Dockerfile` may be a useful guide.
   - giant-squid <https://github.com/MWATelescope/giant-squid#installation>
   - Birli <https://github.com/MWATelescope/Birli#installation>
   - hyperdrive <https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html>
+
+</details>
 
 ### Docker
 
@@ -223,6 +231,9 @@ docker build -t mwatelescope/mwa-demo:latest -f Dockerfile .
 
 ### Hybrid
 
+<details>
+  <summary>For advanced users</summary>
+
 If you have some software dependencies installed locally, you can use Docker to run the rest.
 
 This will create fake binaries in the `./bin` directory that just call Docker for any missing commands.
@@ -232,17 +243,14 @@ demo/00_hybrid.sh
 export PATH=${PATH}:./bin/
 ```
 
-```txt
-birli already exists, skipping
-giant-squid already exists, skipping
-hyperdrive already exists, skipping
-jq already exists, skipping
-wsclean not found, creating bin/wsclean
-```
-
 This is probably bad practice for a production pipeline!
 
+</details>
+
 ### Singularity
+
+<details>
+  <summary>For advanced users</summary>
 
 Most HPC environments don't allow you to run Docker (for security reasons).
 You can however run Docker images in Singularity.
@@ -250,6 +258,8 @@ You can however run Docker images in Singularity.
 ```bash
 singularity exec -B$PWD -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
 ```
+
+</details>
 
 ## ASVO account
 
@@ -264,10 +274,15 @@ to obtain your API key and set it as an environment variable:
 export MWA_ASVO_API_KEY="..."
 ```
 
+Detailed instructions here: <https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/24972779/MWA+ASVO+Command+Line+Clients#Finding-your-API-key>
+
 you may want to add this to your `~/.bashrc` to persist it
 across sessions, but remember to keep this key secret!
 
 ## Customization
+
+<details>
+  <summary>For advanced users</summary>
 
 You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.:
 
@@ -284,20 +299,31 @@ You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.
 See also: [Extending The Demo](#extending-the-demo) for additional instructions for customizing the
 docker images.
 
-### Running the demo
+</details>
 
-Below is a walkthrough of the demo. Ensure that:
+### Pre-workshop tests
 
-- everything is run from the root of the repository
-  (don't `cd` into the `demo` directory).
+The last step before the workshop is to check that everything is working.
+
+```bash
+demo/00_test.sh
+```
+
+Please ensure that:
+
+- scripts are run from the root of the repository (don't `cd` into the `demo` directory).
+- scripts are not sourced, and are run directly.
 - (if [Docker](#docker)) you are in a Docker shell, not your host system.
 - (if [hybrid](#hybrid)), you have run `demo/00_hybrid.sh` and `export PATH=${PATH}:${PWD}/bin/`
 - (if [singularity](#singularity)), you are in a Singularity shell, `singularity exec -B$PWD -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash`
-- you don't `source` the scripts, they are `chmod +x` and should be run directly.
+
+Once any warnings from the test script have been addressed, you will be ready to do the workshop.
+
+### Running the demo
+
+You can stop here if you'd like to follow along with the workshop on the day.
 
 ```bash
-# check that everything is working
-demo/00_test.sh # don't source me!
 # query the MWA TAP server with ADQL using the pyvo library
 clear; demo/01_tap.sh
 # display giant-squid commands to download observations
@@ -342,6 +368,9 @@ demo/99_cleanup.sh
 ```
 
 ## Extending the demo
+
+<details>
+  <summary>For advanced users</summary>
 
 If you extend the `Dockerfile`, you may want to publish your modified image for
 multiple platforms using `docker buildx`.
@@ -400,3 +429,5 @@ If you add extra raw files, you can add their checksums with
 ```bash
 md5sum demo/data/*/raw/1*fits | tee demo_data.md5sum
 ```
+
+</details>
