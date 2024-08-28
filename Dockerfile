@@ -97,7 +97,7 @@ RUN git clone --depth 1 --branch=${MWAQA_BRANCH} https://github.com/d3v-null/mwa
     python -m pip install /mwa_qa && \
     rm -rf /mwa_qa
 
-ARG MWALIB_BRANCH=v1.4.0
+ARG MWALIB_BRANCH=v1.5.0
 RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescope/mwalib.git /mwalib && \
     cd /mwalib && \
     maturin build --release --features=python && \
