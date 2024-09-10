@@ -5,10 +5,12 @@
 ARG BASE_IMG="ubuntu:20.04"
 FROM ${BASE_IMG} as base
 
-ENV DEBIAN_FRONTEND="noninteractive"
+# Suppress perl locale errors
+ENV LC_ALL=C
 RUN apt-get update && \
-    apt-get install -y \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     build-essential \
+    ca-certificates \
     casacore-data \
     casacore-dev \
     clang \
@@ -73,7 +75,7 @@ RUN mkdir -m755 $RUSTUP_HOME $CARGO_HOME && ( \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # install python prerequisites
-RUN python -m pip install --force-reinstall \
+RUN python -m pip install \
     importlib_metadata==8.2.0 \
     kneed==0.8.5 \
     matplotlib==3.7.5 \
@@ -85,6 +87,7 @@ RUN python -m pip install --force-reinstall \
     tabulate==0.9.0 \
     seaborn==0.13.2 \
     pip==24.2 \
+    maturin==1.7.1 \
     ;
 
 ARG SSINS_BRANCH=master
@@ -177,3 +180,11 @@ RUN git clone --depth 1 --branch=${HYPERDRIVE_BRANCH} https://github.com/MWATele
 
 # download latest Leap_Second.dat, IERS finals2000A.all
 RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
+
+ARG HYPERBEAM_BRANCH=main
+RUN git clone --depth 1 --branch=${HYPERBEAM_BRANCH} https://github.com/MWATelescope/mwa_hyperbeam.git /hyperbeam && \
+    cd /hyperbeam && \
+    maturin build --locked --release --features=python && \
+    python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
+    rm -rf /hyperbeam ${CARGO_HOME}/registry
+
