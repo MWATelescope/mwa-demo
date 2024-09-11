@@ -116,6 +116,8 @@ Download demo data (from Pawsey). You should be in the root of the repository.
 ```bash
 mkdir -p demo/data/1121334536/raw
 curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
+mkdir -p demo/data/1303134032/raw
+curl -L -o demo/data/1303134032/raw/1303134032_20210422134116_gpubox20_01.fits 'https://projects.pawsey.org.au/mwa-demo/1303134032_20210422134116_gpubox20_01.fits'
 mkdir -p demo/data/1341914000/raw
 curl -L -o demo/data/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits'
 ```
@@ -302,6 +304,11 @@ Once any warnings from the test script have been addressed, you will be ready to
 You can stop here if you'd like to follow along with the workshop on the day.
 
 ```bash
+# (optional) pick a specific obsid:
+export obsid=1121334536 # Phase I
+export obsid=1303134032 # Phase II Compact
+export obsid=1341914000 # Phase II Extended, lst=192
+
 # query the MWA TAP server with ADQL using the pyvo library
 clear; demo/01_tap.sh
 # display giant-squid commands to download observations
@@ -317,31 +324,62 @@ demo/06_cal.sh
 # wsclean cal_ms
 demo/07_img.sh
 # done
+```
 
-for obsid in 1341914000 1121334536; do
-  demo/05_prep.sh && demo/06_cal.sh && demo/07_img.sh || break
-done
+You can inspect the images produced in Carta
 
-# DEMO: The images look a bit weird, let's enable calqa flags and try again.
-# uncomment this line in 00/06_cal.sh to apply bad antennas and see how the image changes!
-# export cal_bad_ants=""
-rm -rf $outdir/{1341914000,combined}/{cal,img}
+```bash
+carta --top_level_folder . --host 127.0.0.1
+```
 
-# did aoflagger really get all the RFI?
+#### Quality Analysis
+
+The images for `1341914000` look a bit weird, let's enable calqa flags and try again.
+
+![images of each main MWA configuration](imgs/wsclean_hyp_1341914000-image-pb-fixed.png)
+
+uncomment this line in `demo/06_cal.sh` to apply bad antennas and see how the image changes!
+
+```bash
+export cal_bad_ants=""
+```
+
+```bash
 export obsid=1341914000
-# export obsid=1121334536
+rm -rf $outdir/$obsid/{cal,img}
+demo/07_img.sh
+```
+
+did aoflagger really get all the RFI?
+
+```bash
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
 export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
 export cal_ms="${outdir}/${obsid}/cal/hyp_cal_${obsid}.ms"
 python ${SCRIPT_BASE}/04_ssins.py $prep_uvfits
 python ${SCRIPT_BASE}/04_ssins.py $cal_ms
+```
 
-# combine them all into a single image
-obsid="combined" cal_ms=$(ls -1d ${outdir}/*/cal/hyp_cal_*.ms ) demo/07_img.sh
+now let's look at the rest of the obsids
 
-carta --top_level_folder . --browser 'open -a Google\ Chrome'
+```bash
+for obsid in 1121334536 1303134032 1341914000; do
+  demo/07_img.sh || break
+done
+```
 
-# clean up outdir to start fresh
+![images of each main MWA configuration](imgs/config_images.png)
+
+combine them all into a single image
+
+```bash
+rm -rf ${outdir}/combined/img/
+obsid="combined" cal_ms=$(ls -1d ${outdir}/13*/cal/hyp_cal_*.ms ) demo/07_img.sh
+```
+
+clean up outdir to start fresh
+
+```bash
 demo/99_cleanup.sh
 ```
 
