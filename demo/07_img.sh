@@ -47,10 +47,10 @@ if [ ! -f "${imgname}-image.fits" ]; then
         -weight briggs 0 \
         -mgain 0.85 -gain 0.1 \
         -auto-threshold 1 -auto-mask 3 \
-        -no-update-model-required \
         -make-psf \
-        -small-inversion \
+        -circular-beam \
         -mwa-path "$beam_path" \
+        -temp-dir /tmp \
         $cal_ms
 else
     echo "${imgname}-image.fits exists, skipping wsclean"
