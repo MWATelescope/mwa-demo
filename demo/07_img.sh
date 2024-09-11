@@ -15,8 +15,8 @@ export cal_ms="${cal_ms:-${outdir}/${obsid}/cal/hyp_cal_${obsid}.ms}"
 
 set -e
 if (($(ls -ld $cal_ms | wc -l) < 1)); then
-    echo "cal_ms=$cal_ms does not exist. try running 06_cal.sh"
-    exit 1
+    echo "cal_ms=$cal_ms does not exist. trying 06_cal.sh"
+    $SCRIPT_BASE/06_cal.sh
 fi
 
 # ### #

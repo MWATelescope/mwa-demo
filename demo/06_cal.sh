@@ -25,16 +25,19 @@ fi
 # check preprocessed visibility and qa files exist from previous steps
 export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
 if [ ! -f "$prep_uvfits" ]; then
-    echo "prep_uvfits=$prep_uvfits does not exist. try running 05_prep.sh"
-    exit 1
+    echo "prep_uvfits=$prep_uvfits does not exist. trying 05_prep.sh"
+    $SCRIPT_BASE/05_prep.sh
 fi
 export prepqa="${prep_uvfits%%.uvfits}_qa.json"
 if [[ ! -f "$prepqa" ]]; then
-    echo "warning: prepqa=$prepqa does not exist. try running 05_prep.sh"
-    export prep_bad_ants=""
-else
+    echo "warning: prepqa=$prepqa does not exist. trying 05_prep.sh"
+    $SCRIPT_BASE/05_prep.sh
+fi
+if [[ -f "$prepqa" ]]; then
     prep_bad_ants=$(jq -r '.BAD_ANTS|join(" ")' "$prepqa")
     export prep_bad_ants
+else
+    export prep_bad_ants=""
 fi
 
 # ### #
