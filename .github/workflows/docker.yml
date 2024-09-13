@@ -22,3 +22,27 @@ jobs:
           tags: mwatelescope/mwa-demo:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+  demo_1121334536:
+    needs: docker
+    runs-on: mwatelescope/mwa-demo:latest
+    env:
+      obsid: 1121334536
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: download demo data
+        run: |
+          mkdir -p demo/data/1121334536/raw
+          curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
+      - name: self-test
+        run: demo/00_test.sh
+      - name: tap
+        run: demo/01_tap.sh
+      - name: mwalib
+        run: demo/03_mwalib.sh
+      - name: ssins
+        run: demo/04_ssins.sh
+      - name: img
+        run: demo/07_img.sh
