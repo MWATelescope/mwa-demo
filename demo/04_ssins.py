@@ -64,7 +64,7 @@ ins.sig_array[~np.isfinite(ins.sig_array)] = 0
 # #### #
 plt.style.use("dark_background")
 cmap = mpl.colormaps.get_cmap("viridis")
-cmap.set_bad(color="pink")
+cmap.set_bad(color="#00000000")
 
 fontsize = 8
 figsize = (16, 16)
