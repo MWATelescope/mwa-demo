@@ -75,30 +75,31 @@ RUN mkdir -m755 $RUSTUP_HOME $CARGO_HOME && ( \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # install python prerequisites
-RUN python -m pip install \
+# - newer pip needed for mwalib maturin install
+# - other versions pinned to avoid issues with numpy==2
+ARG SSINS_BRANCH=master
+ARG MWAQA_BRANCH=dev
+RUN python -m pip install --no-cache-dir \
     importlib_metadata==8.2.0 \
     kneed==0.8.5 \
     matplotlib==3.7.5 \
     maturin[patchelf]==1.7.0 \
     numpy==1.24.4 \
     pandas==2.0.3 \
+    pip==24.2 \
     pyuvdata==2.4.1 \
     pyvo==1.5.2 \
-    tabulate==0.9.0 \
     seaborn==0.13.2 \
-    pip==24.2 \
-    maturin==1.7.1 \
+    tabulate==0.9.0 \
     ;
 
-ARG SSINS_BRANCH=master
-RUN git clone --depth 1 --branch=${SSINS_BRANCH} https://github.com/mwilensky768/SSINS.git /ssins && \
-    python -m pip install /ssins && \
-    rm -rf /ssins
-
-ARG MWAQA_BRANCH=dev
-RUN git clone --depth 1 --branch=${MWAQA_BRANCH} https://github.com/d3v-null/mwa_qa.git /mwa_qa && \
-    python -m pip install /mwa_qa && \
-    rm -rf /mwa_qa
+# python packages
+RUN python -m pip install --no-cache-dir \
+    git+https://github.com/mwilensky768/SSINS.git@${SSINS_BRANCH} \
+    git+https://github.com/d3v-null/mwa_qa.git@${MWAQA_BRANCH} \
+    git+https://github.com/PaulHancock/Aegean.git \
+    git+https://github.com/tjgalvin/fits_warp.git \
+    ;
 
 ARG MWALIB_BRANCH=v1.5.0
 RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescope/mwalib.git /mwalib && \
