@@ -38,6 +38,7 @@ jobs:
         run: |
           mkdir -p demo/data/1121334536/raw
           curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
+          echo 'ab0a3040c6adfc482ed1485fa080c18f  demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits' > demo_data.md5sum
       - name: self-test
         run: demo/00_test.sh
       - name: tap
