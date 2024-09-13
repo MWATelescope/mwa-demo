@@ -1,3 +1,12 @@
-demo/*
-bin/*
+.git
+.gitattributes
+.github
+.gitignore
+.venv
+.vscode
 *.zip
+bin
+offcuts
+supplemental
+demo/data
+imgs

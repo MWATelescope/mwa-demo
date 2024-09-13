@@ -189,3 +189,6 @@ RUN git clone --depth 1 --branch=${HYPERBEAM_BRANCH} https://github.com/MWATeles
     python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
     rm -rf /hyperbeam ${CARGO_HOME}/registry
 
+COPY ./demo /demo
+ENV PATH="/demo:${PATH}"
+WORKDIR /demo
