@@ -9,6 +9,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--no-diff", default=False, action="store_true")
+parser.add_argument("--no-cache", default=False, action="store_true")
 parser.add_argument("files", nargs="+")
 args = parser.parse_args()
 
@@ -20,7 +21,7 @@ elif len(args.files) == 1:
     vis = args.files[-1]
     base, _ = os.path.splitext(vis)
 else:
-    args.print_usage()
+    parser.print_usage()
     exit(1)
 
 # sky-subtract https://ssins.readthedocs.io/en/latest/sky_subtract.html
@@ -28,7 +29,7 @@ ss = SS()
 diff = not args.no_diff
 suffix = ".diff" if diff else ""
 cache = f"{base}{suffix}.ssa.h5"
-if os.path.exists(cache):
+if not args.no_cache and os.path.exists(cache):
     print(f"reading from {cache=}")
     ss.read_uvh5(cache, read_data=True, use_future_array_shapes=True)
 else:
@@ -45,8 +46,9 @@ else:
     unflagged_ants = np.unique(ss.ant_1_array)
     ss = ss.select(bls=[(a, a) for a in unflagged_ants], inplace=False)
     ss.apply_flags(flag_choice="original")
-    ss.write_uvh5(cache)
-    print(f"wrote ss to {cache=}")
+    if not args.no_cache:
+        ss.write_uvh5(cache)
+        print(f"wrote ss to {cache=}")
 
 # incoherent noise spectrum https://ssins.readthedocs.io/en/latest/incoherent_noise_spectrum.html
 ins = INS(ss, spectrum_type="auto")
