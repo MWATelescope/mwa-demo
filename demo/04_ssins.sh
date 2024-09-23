@@ -1,6 +1,5 @@
 #!/bin/bash
-# identify RFI using ssins
-# details: https://github.com/mwilensky768/SSINS
+# wrapper for 04_ssins.py
 
 # ### #
 # ENV #

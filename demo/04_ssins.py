@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+
+# identify RFI using ssins
+# details: https://github.com/mwilensky768/SSINS
+
 from pyuvdata import UVData
 from SSINS import SS, INS, MF
 import os
@@ -27,6 +31,24 @@ def get_parser():
         default=False,
         action="store_true",
         help="skip flagging of edge channels, quack time",
+    )
+    group_uvd_read.add_argument(
+        "--remove-coarse-band",
+        default=False,
+        action="store_true",
+        help="Correct coarse PFB passband (resolution must be > 10kHz)",
+    )
+    group_uvd_read.add_argument(
+        "--correct-van-vleck",
+        default=False,
+        action="store_true",
+        help="Correct van vleck quantization artifacts in legacy correlator. slow!",
+    )
+    group_uvd_read.add_argument(
+        "--include-flagged-ants",
+        default=False,
+        action="store_true",
+        help="Include flagged antenna when reading raw files",
     )
 
     # arguments for UVData.select()
@@ -322,9 +344,9 @@ def main():
         args.files,
         read_data=True,
         diff=(not args.no_diff),  # difference timesteps
-        remove_coarse_band=False,  # does not work with low freq res
-        correct_van_vleck=False,  # slow
-        remove_flagged_ants=True,  # remove flagged antennas
+        remove_coarse_band=args.remove_coarse_band,  # does not work with low freq res
+        correct_van_vleck=args.correct_van_vleck,  # slow
+        remove_flagged_ants=(not args.include_flagged_ants),  # remove flagged antennas
         flag_init=(not args.no_flag_init),
     )
 
