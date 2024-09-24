@@ -90,6 +90,7 @@ RUN python -m pip install --no-cache-dir \
     pyvo==1.5.2 \
     seaborn==0.13.2 \
     tabulate==0.9.0 \
+    psutil==6.0.0 \
     ;
 
 # python packages
