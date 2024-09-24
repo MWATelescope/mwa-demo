@@ -2,6 +2,11 @@
 # common environment variable defaults for the demo
 # - will not overwrite most environment variables
 
+# silly hack for macOS Birli
+if [[ $(uname -o) == "Darwin" ]]; then
+    export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib/
+fi
+
 # base directory for demo data
 # - you may want to change this do a directory with more space if extending this demo
 export outdir=${outdir:-${PWD}/demo/data/}
