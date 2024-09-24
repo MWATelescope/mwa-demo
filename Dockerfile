@@ -152,45 +152,46 @@ RUN git clone --depth 1 --branch=${GIANTSQUID_BRANCH} https://github.com/MWATele
     cd / && \
     rm -rf /giant-squid ${CARGO_HOME}/registry
 
-# ARG AOFLAGGER_BRANCH=v3.4.0
-# RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
-#     cd /aoflagger && \
-#     mkdir build && \
-#     cd build && \
-#     cmake $CMAKE_ARGS \
-#     -DENABLE_GUI=OFF \
-#     .. && \
-#     make install -j`nproc` && \
-#     ldconfig && \
-#     cd / && \
-#     rm -rf /aoflagger
-# # set up aoflagger python library
-# ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
+ARG AOFLAGGER_BRANCH=v3.4.0
+RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
+    cd /aoflagger && \
+    mkdir build && \
+    cd build && \
+    cmake $CMAKE_ARGS \
+    -DENABLE_GUI=OFF \
+    .. && \
+    make install -j`nproc` && \
+    ldconfig && \
+    cd / && \
+    rm -rf /aoflagger
+# set up aoflagger python library
+ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
 
-# ARG BIRLI_GIT=https://github.com/MWATelescope/Birli.git
-# ARG BIRLI_BRANCH=main
-# RUN cargo install birli --locked --git=${BIRLI_GIT} --branch=${BIRLI_BRANCH} && \
+ARG BIRLI_GIT=https://github.com/MWATelescope/Birli.git
+ARG BIRLI_BRANCH=main
+RUN cargo install birli --locked --git=${BIRLI_GIT} --branch=${BIRLI_BRANCH} && \
+    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+
+ARG HYPERBEAM_GIT=https://github.com/MWATelescope/mwa_hyperbeam.git
+ARG HYPERBEAM_BRANCH=marlu0.14
+ARG HYPERBEAM_FEATURES=python
+# This won't install the python library:
+# RUN cargo install mwa_hyperbeam --locked --git=${HYPERBEAM_GIT} --branch=${HYPERBEAM_BRANCH} --features=${HYPERBEAM_FEATURES} && \
 #     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+RUN git clone --depth 1 --branch=${HYPERBEAM_BRANCH} ${HYPERBEAM_GIT} /hyperbeam && \
+    cd /hyperbeam && \
+    maturin build --locked --release --features=${HYPERBEAM_FEATURES} && \
+    python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
+    cd / && \
+    rm -rf /hyperbeam ${CARGO_HOME}/registry
 
-# ARG HYPERBEAM_GIT=https://github.com/MWATelescope/mwa_hyperbeam.git
-# ARG HYPERBEAM_BRANCH=marlu0.14
-# ARG HYPERBEAM_FEATURES=python
-# # This won't install the python library:
-# # RUN cargo install mwa_hyperbeam --locked --git=${HYPERBEAM_GIT} --branch=${HYPERBEAM_BRANCH} --features=${HYPERBEAM_FEATURES} && \
-# #     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
-# RUN git clone --depth 1 --branch=${HYPERBEAM_BRANCH} ${HYPERBEAM_GIT} /hyperbeam && \
-#     cd /hyperbeam && \
-#     maturin build --locked --release --features=${HYPERBEAM_FEATURES} && \
-#     python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
-#     rm -rf /hyperbeam ${CARGO_HOME}/registry
-
-# ARG HYPERDRIVE_GIT=https://github.com/MWATelescope/mwa_hyperdrive.git
-# # # HACK: birli0.14 needs newer ndarray
-# # ARG HYPERDRIVE_BRANCH=main
-# ARG HYPERDRIVE_BRANCH=birli0.14
-# # TODO: ARG HYPERDRIVE_FEATURES=  ... --features=${HYPERDRIVE_FEATURES}
-# RUN cargo install mwa_hyperdrive --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
-#     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+ARG HYPERDRIVE_GIT=https://github.com/MWATelescope/mwa_hyperdrive.git
+# # HACK: birli0.14 needs newer ndarray
+# ARG HYPERDRIVE_BRANCH=main
+ARG HYPERDRIVE_BRANCH=birli0.14
+# TODO: ARG HYPERDRIVE_FEATURES=  ... --features=${HYPERDRIVE_FEATURES}
+RUN cargo install mwa_hyperdrive --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
+    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 
 # # HACK: beam_fits deserves its own feature branch
 # ARG HYPERDRIVE_BRANCH=marlu0.13
