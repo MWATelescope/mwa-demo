@@ -109,48 +109,48 @@ RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescop
     cd / && \
     rm -rf /mwalib ${CARGO_HOME}/registry
 
-# # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
-# ARG CMAKE_ARGS="-D PORTABLE=ON"
+# for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
+ARG CMAKE_ARGS="-D PORTABLE=ON"
 
-# ARG EVERYBEAM_BRANCH=v0.5.2
-# RUN git clone --depth 1 --branch=${EVERYBEAM_BRANCH} --recurse-submodules https://git.astron.nl/RD/EveryBeam.git /EveryBeam && \
-#     cd /EveryBeam && \
-#     git submodule update --init --recursive && \
-#     mkdir build && \
-#     cd build && \
-#     cmake $CMAKE_ARGS .. && \
-#     make install -j`nproc` && \
-#     cd / && \
-#     rm -rf /EveryBeam
+ARG EVERYBEAM_BRANCH=v0.5.2
+RUN git clone --depth 1 --branch=${EVERYBEAM_BRANCH} --recurse-submodules https://git.astron.nl/RD/EveryBeam.git /EveryBeam && \
+    cd /EveryBeam && \
+    git submodule update --init --recursive && \
+    mkdir build && \
+    cd build && \
+    cmake $CMAKE_ARGS .. && \
+    make install -j`nproc` && \
+    cd / && \
+    rm -rf /EveryBeam
 
-# ARG IDG_BRANCH=1.2.0
-# RUN git clone --depth 1 --branch=${IDG_BRANCH} https://git.astron.nl/RD/idg.git /idg && \
-#     cd /idg && \
-#     git submodule update --init --recursive && \
-#     mkdir build && \
-#     cd build && \
-#     cmake $CMAKE_ARGS .. && \
-#     make install -j`nproc` && \
-#     cd / && \
-#     rm -rf /idg
+ARG IDG_BRANCH=1.2.0
+RUN git clone --depth 1 --branch=${IDG_BRANCH} https://git.astron.nl/RD/idg.git /idg && \
+    cd /idg && \
+    git submodule update --init --recursive && \
+    mkdir build && \
+    cd build && \
+    cmake $CMAKE_ARGS .. && \
+    make install -j`nproc` && \
+    cd / && \
+    rm -rf /idg
 
-# ARG WSCLEAN_BRANCH=v3.4
-# RUN git clone --depth 1 --branch=${WSCLEAN_BRANCH} https://gitlab.com/aroffringa/wsclean.git /wsclean && \
-#     cd /wsclean && \
-#     git submodule update --init --recursive && \
-#     mkdir build && \
-#     cd build && \
-#     cmake $CMAKE_ARGS .. && \
-#     make install -j`nproc` && \
-#     cd / && \
-#     rm -rf /wsclean
+ARG WSCLEAN_BRANCH=v3.4
+RUN git clone --depth 1 --branch=${WSCLEAN_BRANCH} https://gitlab.com/aroffringa/wsclean.git /wsclean && \
+    cd /wsclean && \
+    git submodule update --init --recursive && \
+    mkdir build && \
+    cd build && \
+    cmake $CMAKE_ARGS .. && \
+    make install -j`nproc` && \
+    cd / && \
+    rm -rf /wsclean
 
-# ARG GIANTSQUID_BRANCH=v1.0.3
-# RUN git clone --depth 1 --branch=${GIANTSQUID_BRANCH} https://github.com/MWATelescope/giant-squid.git /giant-squid && \
-#     cd /giant-squid && \
-#     cargo install --path . --locked && \
-#     cd / && \
-#     rm -rf /giant-squid ${CARGO_HOME}/registry
+ARG GIANTSQUID_BRANCH=v1.0.3
+RUN git clone --depth 1 --branch=${GIANTSQUID_BRANCH} https://github.com/MWATelescope/giant-squid.git /giant-squid && \
+    cd /giant-squid && \
+    cargo install --path . --locked && \
+    cd / && \
+    rm -rf /giant-squid ${CARGO_HOME}/registry
 
 # ARG AOFLAGGER_BRANCH=v3.4.0
 # RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
