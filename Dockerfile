@@ -173,7 +173,7 @@ RUN cargo install birli --locked --git=${BIRLI_GIT} --branch=${BIRLI_BRANCH} && 
     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 
 ARG HYPERBEAM_GIT=https://github.com/MWATelescope/mwa_hyperbeam.git
-ARG HYPERBEAM_BRANCH=main
+ARG HYPERBEAM_BRANCH=marlu0.14
 ARG HYPERBEAM_FEATURES=python
 # This won't install the python library:
 # RUN cargo install mwa_hyperbeam --locked --git=${HYPERBEAM_GIT} --branch=${HYPERBEAM_BRANCH} --features=${HYPERBEAM_FEATURES} && \
@@ -185,9 +185,9 @@ RUN git clone --depth 1 --branch=${HYPERBEAM_BRANCH} ${HYPERBEAM_GIT} /hyperbeam
     rm -rf /hyperbeam ${CARGO_HOME}/registry
 
 ARG HYPERDRIVE_GIT=https://github.com/MWATelescope/mwa_hyperdrive.git
-# # HACK: marlu0.13 needs newer ndarray
+# # HACK: birli0.14 needs newer ndarray
 # ARG HYPERDRIVE_BRANCH=main
-ARG HYPERDRIVE_BRANCH=marlu0.13
+ARG HYPERDRIVE_BRANCH=birli0.14
 # TODO: ARG HYPERDRIVE_FEATURES=  ... --features=${HYPERDRIVE_FEATURES}
 RUN cargo install mwa_hyperdrive --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
