@@ -101,13 +101,13 @@ RUN python -m pip install --no-cache-dir \
     git+https://github.com/tjgalvin/fits_warp.git \
     ;
 
-# ARG MWALIB_BRANCH=v1.5.0
-# RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescope/mwalib.git /mwalib && \
-#     cd /mwalib && \
-#     maturin build --release --features=python && \
-#     python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
-#     cd / && \
-#     rm -rf /mwalib ${CARGO_HOME}/registry
+ARG MWALIB_BRANCH=v1.5.0
+RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescope/mwalib.git /mwalib && \
+    cd /mwalib && \
+    maturin build --release --features=python && \
+    python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
+    cd / && \
+    rm -rf /mwalib ${CARGO_HOME}/registry
 
 # # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
 # ARG CMAKE_ARGS="-D PORTABLE=ON"
@@ -192,55 +192,55 @@ RUN python -m pip install --no-cache-dir \
 # RUN cargo install mwa_hyperdrive --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
 #     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 
-# # # HACK: beam_fits deserves its own feature branch
-# # ARG HYPERDRIVE_BRANCH=marlu0.13
-# # RUN git clone --depth 1 --branch=${HYPERDRIVE_BRANCH} https://github.com/MWATelescope/mwa_hyperdrive.git /hyperdrive && \
-# #     cd /hyperdrive && \
-# #     # mkdir -p src/hacks && \
-# #     # wget -Osrc/hacks/beam_fits.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/hacks/beam_fits.rs && \
-# #     # wget -Osrc/hacks/mod.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/hacks/mod.rs && \
-# #     # sed -i '/mod cli;/a pub mod hacks;' src/lib.rs && \
-# #     # cat src/lib.rs && \
-# #     # wget -Osrc/cli/mod.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/cli/mod.rs && \
-# #     cargo install --path . --locked && \
-# #     cd / && \
-# #     rm -rf /hyperdrive ${CARGO_HOME}/registry
+# # HACK: beam_fits deserves its own feature branch
+# ARG HYPERDRIVE_BRANCH=marlu0.13
+# RUN git clone --depth 1 --branch=${HYPERDRIVE_BRANCH} https://github.com/MWATelescope/mwa_hyperdrive.git /hyperdrive && \
+#     cd /hyperdrive && \
+#     # mkdir -p src/hacks && \
+#     # wget -Osrc/hacks/beam_fits.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/hacks/beam_fits.rs && \
+#     # wget -Osrc/hacks/mod.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/hacks/mod.rs && \
+#     # sed -i '/mod cli;/a pub mod hacks;' src/lib.rs && \
+#     # cat src/lib.rs && \
+#     # wget -Osrc/cli/mod.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/cli/mod.rs && \
+#     cargo install --path . --locked && \
+#     cd / && \
+#     rm -rf /hyperdrive ${CARGO_HOME}/registry
 
-# # # download latest Leap_Second.dat, IERS finals2000A.all
-# RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
+# # download latest Leap_Second.dat, IERS finals2000A.all
+RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
 
-# # # finufft
-# # # RUN git clone https://github.com/flatironinstitute/finufft.git /finufft && \
-# # #     cd /finufft && \
-# # #     mkdir build && \
-# # #     cd build && \
-# # #     cmake $CMAKE_ARGS \
-# # #     -DENABLE_GUI=OFF \
-# # #     .. && \
-# # #     make install -j`nproc`
+# # finufft
+# # RUN git clone https://github.com/flatironinstitute/finufft.git /finufft && \
+# #     cd /finufft && \
+# #     mkdir build && \
+# #     cd build && \
+# #     cmake $CMAKE_ARGS \
+# #     -DENABLE_GUI=OFF \
+# #     .. && \
+# #     make install -j`nproc`
 
-# # Copy the demo files
-# COPY ./demo /demo
-# ENV PATH="/demo:${PATH}"
-# WORKDIR /demo
+# Copy the demo files
+COPY ./demo /demo
+ENV PATH="/demo:${PATH}"
+WORKDIR /demo
 
-# # HACK: the calibration fitting code in mwax_mover deserves its own public repo
-# FROM d3vnull0/mwax_mover:latest as mwax_mover
-# FROM base
-# # Copy files from the previous mwax_mover stage into the final image
-# COPY --from=mwax_mover /app /mwax_mover
+# HACK: the calibration fitting code in mwax_mover deserves its own public repo
+FROM d3vnull0/mwax_mover:latest as mwax_mover
+FROM base
+# Copy files from the previous mwax_mover stage into the final image
+COPY --from=mwax_mover /app /mwax_mover
 
-# RUN cd /mwax_mover && \
-#     python -m pip install .
+RUN cd /mwax_mover && \
+    python -m pip install .
 
-# # # python /mwax_mover/scripts/cal_analysis.py \
-# # # --name "${name}" \
-# # # --metafits "${metafits}" --solns ${soln} \
-# # # --phase-diff-path=/app/phase_diff.txt \
-# # # --plot-residual --residual-vmax=0.5
+# # python /mwax_mover/scripts/cal_analysis.py \
+# # --name "${name}" \
+# # --metafits "${metafits}" --solns ${soln} \
+# # --phase-diff-path=/app/phase_diff.txt \
+# # --plot-residual --residual-vmax=0.5
 
-# # # export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-# # # export raw="$(ls -1 ${outdir}/${obsid}/raw/${obsid}*.fits)"
-# # # export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
-# # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
-# # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
+# # export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
+# # export raw="$(ls -1 ${outdir}/${obsid}/raw/${obsid}*.fits)"
+# # export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
+# # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
+# # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
