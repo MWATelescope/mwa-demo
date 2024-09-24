@@ -101,103 +101,146 @@ RUN python -m pip install --no-cache-dir \
     git+https://github.com/tjgalvin/fits_warp.git \
     ;
 
-ARG MWALIB_BRANCH=v1.5.0
-RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescope/mwalib.git /mwalib && \
-    cd /mwalib && \
-    maturin build --release --features=python && \
-    python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
-    cd / && \
-    rm -rf /mwalib ${CARGO_HOME}/registry
+# ARG MWALIB_BRANCH=v1.5.0
+# RUN git clone --depth 1 --branch=${MWALIB_BRANCH} https://github.com/MWATelescope/mwalib.git /mwalib && \
+#     cd /mwalib && \
+#     maturin build --release --features=python && \
+#     python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
+#     cd / && \
+#     rm -rf /mwalib ${CARGO_HOME}/registry
 
-# for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
-ARG CMAKE_ARGS="-D PORTABLE=ON"
+# # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
+# ARG CMAKE_ARGS="-D PORTABLE=ON"
 
-ARG EVERYBEAM_BRANCH=v0.5.2
-RUN git clone --depth 1 --branch=${EVERYBEAM_BRANCH} --recurse-submodules https://git.astron.nl/RD/EveryBeam.git /EveryBeam && \
-    cd /EveryBeam && \
-    git submodule update --init --recursive && \
-    mkdir build && \
-    cd build && \
-    cmake $CMAKE_ARGS .. && \
-    make install -j`nproc` && \
-    cd / && \
-    rm -rf /EveryBeam
+# ARG EVERYBEAM_BRANCH=v0.5.2
+# RUN git clone --depth 1 --branch=${EVERYBEAM_BRANCH} --recurse-submodules https://git.astron.nl/RD/EveryBeam.git /EveryBeam && \
+#     cd /EveryBeam && \
+#     git submodule update --init --recursive && \
+#     mkdir build && \
+#     cd build && \
+#     cmake $CMAKE_ARGS .. && \
+#     make install -j`nproc` && \
+#     cd / && \
+#     rm -rf /EveryBeam
 
-ARG IDG_BRANCH=1.2.0
-RUN git clone --depth 1 --branch=${IDG_BRANCH} https://git.astron.nl/RD/idg.git /idg && \
-    cd /idg && \
-    git submodule update --init --recursive && \
-    mkdir build && \
-    cd build && \
-    cmake $CMAKE_ARGS .. && \
-    make install -j`nproc` && \
-    cd / && \
-    rm -rf /idg
+# ARG IDG_BRANCH=1.2.0
+# RUN git clone --depth 1 --branch=${IDG_BRANCH} https://git.astron.nl/RD/idg.git /idg && \
+#     cd /idg && \
+#     git submodule update --init --recursive && \
+#     mkdir build && \
+#     cd build && \
+#     cmake $CMAKE_ARGS .. && \
+#     make install -j`nproc` && \
+#     cd / && \
+#     rm -rf /idg
 
-ARG WSCLEAN_BRANCH=v3.4
-RUN git clone --depth 1 --branch=${WSCLEAN_BRANCH} https://gitlab.com/aroffringa/wsclean.git /wsclean && \
-    cd /wsclean && \
-    git submodule update --init --recursive && \
-    mkdir build && \
-    cd build && \
-    cmake $CMAKE_ARGS .. && \
-    make install -j`nproc` && \
-    cd / && \
-    rm -rf /wsclean
+# ARG WSCLEAN_BRANCH=v3.4
+# RUN git clone --depth 1 --branch=${WSCLEAN_BRANCH} https://gitlab.com/aroffringa/wsclean.git /wsclean && \
+#     cd /wsclean && \
+#     git submodule update --init --recursive && \
+#     mkdir build && \
+#     cd build && \
+#     cmake $CMAKE_ARGS .. && \
+#     make install -j`nproc` && \
+#     cd / && \
+#     rm -rf /wsclean
 
-ARG GIANTSQUID_BRANCH=v1.0.3
-RUN git clone --depth 1 --branch=${GIANTSQUID_BRANCH} https://github.com/MWATelescope/giant-squid.git /giant-squid && \
-    cd /giant-squid && \
-    cargo install --path . --locked && \
-    cd / && \
-    rm -rf /giant-squid ${CARGO_HOME}/registry
+# ARG GIANTSQUID_BRANCH=v1.0.3
+# RUN git clone --depth 1 --branch=${GIANTSQUID_BRANCH} https://github.com/MWATelescope/giant-squid.git /giant-squid && \
+#     cd /giant-squid && \
+#     cargo install --path . --locked && \
+#     cd / && \
+#     rm -rf /giant-squid ${CARGO_HOME}/registry
 
-ARG AOFLAGGER_BRANCH=v3.4.0
-RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
-    cd /aoflagger && \
-    mkdir build && \
-    cd build && \
-    cmake $CMAKE_ARGS \
-    -DENABLE_GUI=OFF \
-    .. && \
-    make install -j`nproc` && \
-    ldconfig && \
-    cd / && \
-    rm -rf /aoflagger
-# set up aoflagger python library
-ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
+# ARG AOFLAGGER_BRANCH=v3.4.0
+# RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
+#     cd /aoflagger && \
+#     mkdir build && \
+#     cd build && \
+#     cmake $CMAKE_ARGS \
+#     -DENABLE_GUI=OFF \
+#     .. && \
+#     make install -j`nproc` && \
+#     ldconfig && \
+#     cd / && \
+#     rm -rf /aoflagger
+# # set up aoflagger python library
+# ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
 
-ARG BIRLI_GIT=https://github.com/MWATelescope/Birli.git
-ARG BIRLI_BRANCH=main
-RUN cargo install birli --locked --git=${BIRLI_GIT} --branch=${BIRLI_BRANCH} && \
-    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
-
-ARG HYPERBEAM_GIT=https://github.com/MWATelescope/mwa_hyperbeam.git
-ARG HYPERBEAM_BRANCH=marlu0.14
-ARG HYPERBEAM_FEATURES=python
-# This won't install the python library:
-# RUN cargo install mwa_hyperbeam --locked --git=${HYPERBEAM_GIT} --branch=${HYPERBEAM_BRANCH} --features=${HYPERBEAM_FEATURES} && \
+# ARG BIRLI_GIT=https://github.com/MWATelescope/Birli.git
+# ARG BIRLI_BRANCH=main
+# RUN cargo install birli --locked --git=${BIRLI_GIT} --branch=${BIRLI_BRANCH} && \
 #     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
-RUN git clone --depth 1 --branch=${HYPERBEAM_BRANCH} ${HYPERBEAM_GIT} /hyperbeam && \
-    cd /hyperbeam && \
-    maturin build --locked --release --features=${HYPERBEAM_FEATURES} && \
-    python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
-    rm -rf /hyperbeam ${CARGO_HOME}/registry
 
-ARG HYPERDRIVE_GIT=https://github.com/MWATelescope/mwa_hyperdrive.git
-# # HACK: birli0.14 needs newer ndarray
-# ARG HYPERDRIVE_BRANCH=main
-ARG HYPERDRIVE_BRANCH=birli0.14
-# TODO: ARG HYPERDRIVE_FEATURES=  ... --features=${HYPERDRIVE_FEATURES}
-RUN cargo install mwa_hyperdrive --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
-    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+# ARG HYPERBEAM_GIT=https://github.com/MWATelescope/mwa_hyperbeam.git
+# ARG HYPERBEAM_BRANCH=marlu0.14
+# ARG HYPERBEAM_FEATURES=python
+# # This won't install the python library:
+# # RUN cargo install mwa_hyperbeam --locked --git=${HYPERBEAM_GIT} --branch=${HYPERBEAM_BRANCH} --features=${HYPERBEAM_FEATURES} && \
+# #     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+# RUN git clone --depth 1 --branch=${HYPERBEAM_BRANCH} ${HYPERBEAM_GIT} /hyperbeam && \
+#     cd /hyperbeam && \
+#     maturin build --locked --release --features=${HYPERBEAM_FEATURES} && \
+#     python -m pip install $(ls -1 target/wheels/*.whl | tail -n 1) && \
+#     rm -rf /hyperbeam ${CARGO_HOME}/registry
 
+# ARG HYPERDRIVE_GIT=https://github.com/MWATelescope/mwa_hyperdrive.git
+# # # HACK: birli0.14 needs newer ndarray
+# # ARG HYPERDRIVE_BRANCH=main
+# ARG HYPERDRIVE_BRANCH=birli0.14
+# # TODO: ARG HYPERDRIVE_FEATURES=  ... --features=${HYPERDRIVE_FEATURES}
+# RUN cargo install mwa_hyperdrive --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
+#     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 
-# # download latest Leap_Second.dat, IERS finals2000A.all
-RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
+# # # HACK: beam_fits deserves its own feature branch
+# # ARG HYPERDRIVE_BRANCH=marlu0.13
+# # RUN git clone --depth 1 --branch=${HYPERDRIVE_BRANCH} https://github.com/MWATelescope/mwa_hyperdrive.git /hyperdrive && \
+# #     cd /hyperdrive && \
+# #     # mkdir -p src/hacks && \
+# #     # wget -Osrc/hacks/beam_fits.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/hacks/beam_fits.rs && \
+# #     # wget -Osrc/hacks/mod.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/hacks/mod.rs && \
+# #     # sed -i '/mod cli;/a pub mod hacks;' src/lib.rs && \
+# #     # cat src/lib.rs && \
+# #     # wget -Osrc/cli/mod.rs https://raw.githubusercontent.com/MWATelescope/mwa_hyperdrive/refs/heads/SDC3/src/cli/mod.rs && \
+# #     cargo install --path . --locked && \
+# #     cd / && \
+# #     rm -rf /hyperdrive ${CARGO_HOME}/registry
 
-# Copy the demo files
-COPY ./demo /demo
-ENV PATH="/demo:${PATH}"
-WORKDIR /demo
+# # # download latest Leap_Second.dat, IERS finals2000A.all
+# RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
 
+# # # finufft
+# # # RUN git clone https://github.com/flatironinstitute/finufft.git /finufft && \
+# # #     cd /finufft && \
+# # #     mkdir build && \
+# # #     cd build && \
+# # #     cmake $CMAKE_ARGS \
+# # #     -DENABLE_GUI=OFF \
+# # #     .. && \
+# # #     make install -j`nproc`
+
+# # Copy the demo files
+# COPY ./demo /demo
+# ENV PATH="/demo:${PATH}"
+# WORKDIR /demo
+
+# # HACK: the calibration fitting code in mwax_mover deserves its own public repo
+# FROM d3vnull0/mwax_mover:latest as mwax_mover
+# FROM base
+# # Copy files from the previous mwax_mover stage into the final image
+# COPY --from=mwax_mover /app /mwax_mover
+
+# RUN cd /mwax_mover && \
+#     python -m pip install .
+
+# # # python /mwax_mover/scripts/cal_analysis.py \
+# # # --name "${name}" \
+# # # --metafits "${metafits}" --solns ${soln} \
+# # # --phase-diff-path=/app/phase_diff.txt \
+# # # --plot-residual --residual-vmax=0.5
+
+# # # export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
+# # # export raw="$(ls -1 ${outdir}/${obsid}/raw/${obsid}*.fits)"
+# # # export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
+# # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
+# # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
