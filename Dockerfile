@@ -64,7 +64,7 @@ RUN apt-get update && \
     apt-get -y autoremove
 
 # Get Rust
-ARG RUST_VERSION=stable
+ARG RUST_VERSION=1.80
 ENV RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo PATH="/opt/cargo/bin:${PATH}"
 RUN mkdir -m755 $RUSTUP_HOME $CARGO_HOME && ( \
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | env RUSTUP_HOME=$RUSTUP_HOME CARGO_HOME=$CARGO_HOME sh -s -- -y \
