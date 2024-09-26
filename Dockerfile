@@ -5,7 +5,7 @@
 # ARG BASE_IMG="ubuntu:20.04"
 # HACK: newer python breaks on old ubuntu
 ARG BASE_IMG="python:3.11-bookworm"
-FROM ${BASE_IMG} as base
+FROM ${BASE_IMG} AS base
 
 # Suppress perl locale errors
 ENV LC_ALL=C
@@ -166,13 +166,15 @@ RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https:
 # set up aoflagger python library
 ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
 
-# ARG BIRLI_GIT=https://github.com/MWATelescope/Birli.git
-# ARG BIRLI_BRANCH=main
-# RUN cargo install birli --locked --git=${BIRLI_GIT} --branch=${BIRLI_BRANCH} && \
-#     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+ARG BIRLI_GIT=https://github.com/MWATelescope/Birli.git
+ARG BIRLI_BRANCH=main
+RUN cargo install birli --locked --git=${BIRLI_GIT} --branch=${BIRLI_BRANCH} && \
+    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 
+# WARNING: issues running maturin on arm64 since 2024-09-12, some horrible Python rabbit hole
 # ARG HYPERBEAM_GIT=https://github.com/MWATelescope/mwa_hyperbeam.git
-# ARG HYPERBEAM_BRANCH=marlu0.14
+# ARG HYPERBEAM_BRANCH=main
+# # ARG HYPERBEAM_BRANCH=marlu0.14
 # ARG HYPERBEAM_FEATURES=python
 # # This won't install the python library:
 # # RUN cargo install mwa_hyperbeam --locked --git=${HYPERBEAM_GIT} --branch=${HYPERBEAM_BRANCH} --features=${HYPERBEAM_FEATURES} && \
@@ -184,30 +186,37 @@ ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
 #     cd / && \
 #     rm -rf /hyperbeam ${CARGO_HOME}/registry
 
-# ARG HYPERDRIVE_GIT=https://github.com/MWATelescope/mwa_hyperdrive.git
-# # # HACK: birli0.14 needs newer ndarray
-# # ARG HYPERDRIVE_BRANCH=main
-# ARG HYPERDRIVE_BRANCH=birli0.14
-# # TODO: ARG HYPERDRIVE_FEATURES=  ... --features=${HYPERDRIVE_FEATURES}
-# RUN cargo install mwa_hyperdrive --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
-#     rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+ARG HYPERDRIVE_GIT=https://github.com/MWATelescope/mwa_hyperdrive.git
+# ARG HYPERDRIVE_BRANCH=main
+# # HACK: birli0.14 needs newer ndarray
+ARG HYPERDRIVE_BRANCH=birli0.14
+# TODO: ARG HYPERDRIVE_FEATURES=  ... --features=${HYPERDRIVE_FEATURES}
+RUN cargo install mwa_hyperdrive --verbose --debug --locked --git=${HYPERDRIVE_GIT} --branch=${HYPERDRIVE_BRANCH} && \
+    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 
-# # # download latest Leap_Second.dat, IERS finals2000A.all
-# RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
+# # download latest Leap_Second.dat, IERS finals2000A.all
+RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
 
-# # Copy the demo files
-# COPY ./demo /demo
-# ENV PATH="/demo:${PATH}"
-# WORKDIR /demo
+# Copy the demo files
+COPY ./demo /demo
+ENV PATH="/demo:${PATH}"
+WORKDIR /demo
+
+# RUN <<EOF
+# #!/usr/bin/env python
+# import sys
+# from sys import implementation, stdout
+# print( f"{implementation=}", file=stdout)
+# EOF
 
 # # HACK: the calibration fitting code in mwax_mover deserves its own public repo
-# FROM d3vnull0/mwax_mover:latest as mwax_mover
-# FROM base
+FROM d3vnull0/mwax_mover:latest AS mwax_mover
+FROM base
 # # Copy files from the previous mwax_mover stage into the final image
-# COPY --from=mwax_mover /app /mwax_mover
+COPY --from=mwax_mover /app /mwax_mover
 
-# RUN cd /mwax_mover && \
-#     python -m pip install .
+RUN cd /mwax_mover && \
+    python -m pip install .
 
 # # python /mwax_mover/scripts/cal_analysis.py \
 # # --name "${name}" \
@@ -220,3 +229,5 @@ ENV PYTHONPATH="/usr/local/lib/:$PYTHONPATH"
 # # export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
 # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
 # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
+
+ENTRYPOINT /bin/bash
