@@ -97,9 +97,11 @@ macOS amd64 (Intel) and arm64 (M-Series) will work, but CPU-only.
 
 Windows users will need to use WSL2 or Docker Desktop with Git Bash.
 
-## Setup
+## Clone
 
 Clone this repository to a machine that meets the [system requirements](#system-requirements).
+
+Setonix note: a good place for this is either `$MYSOFTWARE` or `/software/projects/pawsey1094/${USER}/`
 
 ```bash
 git clone https://github.com/MWATelescope/mwa-demo.git
@@ -113,13 +115,16 @@ to check for updates right before the workshop starts with a `git pull`.
 
 Download demo data (from Pawsey). You should be in the root of the repository.
 
+Setonix note: if you intend to expand this demo further, you can change `$outdir` to `$MYSCRATCH` in `demo/00_env.sh` and `source demo/00_env.sh`
+
 ```bash
-mkdir -p demo/data/1121334536/raw
-curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
-mkdir -p demo/data/1303134032/raw
-curl -L -o demo/data/1303134032/raw/1303134032_20210422134116_gpubox20_01.fits 'https://projects.pawsey.org.au/mwa-demo/1303134032_20210422134116_gpubox20_01.fits'
-mkdir -p demo/data/1341914000/raw
-curl -L -o demo/data/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits'
+export outdir=${outdir:-${PWD}/demo/data/}
+mkdir -p ${outdir}/1121334536/raw
+curl -L -o ${outdir}/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
+mkdir -p ${outdir}/1303134032/raw
+curl -L -o ${outdir}/1303134032/raw/1303134032_20210422134116_gpubox20_01.fits 'https://projects.pawsey.org.au/mwa-demo/1303134032_20210422134116_gpubox20_01.fits'
+mkdir -p ${outdir}/1341914000/raw
+curl -L -o ${outdir}/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits'
 ```
 
 Alternatively , you can download the same demo data in your browser [here](https://curtin-my.sharepoint.com/:u:/g/personal/285446d_curtin_edu_au/EQF1Dl93KixAimsD7wi7TcYBjAUs7Y6LO08An5rKSB2cmg?e=nMtGhu) and extract it to the `demo/data` directory.
@@ -258,7 +263,7 @@ Most HPC environments don't allow you to run Docker (for security reasons).
 You can however run Docker images in Singularity.
 
 ```bash
-singularity exec -B$PWD -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
+singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
 ```
 
 </details>
