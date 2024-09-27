@@ -1,70 +1,134 @@
-name: docker
+on: [push, pull_request]
 
-on:
-  push:
+name: Docker Multiplatform
+
+env:
+  REGISTRY_IMAGE: mwatelescope/mwa-demo
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: CI
+    strategy:
+      # fail-fast: false
+      matrix:
+        platform:
+          - linux/amd64
+          # - linux/arm/v6
+          # - linux/arm/v7
+          - linux/arm64
     steps:
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          platforms: linux/amd64,linux/arm64
-          push: false
-          tags: mwatelescope/mwa-demo:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-  demo_1121334536:
-    needs: build
-    runs-on: ubuntu-latest
-    container:
-      image: mwatelescope/mwa-demo:latest
-      env:
-        obsid: 1121334536
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-      - name: download demo data
+      - name: Prepare
         run: |
-          mkdir -p demo/data/1121334536/raw
-          curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
-          echo 'ab0a3040c6adfc482ed1485fa080c18f  demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits' > demo_data.md5sum
-      - name: self-test
-        run: demo/00_test.sh
-      - name: tap
-        run: demo/01_tap.sh
-      - name: mwalib
-        run: demo/03_mwalib.sh
-      - name: ssins
-        run: demo/04_ssins.sh
-      - name: img
-        run: demo/07_img.sh
-  push:
-    needs: build # TODO: needs: demo_1121334536
-    runs-on: ubuntu-latest
-    steps:
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: ${{ matrix.platform }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: ${{ matrix.platform }}
+
+      - name: Build and push by digest
+        id: build
         uses: docker/build-push-action@v6
         with:
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: mwatelescope/mwa-demo:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    runs-on: ubuntu-latest
+    needs:
+      - build
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY_IMAGE }}@sha256:%s ' *)
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+
+  # TODO:
+  # demo_1121334536:
+  #   needs: merge
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: mwatelescope/mwa-demo:latest
+  #     env:
+  #       obsid: 1121334536
+  #   steps:
+  #     - name: Checkout sources
+  #       uses: actions/checkout@v3
+  #       with:
+  #         fetch-depth: 0
+  #     - name: download demo data
+  #       run: |
+  #         mkdir -p demo/data/1121334536/raw
+  #         curl -L -o demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits 'https://projects.pawsey.org.au/mwa-demo/1121334536_20150719094841_gpubox20_00.fits'
+  #         echo 'ab0a3040c6adfc482ed1485fa080c18f  demo/data/1121334536/raw/1121334536_20150719094841_gpubox20_00.fits' > demo_data.md5sum
+  #     - name: self-test
+  #       run: demo/00_test.sh
+  #     - name: tap
+  #       run: demo/01_tap.sh
+  #     - name: mwalib
+  #       run: demo/03_mwalib.sh
+  #     - name: ssins
+  #       run: demo/04_ssins.sh
+  #     - name: img
+  #       run: demo/07_img.sh

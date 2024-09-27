@@ -96,6 +96,7 @@ ARG SSINS_BRANCH=master
 ARG MWAQA_BRANCH=dev
 RUN python -m pip install --no-cache-dir \
     pyvo==1.5.2 \
+    psutil==6.0.0 \
     git+https://github.com/mwilensky768/SSINS.git@${SSINS_BRANCH} \
     git+https://github.com/d3v-null/mwa_qa.git@${MWAQA_BRANCH} \
     git+https://github.com/PaulHancock/Aegean.git \
@@ -104,18 +105,6 @@ RUN python -m pip install --no-cache-dir \
 
 # # download latest Leap_Second.dat, IERS finals2000A.all
 RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
-
-# Copy the demo files
-COPY ./demo /demo
-ENV PATH="/demo:${PATH}"
-WORKDIR /demo
-
-# RUN <<EOF
-# #!/usr/bin/env python
-# import sys
-# from sys import implementation, stdout
-# print( f"{implementation=}", file=stdout)
-# EOF
 
 # # HACK: the calibration fitting code in mwax_mover deserves its own public repo
 FROM d3vnull0/mwax_mover:latest AS mwax_mover
@@ -137,6 +126,18 @@ RUN cd /mwax_mover && \
 # # export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
 # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
 # # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
+
+# Copy the demo files
+COPY ./demo /demo
+ENV PATH="/demo:${PATH}"
+WORKDIR /demo
+
+# RUN <<EOF
+# #!/usr/bin/env python
+# import sys
+# from sys import implementation, stdout
+# print( f"{implementation=}", file=stdout)
+# EOF
 
 ARG TEST_SHIM=""
 RUN ${TEST_SHIM}
