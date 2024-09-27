@@ -3,21 +3,13 @@
 
 export outdir=${outdir:=${MYSCRATCH}/}
 module use /software/projects/pawsey1094/setonix/2024.05/modules/zen3/gcc/12.2.0
-module load hyperdrive/default birli/default giant-squid/default hyperbeam/default wsclean/default mwalib/default singularity/default
+# module unload ?
+module load hyperdrive/default birli/default giant-squid/default hyperbeam/default wsclean/2.9 mwalib/default singularity/default
 module load py-pip/default py-numpy/default
 pip install --user \
-    importlib_metadata==8.2.0 \
-    kneed==0.8.5 \
-    matplotlib==3.7.5 \
-    maturin[patchelf]==1.7.0 \
-    numpy==1.24.4 \
-    pandas==2.0.3 \
-    pip==24.2 \
-    pyuvdata==2.4.5 \
     pyvo==1.5.2 \
-    seaborn==0.13.2 \
     psutil==6.0.0 \
-    git+https://github.com/mwilensky768/SSINS.git@master \
+    git+https://github.com/mwilensky768/SSINS.git \
     git+https://github.com/PaulHancock/Aegean.git \
     git+https://github.com/tjgalvin/fits_warp.git \
     git+https://github.com/d3v-null/mwa_qa.git@dev
