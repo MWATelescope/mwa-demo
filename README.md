@@ -12,60 +12,60 @@ classDef file fill:#268bd2;
 classDef proc fill:#b58900;
 classDef decision fill:#cb4b16;
 
-subgraph s01 ["01. TAP"]
-  mwaTap([fa:fa-search MWA TAP ]); class mwaTap in;
-  obsids[/"fa:fa-table obsids.csv "/]; class obsids file;
+subgraph s01["01 TAP"]
+  mwaTap([ MWA TAP ]); class mwaTap in;
+  obsids[/" obsids.csv "/]; class obsids file;
   mwaTap --> obsids;
 end
 
-subgraph s02 ["02. Download"]
-  mwaAsvo([fa:fa-download MWA ASVO]); class mwaAsvo in;
-  giant-squid[[fa:fa-download giant-squid ]]; class giant-squid proc;
-  raw[/ fa:fa-file raw data /]; class raw file;
-  metafits[/ fa:fa-file metafits /]; class metafits file;
+subgraph s02["02 Download"]
+  mwaAsvo([ MWA ASVO]); class mwaAsvo in;
+  giant-squid[[ giant-squid ]]; class giant-squid proc;
+  raw[/ raw data /]; class raw file;
+  metafits[/ metafits /]; class metafits file;
   obsids --> giant-squid --> mwaAsvo --> raw & metafits;
 end
 
-subgraph s03 ["03. MWALib"]
-  mwalib[[fa:fa-wrench MWALib]]; class mwalib proc;
-  mwalibOut[/fa:fa-table antennas and channels /]; class mwalibOut file;
-  %% channels[/fa:fa-table channels.csv/]; class channels file;
+subgraph s03["03 MWALib"]
+  mwalib[[ MWALib]]; class mwalib proc;
+  mwalibOut[/ antennas and channels /]; class mwalibOut file;
+  %% channels[/ channels.csv/]; class channels file;
   metafits --> mwalib --> mwalibOut;
 end
 
-subgraph s04 ["04. SSINS"]
-  ssins[[fa:fa-flag SSINS]]; class ssins proc;
-  flags[/fa:fa-file-image flag plots/]; class flags file;
+subgraph s04["04 SSINS"]
+  ssins[[ SSINS]]; class ssins proc;
+  flags[/ flag plots/]; class flags file;
   raw & metafits --> ssins --> flags;
 end
 
 s02 -.....->|raw| s05
 
-subgraph s05 ["05. Preprocess"]
-  birli[[fa:fa-bolt Birli ]]; class birli proc;
-  prepUVFits[/fa:fa-file preprocessed uvfits /]; class prepUVFits file;
-  prepQA[[fa:fa-gem prepQA]]; class prepQA proc;
-  prepQAJson[/fa:fa-file-code prepQA json /]; class prepQAJson file;
+subgraph s05["05 Preprocess"]
+  birli[[ Birli ]]; class birli proc;
+  prepUVFits[/ preprocessed uvfits /]; class prepUVFits file;
+  prepQA[[ prepQA]]; class prepQA proc;
+  prepQAJson[/ prepQA json /]; class prepQAJson file;
   %% local copy of metafits and raw to simplify graph
-  metafits05[/fa:fa-file metafits /]; class metafits05 file;
-  raw05[/ fa:fa-file raw data /]; class raw05 file;
+  metafits05[/ metafits /]; class metafits05 file;
+  raw05[/ raw data /]; class raw05 file;
 
   metafits05 & raw05 --> birli --> prepUVFits;
   metafits05 & prepUVFits --> prepQA --> prepQAJson;
 end
 
-subgraph s06 ["06. calibrate"]
-  hypCalSol[[fa:fa-wrench hyperdrive di-cal]]; class hypCalSol proc
-  calSol[/fa:fa-file-excel cal solutions/]; class calSol file
-  prepUVFits[/fa:fa-file prep uvfits/]; class prepUVFits file
-  calQA[[fa:fa-gem calQA]]; class calQA proc;
-  calQAJson[/"fa:fa-file calqa.json "/]; class calQAJson file
-  plotSolutions[[fa:fa-gem hyperdrive solutions-plot]]; class plotSolutions proc
-  plotSol[/"fa:fa-file-image solution plots "/]; class plotSol file
-  hypApply[[fa:fa-times-circle hyperdrive solutions-apply ]]; class hypApply proc
-  calMS[/fa:fa-file calibrated CASA Measurement Set /]; class calMS file
+subgraph s06["06 calibrate"]
+  hypCalSol[[ hyperdrive di-cal]]; class hypCalSol proc
+  calSol[/ cal solutions/]; class calSol file
+  prepUVFits[/ prep uvfits/]; class prepUVFits file
+  calQA[[ calQA]]; class calQA proc;
+  calQAJson[/" calqa.json "/]; class calQAJson file
+  plotSolutions[[ hyperdrive solutions-plot]]; class plotSolutions proc
+  plotSol[/" solution plots "/]; class plotSol file
+  hypApply[[ hyperdrive solutions-apply ]]; class hypApply proc
+  calMS[/ calibrated CASA Measurement Set /]; class calMS file
   %% local copy of metafits to simplify graph
-  metafits06[/fa:fa-file metafits /]; class metafits06 file;
+  metafits06[/ metafits /]; class metafits06 file;
 
   metafits06 --> hypCalSol
   prepUVFits -----> hypCalSol --> calSol
@@ -76,13 +76,24 @@ subgraph s06 ["06. calibrate"]
   calSol & prepUVFits --> hypApply --> calMS
 end
 
-subgraph s07 ["07. image"]
-  imgDConv[/"fa:fa-file-image wsclean*.fits "/]; class imgDConv file
-  wscleanDConv[[fa:fa-image wsclean ]]; class wscleanDConv proc
-  %% imgMetricsJson[/fa:fa-file img_metrics.json /]; class imgMetricsJson file
-  %% imgQA[[fa:fa-gem imgQA]]; class imgQA proc;
-  calMS --> wscleanDConv --> imgDConv
+subgraph s07["07 image"]
+  imgDConv[/" *-image.fits "/]; class imgDConv file
+  imgPB[/" *-image-pb.fits "/]; class imgPB file
+  wscleanDConv[[ wsclean ]]; class wscleanDConv proc
+  %% imgMetricsJson[/ img_metrics.json /]; class imgMetricsJson file
+  %% imgQA[[ imgQA ]]; class imgQA proc;
+  calMS --> wscleanDConv --> imgDConv & imgPB
   %% --> imgQA --> imgMetricsJson
+end
+
+subgraph s08["08 postimage"]
+  bane[[ BANE ]]; class bane proc
+  imgPBRMS[/" *-image-pb_rms.fits "/]; class imgPBRMS file
+  imgPBBkg[/" *-image-pb_bkg.fits "/]; class imgPBBkg file
+  aegean[[ aegean ]]; class aegean proc
+  imgPBComp[/" *-image-pb_comp.fits "/]; class imgPBComp file
+  imgPB --> bane --> imgPBRMS & imgPBBkg
+  imgPBRMS & imgPBBkg --> aegean --> imgPBComp
 end
 ```
 
