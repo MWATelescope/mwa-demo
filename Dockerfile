@@ -2,9 +2,7 @@
 # cross-platform, cpu-only dockerfile for demoing MWA software stack
 # on amd64, arm64
 # ref: https://docs.docker.com/build/building/multi-platform/
-# ARG BASE_IMG="ubuntu:20.04"
-# HACK: newer python breaks on old ubuntu
-FROM mwatelescope/hyperdrive:latest-python3.11-slim-bookworm AS base
+FROM mwatelescope/hyperdrive:birli0.14 AS base
 
 # Suppress perl locale errors
 ENV LC_ALL=C
@@ -49,9 +47,6 @@ RUN apt-get update && \
     apt-get clean all && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     apt-get -y autoremove
-
-RUN cargo install mwa_giant_squid --locked && \
-    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 
 # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
 ARG CMAKE_ARGS="-DPORTABLE=True"
@@ -105,11 +100,18 @@ RUN python -m pip install --no-cache-dir \
 
 # # download latest Leap_Second.dat, IERS finals2000A.all
 RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
-
+# # HACK: just grab giant-squid from its container instead of:
+# RUN cargo install mwa_giant_squid --locked && \
+# rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+ARG BUILDPLATFORM
+FROM --platform=$BUILDPLATFORM mwatelescope/giant-squid:latest AS giant_squid
+FROM base
+# # Copy files from the previous stages into the final image
+COPY --from=giant_squid /opt/cargo/bin/giant-squid /opt/cargo/bin/giant-squid
+RUN /opt/cargo/bin/giant-squid --version
 # # HACK: the calibration fitting code in mwax_mover deserves its own public repo
 FROM d3vnull0/mwax_mover:latest AS mwax_mover
 FROM base
-# # Copy files from the previous mwax_mover stage into the final image
 COPY --from=mwax_mover /app /mwax_mover
 
 RUN cd /mwax_mover && \
@@ -118,7 +120,7 @@ RUN cd /mwax_mover && \
 # # python /mwax_mover/scripts/cal_analysis.py \
 # # --name "${name}" \
 # # --metafits "${metafits}" --solns ${soln} \
-# # --phase-diff-path=/app/phase_diff.txt \
+# # --phase-diff-path=/mwax_mover/phase_diff.txt \
 # # --plot-residual --residual-vmax=0.5
 
 # # export metafits=${outdir}/${obsid}/raw/${obsid}.metafits

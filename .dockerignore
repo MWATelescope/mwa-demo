@@ -5,6 +5,10 @@
 .venv
 .vscode
 *.zip
+*.fits
+*.h5
+*.yaml
+*.png
 bin
 offcuts
 supplemental
