@@ -61,8 +61,11 @@ fi
 # ####### #
 # DEMO: download srclist unless it exists
 if [[ $srclist =~ srclist_puma && ! -f "$srclist" ]]; then
-    echo "downloading srclist ${srclist} from github"
+    echo "downloading srclist ${srclist} from JLBLine/srclists github"
     curl -L -o $srclist "https://github.com/JLBLine/srclists/raw/master/${srclist##*/}"
+elif [[ $srclist =~ GGSM && ! -f "$srclist" ]]; then
+    echo "downloading srclist ${srclist} from GLEAM-X/GLEAM-X-pipeline github"
+    curl -L -o $srclist "https://github.com/GLEAM-X/GLEAM-X-pipeline/raw/master/models/${srclist##*/}"
 fi
 # DEMO: verify srclist
 hyperdrive srclist-verify $srclist
@@ -115,9 +118,9 @@ EoF
 rm .wsclean_version
 
 # DEMO: check python version
-if ! python -c $'"assert __import__(\'sys\').version_info>=(3,8)"' >/dev/null; then
-    echo "warning: python version 3.8+ not found https://www.python.org/downloads/ "
+if ! python -c $'"assert __import__(\'sys\').version_info>=(3,11)"' >/dev/null; then
     python --version
+    echo "warning: python version 3.11+ not found https://www.python.org/downloads/ , some stuff will not work"
 fi
 
 # DEMO: check python packages
@@ -127,10 +130,12 @@ while IFS='|' read -r package details; do
         echo details: $details
     fi
 done <<'EoF'
-pyvo|    https://pyvo.readthedocs.io/en/latest/#installation
-mwalib|  https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users
-ssins|   https://github.com/mwilensky768/SSINS?tab=readme-ov-file#installation
-mwa_qa|  git clone https://github.com/d3v-null/mwa_qa.git ; pip install mwa_qa
+pyvo|        pip install pyvo # https://pyvo.readthedocs.io/en/latest/#installation
+mwalib|      pip install mwalib # https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/348127236/mwalib
+ssins|       pip install git+https://github.com/mwilensky768/SSINS.git # https://github.com/mwilensky768/SSINS#installation
+mwa_qa|      pip install git+https://github.com/d3v-null/mwa_qa.git@dev
+AegeanTools| pip install git+https://github.com/PaulHancock/Aegean.git
+fits_warp|   pip install psutil git+https://github.com/tjgalvin/fits_warp.git
 EoF
 
 # DEMO: is the MWA TAP server accessible?

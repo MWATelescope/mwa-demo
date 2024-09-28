@@ -16,6 +16,8 @@ export outdir=${outdir:-${PWD}/demo/data/}
 unset srclist
 unset MWA_BEAM_FILE
 export srclist=${srclist:-${outdir}/srclist_pumav3_EoR0LoBES_EoR1pietro_CenA-GP_2023-11-07.yaml}
+# hint: here's another sky model you can try.
+# export srclist=${srclist:-${outdir}/GGSM_updated.fits}
 export MWA_BEAM_FILE=${MWA_BEAM_FILE:-${outdir}/mwa_full_embedded_element_pattern.h5}
 
 # #### #
