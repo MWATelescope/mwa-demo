@@ -62,13 +62,14 @@ fi
 set -eu
 
 if [[ ! -f "$hyp_soln" ]]; then
+    echo "calibrating with sourcelist $srclist"
     hyperdrive di-calibrate ${dical_args:-} \
         --data "$metafits" "$prep_uvfits" \
         --source-list "$srclist" \
         --outputs "$hyp_soln" \
         $([[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants)
 else
-    echo "hyp_soln=$hyp_soln exists, skipping hyperdrive di-calibrate"
+    echo "hyp_soln $hyp_soln exists, skipping hyperdrive di-calibrate"
 fi
 
 # plot solutions file
@@ -80,7 +81,7 @@ if [[ ! -f "${hyp_soln%%.fits}_phases.png" ]]; then
         --output-directory "${outdir}/${obsid}/cal" \
         "$hyp_soln"
 else
-    echo "phases_png=${hyp_soln%%.fits}_phases.png exists, skipping hyperdrive solutions-plot"
+    echo "phases_png ${hyp_soln%%.fits}_phases.png exists, skipping hyperdrive solutions-plot"
 fi
 
 # ###### #
@@ -91,13 +92,23 @@ fi
 export calqa="${hyp_soln%%.fits}_qa.json"
 
 if [[ ! -f "$calqa" ]]; then
+    echo "running calqa on solutions $hyp_soln"
     run_calqa.py --pol X --out "$calqa" "$hyp_soln" "$metafits"
 else
-    echo "calqa=$calqa exists, skipping run_calqa.py"
+    echo "calqa $calqa exists, skipping run_calqa.py"
 fi
 
 # plot the cal qa results
 plot_calqa.py "$calqa" --save --out "${hyp_soln%%.fits}"
+
+# extract the percentage of channels that converged
+cal_pct_nonconvg=$(jq -r $'.PERCENT_NONCONVERGED_CHS|tonumber|round' "$calqa")
+export cal_pct_nonconvg
+
+if [[ $cal_pct_nonconvg -ge 95 ]]; then
+    echo "calibration failed, $cal_pct_nonconvg% of channels did not converge. hint: try a different sky model in demo/00_env.sh"
+    exit 1
+fi
 
 # extract bad antennas from calqa json with jq
 cal_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' "$calqa")
@@ -115,5 +126,5 @@ if [[ ! -d "$cal_ms" ]]; then
         --outputs "$cal_ms" \
         $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
 else
-    echo "cal_ms=$cal_ms exists, skipping hyperdrive apply"
+    echo "cal_ms $cal_ms exists, skipping hyperdrive apply"
 fi
