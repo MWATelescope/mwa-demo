@@ -1,13 +1,33 @@
 # Setup instructions
 
+## Setonix
+
+If you are attending Radio School 2024 in person, you should have received an invite to create a
+[Pawsey account](https://docs.google.com/document/d/1oEcX8glqemYe73wuqpHCyfGUCSO3PFmYOgecsUzces8/edit#heading=h.lgs4oa3svljd). Otherwise, the rest of this document will guide you through how to set up this workshop on another machine.
+
+It is recommended that you register for an [MWA ASVO account](#asvo-account).
+
+The workshop software has been installed for all members of the Radio School group (`pawsey1094`). You should check that you are a member of this group by logging in to Setonix and checking the `groups` command.
+
+Setonix users will not need to download any data, however you will need to:
+
+- [clone this repository](#clone)
+- run [`demo/00_setonix.sh`](demo/00_setonix.sh) to set everything up
+- run [`demo/00_test.sh`](demo/00_test.sh) to check everything is working
+
+## Overview
+
+- You will need access to install software on a system meeting the [system requirements](#system-requirements)
+- [clone this repository](#clone)
+
 ## System Requirements
 
-This demo runs best on a linux amd64 (x86_64) machine with at least:
+This demo runs best on a linux x86 machine with at least:
 
 - 16GB of RAM
 - 20GB free disk space
 
-macOS amd64 (Intel) and arm64 (M-Series) will work, but CPU-only.
+macOS x86 and arm (newer M-Series) will work, but CPU-only.
 
 Windows users will need to use WSL2 or Docker Desktop with Git Bash.
 
@@ -15,7 +35,7 @@ Windows users will need to use WSL2 or Docker Desktop with Git Bash.
 
 Clone this repository to a machine that meets the [system requirements](#system-requirements).
 
-Setonix note: a good place for this is either `$MYSOFTWARE` or `/software/projects/pawsey1094/${USER}/`
+Setonix note: a good place for this is `$MYSOFTWARE` or `/software/projects/pawsey1094/${USER}/`
 
 ```bash
 git clone https://github.com/MWATelescope/mwa-demo.git
@@ -25,50 +45,23 @@ cd mwa-demo
 If you originally cloned this repository days before the workshop, it's a good idea
 to check for updates right before the workshop starts with a `git pull`.
 
-## Setonix
+## Downloads
 
-Setonix users will not need to download any data or prepare software in advance.
-
-Most software has been prepared as a loadable module, however this is only
-accessible for users in the pawsey1094 group.
-
-You can test your shell is ready for the demo with these commands from the directory you cloned
-mwa-demo into
-
-```bash
-# cd mwa-demo
-mkdir -p demo/data/1341914000/raw
-curl -L -o demo/data/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits'
-
-# module unload
-module use /software/projects/pawsey1094/setonix/2024.05/modules/zen3/gcc/12.2.0
-module load hyperdrive/default birli/default giant-squid/default hyperbeam/default wsclean/2.9 mwalib/default singularity/default
-module load py-pip/default py-numpy/default
-pip install --user \
-    pyvo==1.5.2 \
-    psutil==6.0.0 \
-    git+https://github.com/mwilensky768/SSINS.git@master \
-    git+https://github.com/PaulHancock/Aegean.git \
-    git+https://github.com/tjgalvin/fits_warp.git \
-    git+https://github.com/d3v-null/mwa_qa.git@dev
-
-export PATH=${PATH}:${PWD}/bin
-demo/00_test.sh
-```
+Each workshop in the demo uses different data sets. You can refer to the start of the [workshop instructions](README.md#workshops) for how to download that data, or download it yourself with [demo/01_download.sh](demo/01_download.sh) if you have an ASVO account.
 
 ## Software dependencies
 
 There are several ways that you can provide the software dependencies to run this demo:
 
-- docker: run the software in a Docker container (**recommended for new users!**)
-- bare metal: install everything to your local machine (best for performance)
-- hybrid: use a mix of Docker and local software (good balance)
-- singularity: similar to Docker, but for shared HPC environments
+- *docker*: run the software in a Docker container (**recommended for new users!**)
+- *bare metal*: install everything to your local machine (best for performance)
+- *hybrid*: use a mix of Docker and local software (good balance)
+- *singularity*: similar to Docker, but for shared HPC environments
 
 The scripts in this demo are designed to be run from a Bash shell, with all
 binaries available in `$PATH`.
 
-When your software environment is ready, you can test it by running `demo/00_test.sh`
+When your software environment is ready, you can test it by running [`demo/00_test.sh`](demo/00_test.sh)
 
 ### Windows
 
@@ -106,7 +99,7 @@ quick start: pull the images from dockerhub.
 docker pull mwatelescope/mwa-demo:latest
 ```
 
-When [running the demo](#running-the-demo), you should run the commands in an interactive Docker shell.
+When running the demo, you should run the commands in an interactive Docker shell.
 
 ```bash
 docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} -e MWA_ASVO_API_KEY=$MWA_ASVO_API_KEY mwatelescope/mwa-demo:latest
@@ -140,13 +133,15 @@ machine.
 
 Advanced users can provide additional compiler flags during the build process to optimize for their specific CPU micro-architecture. e.g. `-march=native` for C/C++, or `-C target-cpu=native` for Rust.
 
-The steps in the `Dockerfile` may be a useful guide.
+The steps in the [Dockerfile](Dockerfile) may be a useful guide.
 
-- python 3.8+ <https://www.python.org/downloads/>
+- python 3.11+ <https://www.python.org/downloads/>
   - pyvo <https://pyvo.readthedocs.io/en/latest/#installation>
-  - mwalib <https://github.com/MWATelescope/mwalib/wiki/Installation%3A-Python-Users>
-  - ssins <https://github.com/mwilensky768/SSINS#installation>
-  - mwa_qa `git clone https://github.com/d3v-null/mwa_qa.git ; pip install .`
+  - mwalib `pip install mwalib` <https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/348127236/mwalib>
+  - ssins `pip install git+https://github.com/mwilensky768/SSINS.git` <https://github.com/mwilensky768/SSINS#installation>
+  - mwa_qa `pip install git+https://github.com/d3v-null/mwa_qa.git@dev`
+  - AegeanTools `pip install git+https://github.com/PaulHancock/Aegean.git` <https://aegeantools.rtfd.io/>
+  - fits_warp `pip install psutil git+https://github.com/tjgalvin/fits_warp.git`
 - jq <https://jqlang.github.io/jq/download/>
 - AOFlagger <https://aoflagger.readthedocs.io/en/latest/installation.html>
 - wsclean <https://wsclean.readthedocs.io/en/latest/installation.html>
@@ -222,7 +217,7 @@ Please ensure that:
 - scripts are run from the root of the repository (don't `cd` into the `demo` directory).
 - scripts are not sourced, and are run directly.
 - (if [Docker](#docker)) you are in a Docker shell, not your host system.
-- (if [hybrid](#hybrid)), you have run `demo/00_hybrid.sh` and `export PATH=${PATH}:${PWD}/bin/`
+- (if [hybrid](#hybrid)), you have run [`demo/00_hybrid.sh`](demo/00_hybrid.sh) and `export PATH=${PATH}:${PWD}/bin/`
 - (if [singularity](#singularity)), you are in a Singularity shell, `singularity exec -B$PWD -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash`
 
 ## Customization
@@ -230,7 +225,7 @@ Please ensure that:
 <details>
   <summary>For advanced users</summary>
 
-You may wish to customize some of the other parameters in `demo/00_env.sh`, e.g.:
+You may wish to customize some of the other parameters in [`demo/00_env.sh`](demo/00_env.sh), e.g.:
 
 - `$outdir` the output directory, where files are written. If you're extending
   this demo with more observations, you may want to put the files in a directory
