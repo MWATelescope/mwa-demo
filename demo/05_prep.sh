@@ -46,15 +46,17 @@ export prepqa="${prep_uvfits%%.uvfits}_qa.json"
 
 set -eu
 if [[ ! -f $prep_uvfits ]]; then
+    #  --provided-chan-ranges
     birli ${birli_args:-} \
         -m "${metafits}" \
         $([[ -n "${edgewidth_khz:-}" ]] && echo "--flag-edge-width ${edgewidth_khz}") \
         $([[ -n "${freqres_khz:-}" ]] && echo "--avg-freq-res ${freqres_khz}") \
         $([[ -n "${timeres_s:-}" ]] && echo "--avg-time-res ${timeres_s}") \
         -u "${prep_uvfits}" \
-        $raw_glob
+        $raw_glob \
+        $@
 else
-    echo "prep_uvfits=$prep_uvfits exists, skipping birli"
+    echo "prep_uvfits $prep_uvfits exists, skipping birli"
 fi
 
 # ####### #
