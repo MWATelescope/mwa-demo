@@ -15,6 +15,7 @@ RUN apt-get update && \
     clang \
     cmake \
     curl \
+    ffmpeg \
     g++ \
     jq \
     lcov \
@@ -41,6 +42,7 @@ RUN apt-get update && \
     procps \
     tzdata \
     unzip \
+    vim \
     wget \
     zip \
     && \
@@ -115,7 +117,9 @@ FROM base
 COPY --from=mwax_mover /app /mwax_mover
 
 RUN cd /mwax_mover && \
+    chmod +x /mwax_mover/scripts/*.py && \
     python -m pip install .
+ENV PATH="/mwax_mover/scripts/:${PATH}"
 
 # # python /mwax_mover/scripts/cal_analysis.py \
 # # --name "${name}" \
