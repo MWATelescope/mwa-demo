@@ -13,7 +13,7 @@ if [[ "$PAWSEY" == "setonix" ]]; then
     fi
     # TODO: maybe module unuse and module unload first?
     module use $modulepath
-    module load hyperdrive/default birli/default giant-squid/default hyperbeam/default wsclean/2.9 mwalib/default singularity/default
+    module load hyperdrive/default birli/default giant-squid/default hyperbeam/default wsclean/default mwalib/default singularity/default
     module load py-pip/default py-numpy/default
 fi
 
