@@ -1,6 +1,21 @@
 #!/bin/bash
 # common environment variable defaults for the demo
-# - will not overwrite most environment variables
+
+# overrides for Setonix
+if [[ "$PAWSEY" == "setonix" ]]; then
+    # set outdir to $MYSCRATCH if it's not already set.
+    if [[ -n $MYSCRATCH ]]; then export outdir=${outdir:-${MYSCRATCH}}; fi
+    # load the radio school modules
+    export modulepath="/software/projects/pawsey1094/setonix/2024.05/modules/zen3/gcc/12.2.0"
+    if [[ ! -d $modulepath ]]; then
+        echo "modulepath $modulepath does not exist"
+        exit 1;
+    fi
+    # TODO: maybe module unuse and module unload first?
+    module use $modulepath
+    module load hyperdrive/default birli/default giant-squid/default hyperbeam/default wsclean/2.9 mwalib/default singularity/default
+    module load py-pip/default py-numpy/default
+fi
 
 # silly hack for macOS Birli
 if [[ $(uname -o) == "Darwin" ]]; then
@@ -8,6 +23,7 @@ if [[ $(uname -o) == "Darwin" ]]; then
 fi
 
 # base directory for demo data
+# - defaults to demo/data in the current working directory (^ unless Setonix)
 # - you may want to change this do a directory with more space if extending this demo
 export outdir=${outdir:-${PWD}/demo/data/}
 
@@ -20,18 +36,11 @@ export srclist=${srclist:-${outdir}/srclist_pumav3_EoR0LoBES_EoR1pietro_CenA-GP_
 # export srclist=${srclist:-${outdir}/GGSM_updated.fits}
 export MWA_BEAM_FILE=${MWA_BEAM_FILE:-${outdir}/mwa_full_embedded_element_pattern.h5}
 
-# #### #
-# BINS #
-# #### #
-# default values for binaries if not already set
-export hyperdrive=${hyperdrive:-hyperdrive}
-export wsclean=${wsclean:-wsclean}
-# export casa=${casa:-casa}
-export python=${python:-python}
-export giant_squid=${giant_squid:-giant-squid}
-export jq=${jq:-jq}
-export birli=${birli:-birli}
-export run_prepqa=${run_prepqa:-run_prepvisqa.py}
-export plot_prepqa=${plot_prepqa:-plot_prepvisqa.py}
-export run_calqa=${run_calqa:-run_calqa.py}
-export plot_calqa=${plot_calqa:-plot_calqa.py}
+
+# ####### #
+# SUMMARY #
+# ####### #
+
+echo "outdir:        $outdir"
+echo "srclist:       $srclist"
+echo "MWA_BEAM_FILE: $MWA_BEAM_FILE"
