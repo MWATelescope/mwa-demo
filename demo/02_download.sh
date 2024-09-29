@@ -57,14 +57,13 @@ echo " -> download a job"
 echo "giant-squid download jobid"
 echo ""
 
-echo " -> download a bunch of obsids with the script at the bottom of 02_download.sh"
-exit 0
-
+echo " -> download a bunch of obsids"
+cat <<'EOF'
 giant-squid list $obsids_csv --states ready --json | jq -r $'.[]|[.jobId,.obsid]|@tsv' | while IFS=$'\t' read -r jobid obsid; do
-    echo jobid=$jobid obsid=$obsid
     mkdir -p $outdir/$obsid/raw;
     cd $_;
-    if eval ls -1 ${obsid}_2*.fits; then continue; fi
+    if eval ls -1 ${obsid}_2*.fits 2>/dev/null ; then echo "skipping obsid=$obsid"; continue; fi
     giant-squid download $jobid;
     cd -;
 done
+EOF
