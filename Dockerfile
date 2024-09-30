@@ -106,14 +106,14 @@ RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.d
 # RUN cargo install mwa_giant_squid --locked && \
 # rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
 ARG BUILDPLATFORM
+# # HACK: copy giant squid binary from its own image
 FROM --platform=$BUILDPLATFORM mwatelescope/giant-squid:latest AS giant_squid
+# # HACK: the calibration fitting code in mwax_mover deserves its own public repo
+FROM d3vnull0/mwax_mover:latest AS mwax_mover
 FROM base
 # # Copy files from the previous stages into the final image
 COPY --from=giant_squid /opt/cargo/bin/giant-squid /opt/cargo/bin/giant-squid
 RUN /opt/cargo/bin/giant-squid --version
-# # HACK: the calibration fitting code in mwax_mover deserves its own public repo
-FROM d3vnull0/mwax_mover:latest AS mwax_mover
-FROM base
 COPY --from=mwax_mover /app /mwax_mover
 
 RUN cd /mwax_mover && \
