@@ -56,7 +56,7 @@ if ! eval ls -1 $prep_uvfits_pattern 2>/dev/null; then
         $([[ -n "${freqres_khz:-}" ]] && echo " freq res ${freqres_khz}kHz") \
         $([[ -n "${timeres_s:-}" ]] && echo " time res ${timeres_s}s") \
         ;
-    /software/projects/mwaeor/dev/setonix/2024.05/software/linux-sles15-zen3/gcc-12.2.0/birli-main-soerdr3lmpn6rottzxzdxb2iehej73eu/bin/birli ${birli_args:-} \
+    birli ${birli_args:-} \
         -m "${metafits}" \
         $([[ -n "${edgewidth_khz:-}" ]] && echo "--flag-edge-width ${edgewidth_khz}") \
         $([[ -n "${freqres_khz:-}" ]] && echo "--avg-freq-res ${freqres_khz}") \
