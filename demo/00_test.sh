@@ -124,7 +124,7 @@ fi
 
 # DEMO: check python packages
 while IFS='|' read -r package details; do
-    if ! eval "$python -m pip show $package >/dev/null"; then
+    if ! eval "python -m pip show $package >/dev/null"; then
         echo "recommended: python package $package not found."
         echo details: $details
     fi
