@@ -50,6 +50,10 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     apt-get -y autoremove
 
+# install giant-squid
+RUN cargo install mwa_giant_squid --locked && \
+    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+
 # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
 ARG CMAKE_ARGS="-DPORTABLE=True"
 
@@ -102,19 +106,17 @@ RUN python -m pip install --no-cache-dir \
 
 # # download latest Leap_Second.dat, IERS finals2000A.all
 RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
-# # HACK: just grab giant-squid from its container instead of:
-# RUN cargo install mwa_giant_squid --locked && \
-# rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
-ARG BUILDPLATFORM
-# # HACK: copy giant squid binary from its own image
-FROM --platform=$BUILDPLATFORM mwatelescope/giant-squid:latest AS giant_squid
+
+# FROM mwatelescope/giant-squid:latest AS giant_squid
+# RUN /opt/cargo/bin/giant-squid --version
 # # HACK: the calibration fitting code in mwax_mover deserves its own public repo
 FROM d3vnull0/mwax_mover:latest AS mwax_mover
 FROM base
 # # Copy files from the previous stages into the final image
-COPY --from=giant_squid /opt/cargo/bin/giant-squid /opt/cargo/bin/giant-squid
-RUN /opt/cargo/bin/giant-squid --version
 COPY --from=mwax_mover /app /mwax_mover
+# copy giant squid binary from its own image
+# COPY --from=giant_squid /opt/cargo/bin/giant-squid /opt/cargo/bin/giant-squid
+# RUN /opt/cargo/bin/giant-squid --version
 
 RUN cd /mwax_mover && \
     chmod +x /mwax_mover/scripts/*.py && \
