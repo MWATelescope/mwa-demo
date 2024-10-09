@@ -125,6 +125,7 @@ docker build -t mwatelescope/mwa-demo:latest -f Dockerfile .
 
 ### Bare Metal
 
+<!-- markdownlint-disable MD033 -->
 <details>
   <summary>For advanced users</summary>
 
@@ -302,7 +303,7 @@ docker buildx build \
 If you add extra raw files, you can add their checksums with
 
 ```bash
-md5sum demo/data/*/raw/1*fits | tee demo_data.md5sum
+md5sum demo/data/*/raw/1*_2*fits | tee demo_data.md5sum
 ```
 
 </details>

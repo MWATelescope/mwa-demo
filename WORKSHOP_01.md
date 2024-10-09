@@ -78,7 +78,7 @@ now let's look at the rest of the obsids
 
 ```bash
 for obsid in 1121334536 1303134032 1341914000; do
-  demo/07_img.sh || break
+  obsid=$obsid demo/07_img.sh || break
 done
 ```
 
@@ -90,7 +90,7 @@ combine them all into a single image
 
 ```bash
 rm -rf ${outdir}/combined/img/
-obsid="combined" cal_ms=$(ls -1d ${outdir}/13*/cal/hyp_cal_*.ms ) demo/07_img.sh
+obsid="combined" cal_ms=$(ls -1d ${outdir}/{1121334536,1303134032,1341914000}/cal/hyp_cal_*.ms ) demo/07_img.sh
 ```
 
 ## Cleanup
