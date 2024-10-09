@@ -83,9 +83,9 @@ hyperdrive beam fee --output /dev/null
 # #### #
 # DATA #
 # #### #
-# DEMO: check raw files are present
+# DEMO: check raw files are present (won't work on Pawsey)
 if command -v md5sum &>/dev/null; then
-    if [[ -f "demo_data.md5sum" ]]; then
+    if [[ -f "demo_data.md5sum" ]] && [[ -z ${PAWSEY:-} ]]; then
         echo "validating raw files with md5sum, see README.md for download links"
         md5sum -c demo_data.md5sum
     fi
