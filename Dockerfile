@@ -95,9 +95,17 @@ RUN git clone --depth 1 --branch=${WSCLEAN_BRANCH} https://gitlab.com/aroffringa
 # install python prerequisites
 ARG SSINS_BRANCH=master
 ARG MWAQA_BRANCH=dev
-RUN python -m pip install --no-cache-dir \
+RUN python -m pip install --no-cache-dir --force-reinstall \
     pyvo==1.5.2 \
     psutil==6.0.0 \
+    astropy>=6.0 \
+    docstring_parser==0.15 \
+    h5py>=3.4 \
+    numpy>=1.23 \
+    pyerfa>=2.0.1.1 \
+    pyyaml>=5.4.1 \
+    scipy>=1.8 \
+    setuptools_scm>=8.1 \
     git+https://github.com/mwilensky768/SSINS.git@${SSINS_BRANCH} \
     git+https://github.com/d3v-null/mwa_qa.git@${MWAQA_BRANCH} \
     git+https://github.com/PaulHancock/Aegean.git \
