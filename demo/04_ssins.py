@@ -251,6 +251,8 @@ def get_unflagged_ants(ss: UVData, args):
 
     if args.sel_ants:
         sel_ants = np.array([*map(sanitize, args.sel_ants)])
+        if not set(present_ant_names).intersection(sel_ants):
+            print(f"no intersection between {sel_ants=} and {present_ant_names=}")
         return present_ant_nums[np.where(np.isin(present_ant_names, sel_ants))[0]]
     elif args.skip_ants:
         skip_ants = np.array([*map(sanitize, args.skip_ants)])
@@ -314,8 +316,8 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
     for ant_idx, (ant_num, ant_name) in enumerate(zip(ant_numbers, ant_names)):
         if ant_num not in unflagged_ants:
             continue
-        # select only the auto-correlation for this antenna
-        ssa = ss.select(antenna_nums=[(ant_num, ant_num)], inplace=False)
+        # select only baselines or autos with this antenna
+        ssa = ss.select(ant_str=f"{ant_num}", inplace=False)
         ins = INS(ssa, spectrum_type=args.spectrum_type)
         mf.apply_match_test(ins)
         ins.sig_array[~np.isfinite(ins.sig_array)] = 0
