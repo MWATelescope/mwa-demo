@@ -7,8 +7,8 @@ This is a work in progress.
 ### from part 1
 
 ```bash
-mkdir -p ${outdir}/1341914000/raw
-curl -L -o ${outdir}/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits'
+mkdir -p ${outdir:-./demo/data}/1341914000/raw
+curl -L -o ${outdir:-./demo/data}/1341914000/raw/1341914000_20220715095302_ch137_000.fits 'https://projects.pawsey.org.au/mwa-demo/1341914000_20220715095302_ch137_000.fits'
 ```
 
 ### New
@@ -23,12 +23,16 @@ curl -L -o demo/data/1060550888/raw/1060550888_20130814212851_gpubox12_01.fits '
 Did aoflagger really get all the RFI? you can inspect the raw, preprocessed and calibrated files using ssins.py.
 
 ```bash
-export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-export raw="$(ls -1 ${outdir}/${obsid}/raw/${obsid}*.fits)"
-export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
-export cal_ms="${outdir}/${obsid}/cal/hyp_cal_${obsid}.ms"
+# export obsid=...
+export metafits=${outdir:-./demo/data}/${obsid}/raw/${obsid}.metafits
+export raw="$(ls -1 ${outdir:-./demo/data}/${obsid}/raw/${obsid}*.fits)"
+export cal_ms="${outdir:-./demo/data}/${obsid}/cal/hyp_cal_${obsid}.ms"
 python demo/04_ssins.py $metafits $raw
-python demo/04_ssins.py $prep_uvfits
+# examine AOFlagger flags from preprocessed uvfits
+demo/05_prep.sh
+python demo/04_ssins.py --flags --no-diff ${outdir:-./demo/data}/${obsid}/prep/birli_${obsid}*.uvfits
+# examine flagged measurement set
+demo/06_cal.sh
 python demo/04_ssins.py $cal_ms
 ```
 
@@ -126,6 +130,8 @@ python demo/04_ssins.py demo/data/1089238040/raw/1089238040{.metafits,_201407122
 ```bash
 python demo/04_ssins.py demo/data/1090871744/raw/1090871744{.metafits,_20140731195531_gpubox18_00.fits} --no-diff --crosses --suffix '.ch137' --sel-pols xx
 ```
+
+todo: all-sky images
 
 ![ch137 Slow TV](demo/data/1090871744/raw/1090871744.cross.ch137.xx.spectrum.png)
 
