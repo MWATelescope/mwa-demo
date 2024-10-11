@@ -37,7 +37,7 @@ fi
 # uncomment to modify preprocessing settings
 # export freqres_khz=10     # frequency resolution to average to in kHz
 # export birli_args=""      # extra birli args if any
-export timeres_s=8      # time resolution to average to in seconds
+# export timeres_s=4      # time resolution to average to in seconds
 export edgewidth_khz=80 # edge width to flag on each coarse channel in kHz
 
 mkdir -p "${outdir}/${obsid}/prep"
@@ -64,7 +64,7 @@ if ! eval ls -1 $prep_uvfits_pattern 2>/dev/null; then
         -u "${prep_uvfits}" \
         $raw_pattern \
         $@
-        # -M "${prep_uvfits%%.uvfits}.ms" \
+    # -M "${prep_uvfits%%.uvfits}.ms" \
 else
     echo "prep_uvfits $prep_uvfits_pattern exists, skipping birli"
 fi
