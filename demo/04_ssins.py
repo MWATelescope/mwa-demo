@@ -16,6 +16,7 @@ from itertools import groupby
 import re
 import time
 from pathlib import Path
+import pandas as pd
 
 from matplotlib.axis import Axis
 
@@ -176,6 +177,10 @@ def get_parser():
         help="additional text to add to plot output filename",
     )
     group_plot.add_argument("--fontsize", default=8, help="plot tick label font size")
+
+    parser.add_argument(
+        "--export-tsv", default=False, action="store_true", help="export values to TSV"
+    )
 
     return parser
 
@@ -397,6 +402,7 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     pols = ss.get_pols()
     gps_times = get_gps_times(ss)
     freqs_mhz = (ss.freq_array) / 1e6
+    channames = [f"{ch: 8.4f}" for ch in freqs_mhz]
 
     subplots = plt.subplots(
         2,
@@ -434,6 +440,16 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
             if a == len(ax_mets) - 1:
                 ax.set_xlabel("Frequency channel [MHz]")
 
+            if args.export_tsv:
+                df = pd.DataFrame(metric, columns=channames, index=gps_times)
+                df.to_csv(
+                    p := f"{obsname}{suffix}.{pol}.tsv",
+                    index_label="gps_time",
+                    float_format="%.3f",
+                    sep="\t",
+                )
+                print(p)
+
     plt.gcf().set_size_inches(8 * len(pols), 16)
 
 
@@ -451,7 +467,7 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
     max_occupancy = np.nanmax(occupancy)
     print(f"{max_occupancy=}")
     # clip at half occupancy
-    # occupancy[occupancy <= full_occupancy_value / 2] = full_occupancy_value / 2
+    # occupancy[occupancy >= full_occupancy_value / 2] = full_occupancy_value / 2
 
     occupancy /= full_occupancy_value
 
@@ -606,6 +622,9 @@ def main():
         select_kwargs["polarizations"] = args.sel_pols
     ss.select(inplace=True, **select_kwargs)
     # TODO: ss.apply_flags(flag_choice=flag_choice) ?
+
+    times = Time(np.unique(ss.time_array), format="jd")
+    print("times from ", times[0].isot, " to ", times[-1].isot)
 
     plt.style.use("dark_background")
     cmap = mpl.colormaps.get_cmap(args.cmap)
