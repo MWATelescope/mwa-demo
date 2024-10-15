@@ -101,12 +101,19 @@ def get_parser():
         help="polarizations to select, default: all",
     )
 
+    group_sel.add_argument(
+        "--freq-range",
+        default=None,
+        nargs=2,
+        help="frequency start and end to filter on, default: all",
+    )
+
     # arguments for SSINS.INS
     group_ins = parser.add_argument_group("SSINS.INS")
     group_ins.add_argument(
         "--spectrum-type",
-        default="auto",
-        choices=["auto", "cross"],
+        default="all",
+        choices=["all", "auto", "cross"],
         help="analyse auto-correlations or cross-correlations. default: auto",
     )
     group_ins.add_argument(
@@ -272,7 +279,8 @@ def get_gps_times(uvd: UVData):
 
 def get_suffix(args):
     suffix = args.suffix
-    suffix = f".{args.spectrum_type}{suffix}"
+    if args.spectrum_type != "all":
+        suffix = f".{args.spectrum_type}{suffix}"
     if args.diff:
         suffix = f".diff{suffix}"
     if len(args.sel_ants) == 1:
@@ -358,9 +366,9 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
                 -0.5,
             ],
         )
-        ax_signal.set_yticks(np.arange(len(unflagged_ants)))
-        ax_signal.tick_params(pad=True)
-        ax_signal.set_yticklabels(
+        ax_signal.yaxis.set_ticks(np.arange(len(unflagged_ants)))
+        ax_signal.yaxis.tick_params(pad=True)
+        ax_signal.yaxis.set_ticklabels(
             ant_labels, fontsize=args.fontsize, fontfamily="monospace"
         )
 
@@ -443,7 +451,7 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
             if args.export_tsv:
                 df = pd.DataFrame(metric, columns=channames, index=gps_times)
                 df.to_csv(
-                    p := f"{obsname}{suffix}.{pol}.tsv",
+                    p := f"{obsname}.{name}{suffix}.{pol}.tsv",
                     index_label="gps_time",
                     float_format="%.3f",
                     sep="\t",
@@ -526,13 +534,31 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     # group and read raw by channel to save memory
     raw_channel_groups = group_raw_by_channel(metafits, raw_fits)
     # channels not always aligned in time
-    times = mwalib_get_common_times(metafits, raw_fits)
+    good = False
+    times = mwalib_get_common_times(metafits, raw_fits, good)
     time_array = times.jd.astype(float)
+    print(
+        f"times from {times[0].isot} ({times[0].gps}) to {times[-1].isot} ({times[-1].gps})"
+    )
+
     n_chs = len(raw_channel_groups)
     for ch_idx, ch in enumerate(sorted([*raw_channel_groups.keys()])):
         # make a new UVData object, the same type as
         uvd_ = type(uvd)()
         channel_raw_fits = raw_channel_groups[ch]
+        channel_times = mwalib_get_common_times(metafits, raw_fits, good)
+        print(
+            f"channel {ch} times from {channel_times[0].isot} ({channel_times[0].gps}) to {channel_times[-1].isot} ({channel_times[-1].gps})"
+        )
+        if channel_times[0] != times[0]:
+            print(
+                f"WARN: channel {ch} starts at {channel_times[0].isot} but common is {times[0].isot}"
+            )
+        if channel_times[-1] != times[-1]:
+            print(
+                f"WARN: channel {ch} ends at {channel_times[-1].isot} but common is {times[-1].isot}"
+            )
+
         channel_size_mb = sum([file_sizes_mb[f] for f in channel_raw_fits])
         print(
             f"reading channel {ch}: {int(channel_size_mb)}MB of raw files ({ch_idx+1} of {n_chs})"
@@ -555,19 +581,12 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
 
     read_time = time.time() - start
     print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
-    return uvd
 
 
-def main():
-    parser = get_parser()
-    args = parser.parse_args()
-    print(f"{args=}")
-
+def read_select(uvd: UVData, args):
     file_groups = group_by_filetype(args.files)
 
     print(f"reading from {file_groups=}")
-    # sky-subtract https://ssins.readthedocs.io/en/latest/sky_subtract.html
-    ss = SS()
 
     flag_choice = args.flag_choice
     if type(flag_choice) is list:
@@ -581,6 +600,7 @@ def main():
         "ant_str": args.spectrum_type,
         "flag_choice": flag_choice,
     }
+    select_kwargs = {}
 
     # output name is basename of metafits, first uvfits or first ms if provided
     base = None
@@ -593,15 +613,29 @@ def main():
             raise UserWarning(f"multiple metafits supplied in {args.files}")
         metafits = file_groups[".metafits"][0]
         base, _ = splitext(metafits)
-        ss = read_raw(ss, metafits, file_groups[".fits"], read_kwargs)
+        read_raw(uvd, metafits, file_groups[".fits"], read_kwargs)
     elif len(other_types) > 1:
         raise UserWarning(f"multiple file types found ({[*other_types]}) {args.files}")
-    elif len(other_types.intersection([".uvfits", ".uvh5", ".ms"])) == 1:
+    elif len(other_types.intersection([".ms"])) == 1:
+        vis = file_groups.get(".ms", [])
+        base, _ = os.path.splitext(vis[0])
+        total_size_mb = sum(du_bs(Path(f)) for f in vis)
+        print(f"reading total {int(total_size_mb)}MB")
+        start = time.time()
+        if len(vis) > 0:
+            print("not supported by pyuvdata")
+        if args.diff:
+            read_kwargs["run_check"] = False
+            select_kwargs["run_check"] = False
+        uvd.read(vis, **read_kwargs)
+        uvd.scan_number_array = None  # these are not handled correctly by pyuvd
+        read_time = time.time() - start
+        print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
+    elif len(other_types.intersection([".uvfits", ".uvh5"])) == 1:
         vis = sum(
             [
                 file_groups.get(".uvfits", []),
                 file_groups.get(".uvh5", []),
-                file_groups.get(".ms", []),
             ],
             start=[],
         )
@@ -610,21 +644,44 @@ def main():
         total_size_mb = sum(du_bs(Path(f)) for f in vis)
         print(f"reading total {int(total_size_mb)}MB")
         start = time.time()
-        ss.read(vis, read_data=True, **read_kwargs)
+        uvd.read(vis, read_data=True, **read_kwargs)
         read_time = time.time() - start
         print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
     else:
+        raise ValueError
+
+    if args.sel_pols:
+        select_kwargs["polarizations"] = args.sel_pols
+    if args.freq_range:
+        fmin, fmax = map(float, args.freq_range)
+        select_kwargs["frequencies"] = uvd.freq_array[
+            np.where(np.logical_and(uvd.freq_array >= fmin, uvd.freq_array <= fmax))
+        ]
+        if len(select_kwargs["frequencies"]) == 0:
+            raise ValueError(
+                f"could not find frequencies within bounds {(fmin, fmax)} in {uvd.freq_array}"
+            )
+
+    uvd.select(inplace=True, **select_kwargs)
+
+    return base
+
+
+def main():
+    parser = get_parser()
+    args = parser.parse_args()
+    print(f"{args=}")
+
+    # sky-subtract https://ssins.readthedocs.io/en/latest/sky_subtract.html
+    ss = SS()
+
+    try:
+        base = read_select(ss, args)
+    except ValueError:
         parser.print_usage()
         exit(1)
 
-    select_kwargs = {}
-    if args.sel_pols:
-        select_kwargs["polarizations"] = args.sel_pols
-    ss.select(inplace=True, **select_kwargs)
     # TODO: ss.apply_flags(flag_choice=flag_choice) ?
-
-    times = Time(np.unique(ss.time_array), format="jd")
-    print("times from ", times[0].isot, " to ", times[-1].isot)
 
     plt.style.use("dark_background")
     cmap = mpl.colormaps.get_cmap(args.cmap)
