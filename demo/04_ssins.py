@@ -15,6 +15,7 @@ from argparse import ArgumentParser, SUPPRESS
 from itertools import groupby
 import re
 import time
+import traceback
 from pathlib import Path
 import pandas as pd
 
@@ -677,7 +678,8 @@ def main():
 
     try:
         base = read_select(ss, args)
-    except ValueError:
+    except ValueError as exc:
+        traceback.print_exception(exc)
         parser.print_usage()
         exit(1)
 

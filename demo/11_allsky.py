@@ -156,8 +156,6 @@ def main():
     # t_ref_zerohrs = Time(t_ref_rdate_str, format="iso", scale="utc")
     t_ref_iso_str = t_ref.strftime(r"%Y-%m-%dT%H:%M:%S")
 
-    breakpoint()
-
     if not check_diff_uniformity(times.to_value("gps")):
         raise UserWarning("uniform spacing assumed in time axis")
 
