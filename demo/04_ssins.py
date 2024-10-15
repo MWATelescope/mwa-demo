@@ -351,7 +351,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         ax_signal: Axis = subplots[0, i]
         ax_signal.set_title(f"{obsname} zscore{suffix} {pol if len(pols) > 1 else ''}")
         if i == 0:
-            ax_signal.set_ylabel("Antenna")
+            ax_signal.yaxis.set_label("Antenna")
 
         signal_pscore = slice(scores[..., i], axis=-1)
 
@@ -367,21 +367,21 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
                 -0.5,
             ],
         )
+
         ax_signal.yaxis.set_ticks(np.arange(len(unflagged_ants)))
-        ax_signal.yaxis.tick_params(pad=True)
+        ax_signal.yaxis.set_tick_params(pad=True)
         ax_signal.yaxis.set_ticklabels(
             ant_labels, fontsize=args.fontsize, fontfamily="monospace"
         )
 
         # by spectrum: [freq, time]
         ax_spectrum: Axis = subplots[1, i]
-        ax_spectrum.set_xlabel("GPS Time [s]")
+        ax_spectrum.xaxis.set_label("GPS Time [s]")
         if i == 0:
-            ax_spectrum.set_ylabel("Frequency channel [MHz]")
+            ax_spectrum.yaxis.set_label("Frequency channel [MHz]")
 
         spectrum_pscore = slice(scores[..., i].transpose(2, 1, 0), axis=-1)
 
-        ax_spectrum.tick_params(pad=True)
         ax_spectrum.imshow(
             spectrum_pscore,
             aspect="auto",
@@ -549,7 +549,8 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
         channel_raw_fits = raw_channel_groups[ch]
         channel_times = mwalib_get_common_times(metafits, raw_fits, good)
         print(
-            f"channel {ch} times from {channel_times[0].isot} ({channel_times[0].gps}) to {channel_times[-1].isot} ({channel_times[-1].gps})"
+            f"channel {ch} times from {channel_times[0].isot} "
+            f"({channel_times[0].gps}) to {channel_times[-1].isot} ({channel_times[-1].gps})"
         )
         if channel_times[0] != times[0]:
             print(
@@ -629,7 +630,7 @@ def read_select(uvd: UVData, args):
             read_kwargs["run_check"] = False
             select_kwargs["run_check"] = False
         uvd.read(vis, **read_kwargs)
-        uvd.scan_number_array = None  # these are not handled correctly by pyuvd
+        uvd.scan_number_array = None  # these are not handled correctly
         read_time = time.time() - start
         print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
     elif len(other_types.intersection([".uvfits", ".uvh5"])) == 1:

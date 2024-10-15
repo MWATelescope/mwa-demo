@@ -247,7 +247,7 @@ def main():
     wcs.printwcs()
     print(f"{wcs.world_axis_physical_types=}")
 
-    data = np.zeros(wcs.array_shape)
+    data = np.zeros(wcs.array_shape, dtype=np.complex64)
     print(f"{data.shape=}")
 
     cmap = mpl.colormaps.get_cmap(args.cmap)
@@ -291,14 +291,12 @@ def main():
 
                 # Compute w_p V_pq w*_q contraction for each pixel (i, j)
                 # p,q: antenna indexes, i,j: pixel indexes
-                img = np.abs(
-                    np.einsum(
-                        "pij,pq,qij->ij", w_vec, V_mat, np.conj(w_vec), optimize=True
-                    )
+                img = np.einsum(
+                    "pij,pq,qij->ij", w_vec, V_mat, np.conj(w_vec), optimize=True
                 )
 
                 data_slice = (*(p_slice + f_slice + t_slice + xy_slice),)
-                data[data_slice] = np.abs(img[::-1])
+                data[data_slice] = img[::-1]
 
                 if args.thumbs:
                     plt.clf()
@@ -329,7 +327,7 @@ def main():
         data = np.mean(data, axis=(*axes_to_average,))
 
     # With WCS we can write the image to FITS
-    hdu = fits.PrimaryHDU(header=wcs.to_header(), data=data)
+    hdu = fits.PrimaryHDU(header=wcs.to_header(), data=np.abs(data))
     hdu.writeto(p := f"{base}{suffix}.img1.fits", overwrite=True)
     print(p)
 
