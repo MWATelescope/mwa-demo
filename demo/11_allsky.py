@@ -258,6 +258,10 @@ def main():
     # Create lmn grid
     lmn = create_lmn_grid(n_pix)
 
+    # Generate our weight vector
+    # i,j: pixel indexes, a: antenna index, d: lmn/xyz index
+    phs = np.einsum("ijd,ad", lmn, ant_pos_enu, optimize=True)
+
     for t_idx, t in enumerate(times):
         # Attach earth location and compute local sidereal time
 
@@ -274,10 +278,7 @@ def main():
             if "FREQ" not in degenerate_axes:
                 f_slice, f_suffix = [f_idx], f"-ch{f_idx}"
 
-            # Generate our weight vector
-            # i,j: pixel indexes, a: antenna index, d: lmn/xyz index
-            phs = np.einsum("ijd,ad", lmn, ant_pos_enu / λ, optimize=True)
-            w_vec = np.exp(1j * 2 * np.pi * phs)
+            w_vec = np.exp(1j * 2 * np.pi * phs / λ)
             for p_idx, pol in enumerate(ss.get_pols()):
 
                 p_slice, p_suffix = [], ""
