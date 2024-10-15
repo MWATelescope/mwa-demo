@@ -265,6 +265,8 @@ def main():
         if t_scale not in degenerate_axes:
             t_slice, t_suffix = [t_idx], f"-t{t_idx:0{time_digits}}"
 
+        print(f"{t.iso} mjd={t.mjd:.6f} unix={t.unix:.3f}")
+
         for f_idx, f in enumerate(ss.freq_array):
             λ = 2.99e8 / f
 
