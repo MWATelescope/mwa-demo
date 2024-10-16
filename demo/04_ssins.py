@@ -124,6 +124,13 @@ def get_parser():
         dest="spectrum_type",
         help="shorthand for --spectrum-type=cross",
     )
+    group_ins.add_argument(
+        "--autos",
+        action="store_const",
+        const="auto",
+        dest="spectrum_type",
+        help="shorthand for --spectrum-type=auto",
+    )
 
     # arguments for SSINS.MF
     group_mf = parser.add_argument_group("SSINS.MF")
