@@ -70,7 +70,6 @@ def get_parser():
     group_read.add_argument(
         "--flag-choice",
         default=None,
-        nargs=1,
         choices=["original"],
         type=str,
         help="original = apply flags from visibilities before running ssins (only recommended for --plot-type=flags)",
@@ -106,7 +105,16 @@ def get_parser():
         "--freq-range",
         default=None,
         nargs=2,
-        help="frequency start and end to filter on, default: all",
+        metavar="Hz",
+        help="frequency start and end [Hz] to filter on, default: all",
+    )
+
+    group_sel.add_argument(
+        "--time-limit",
+        default=None,
+        type=int,
+        metavar="N",
+        help="limit to reading N times, default: all",
     )
 
     # arguments for SSINS.INS
@@ -597,9 +605,6 @@ def read_select(uvd: UVData, args):
 
     print(f"reading from {file_groups=}")
 
-    flag_choice = args.flag_choice
-    if type(flag_choice) is list:
-        flag_choice = flag_choice[0]
     read_kwargs = {
         "diff": args.diff,  # difference timesteps
         "remove_coarse_band": args.remove_coarse_band,  # does not work with low freq res
@@ -607,7 +612,7 @@ def read_select(uvd: UVData, args):
         "remove_flagged_ants": args.remove_flagged_ants,  # remove flagged ants
         "flag_init": args.flag_init,
         "ant_str": args.spectrum_type,
-        "flag_choice": flag_choice,
+        "flag_choice": args.flag_choice,
     }
     select_kwargs = {}
 
@@ -670,6 +675,8 @@ def read_select(uvd: UVData, args):
             raise ValueError(
                 f"could not find frequencies within bounds {(fmin, fmax)} in {uvd.freq_array}"
             )
+    if args.time_limit is not None and args.time_limit > 0:
+        select_kwargs["times"] = [np.unique(uvd.time_array)[: args.time_limit]]
 
     uvd.select(inplace=True, **select_kwargs)
 
