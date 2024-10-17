@@ -554,7 +554,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     times = mwalib_get_common_times(metafits, raw_fits, good)
     time_array = times.jd.astype(float)
     print(
-        f"times from {times[0].isot} ({times[0].gps}) to {times[-1].isot} ({times[-1].gps})"
+        f"times from {times[0].isot} (gps={times[0].gps} jd={times[0].jd}) to {times[-1].isot} (gps={times[-1].gps} jd={times[-1].jd})"
     )
 
     n_chs = len(raw_channel_groups)
