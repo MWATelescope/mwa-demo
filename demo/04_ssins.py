@@ -550,7 +550,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     # group and read raw by channel to save memory
     raw_channel_groups = group_raw_by_channel(metafits, raw_fits)
     # channels not always aligned in time
-    good = False
+    good = True
     times = mwalib_get_common_times(metafits, raw_fits, good)
     time_array = times.jd.astype(float)
     print(
