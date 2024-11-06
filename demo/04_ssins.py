@@ -121,9 +121,16 @@ def get_parser():
     group_ins = parser.add_argument_group("SSINS.INS")
     group_ins.add_argument(
         "--spectrum-type",
-        default="all",
+        default="cross",
         choices=["all", "auto", "cross"],
-        help="analyse auto-correlations or cross-correlations. default: auto",
+        help="analyse auto-correlations or cross-correlations. default: cross",
+    )
+    group_ins.add_argument(
+        "--all",
+        action="store_const",
+        const="all",
+        dest="spectrum_type",
+        help="shorthand for --spectrum-type=all",
     )
     group_ins.add_argument(
         "--crosses",
@@ -554,7 +561,9 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     times = mwalib_get_common_times(metafits, raw_fits, good)
     time_array = times.jd.astype(float)
     print(
-        f"times from {times[0].isot} (gps={times[0].gps} jd={times[0].jd}) to {times[-1].isot} (gps={times[-1].gps} jd={times[-1].jd})"
+        f"mwalib found {len(times)}{' good' if good else ''} times "
+        f"from {times[0].isot} (gps={times[0].gps} jd={times[0].jd}) "
+        f"to {times[-1].isot} (gps={times[-1].gps} jd={times[-1].jd})"
     )
 
     n_chs = len(raw_channel_groups)
@@ -564,16 +573,16 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
         channel_raw_fits = raw_channel_groups[ch]
         channel_times = mwalib_get_common_times(metafits, raw_fits, good)
         print(
-            f"channel {ch} times from {channel_times[0].isot} "
+            f"channel {ch} - times from {channel_times[0].isot} "
             f"({channel_times[0].gps}) to {channel_times[-1].isot} ({channel_times[-1].gps})"
         )
         if channel_times[0] != times[0]:
             print(
-                f"WARN: channel {ch} starts at {channel_times[0].isot} but common is {times[0].isot}"
+                f"WARN: channel {ch} - starts at {channel_times[0].isot} but common is {times[0].isot}"
             )
         if channel_times[-1] != times[-1]:
             print(
-                f"WARN: channel {ch} ends at {channel_times[-1].isot} but common is {times[-1].isot}"
+                f"WARN: channel {ch} - ends at {channel_times[-1].isot} but common is {times[-1].isot}"
             )
 
         channel_size_mb = sum([file_sizes_mb[f] for f in channel_raw_fits])
@@ -613,6 +622,7 @@ def read_select(uvd: UVData, args):
         "flag_init": args.flag_init,
         "ant_str": args.spectrum_type,
         "flag_choice": args.flag_choice,
+        "run_check": False,
     }
     select_kwargs = {}
 
@@ -678,7 +688,9 @@ def read_select(uvd: UVData, args):
     if args.time_limit is not None and args.time_limit > 0:
         select_kwargs["times"] = [np.unique(uvd.time_array)[: args.time_limit]]
 
+    uvd.history = uvd.history or ""
     uvd.select(inplace=True, **select_kwargs)
+    print("history:", uvd.history)
 
     return base
 
