@@ -106,7 +106,7 @@ RUN python -m pip install --no-cache-dir --force-reinstall \
     'pyyaml>=5.4.1' \
     'scipy>=1.8' \
     'setuptools_scm>=8.1' \
-    'pyuvdata[casa]>=3.0.0' \
+    'pyuvdata[casa]>=3.1.1' \
     'pandas>=2.2.3' \
     'python-casacore>=3.5.2' \
     git+https://github.com/mwilensky768/SSINS.git \
