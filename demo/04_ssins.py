@@ -568,8 +568,13 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
 
     n_chs = len(raw_channel_groups)
     for ch_idx, ch in enumerate(sorted([*raw_channel_groups.keys()])):
-        # make a new UVData object, the same type as
-        uvd_ = type(uvd)()
+        if uvd.data_array is None:
+            # first time around, read into existing UVData object
+            uvd_ = uvd
+        else:
+            # otherwise make a new UVData object, the same type as uvd
+            uvd_ = type(uvd)()
+
         channel_raw_fits = raw_channel_groups[ch]
         channel_times = mwalib_get_common_times(metafits, raw_fits, good)
         print(
@@ -600,9 +605,8 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
         print(
             f"reading channel {ch} took {int(read_time)}s. {int(channel_size_mb/read_time)} MB/s"
         )
-        if uvd.data_array is None:
-            uvd = uvd_
-        else:
+        # if not first time around, add uvd_ into uvd
+        if uvd_ != uvd:
             uvd.__add__(uvd_, inplace=True)
 
     read_time = time.time() - start
@@ -624,7 +628,9 @@ def read_select(uvd: UVData, args):
         "flag_choice": args.flag_choice,
         "run_check": False,
     }
-    select_kwargs = {}
+    select_kwargs = {
+        "run_check": False,
+    }
 
     # output name is basename of metafits, first uvfits or first ms if provided
     base = None
@@ -637,6 +643,7 @@ def read_select(uvd: UVData, args):
             raise UserWarning(f"multiple metafits supplied in {args.files}")
         metafits = file_groups[".metafits"][0]
         base, _ = splitext(metafits)
+        total_size_mb = sum(du_bs(Path(f)) for f in file_groups[".fits"] + [metafits])
         read_raw(uvd, metafits, file_groups[".fits"], read_kwargs)
     elif len(other_types) > 1:
         raise UserWarning(f"multiple file types found ({[*other_types]}) {args.files}")
@@ -689,7 +696,14 @@ def read_select(uvd: UVData, args):
         select_kwargs["times"] = [np.unique(uvd.time_array)[: args.time_limit]]
 
     uvd.history = uvd.history or ""
+
+    start = time.time()
     uvd.select(inplace=True, **select_kwargs)
+    select_time = time.time() - start
+    select_message = ""
+    if int(select_time) >= 1:
+        select_message = f"select took {int(select_time)}s. "
+    print(f"select took {int(select_time)}s. {select_message}")
     print("history:", uvd.history)
 
     return base
