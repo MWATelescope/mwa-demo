@@ -153,23 +153,41 @@ def get_parser():
         "--threshold",
         default=5,
         type=float,
-        help="match filter significance threshold. 0 disables match filter",
+        help="match filter significance threshold for shapes except narrow and streak. 0=disable",
     )
     group_mutex = group_mf.add_mutually_exclusive_group()
-    group_mutex.add_argument("--narrow", default=True, help=SUPPRESS)
+    group_mutex.add_argument(
+        "--narrow",
+        default=7,
+        type=float,
+        help="match filter significance threshold for narrowband RFI. 0=disable",
+    )
     group_mutex.add_argument(
         "--no-narrow",
-        action="store_false",
+        action="store_const",
         dest="narrow",
+        const=0,
         help="Don't look for narrowband RFI",
     )
     group_mutex = group_mf.add_mutually_exclusive_group()
-    group_mutex.add_argument("--streak", default=True, help=SUPPRESS)
+    group_mutex.add_argument(
+        "--streak",
+        default=8,
+        type=float,
+        help="match filter significance threshold for streak RFI. 0=disable",
+    )
     group_mutex.add_argument(
         "--no-streak",
-        action="store_false",
+        action="store_const",
         dest="streak",
+        const=0,
         help="Don't look for streak RFI",
+    )
+    group_mf.add_argument(
+        "--tb-aggro",
+        default=0.6,
+        type=float,
+        help="Threshold for flagging an entire channel, fraction of unflagged data remaining. 0=disable time broadcast",
     )
 
     # plotting
@@ -319,12 +337,44 @@ def get_match_filter(ss, args):
     """
     https://ssins.readthedocs.io/en/latest/match_filter.html
     """
+    # guard width is half the fine channel width
+    gw = np.median(np.diff(ss.freq_array)) / 2
+    shape_dict = {
+        # from https://www.acma.gov.au/sites/default/files/2024-09/General%20Information.pdf
+        "TV-6": [174e6 - gw, 181e6 + gw],
+        "TV-7": [181e6 - gw, 188e6 + gw],
+        "TV-8": [188e6 - gw, 195e6 + gw],
+        "TV-9": [195e6 - gw, 202e6 + gw],
+        "TV-9A": [202e6 - gw, 209e6 + gw],
+        "TV-10": [209e6 - gw, 216e6 + gw],
+        "TV-11": [216e6 - gw, 223e6 + gw],
+        "TV-12": [223e6 - gw, 230e6 + gw],
+        # starlink
+        "SL-175": [174.997e6 - gw, 175.003e6 + gw],  # 3kHz doppler shift
+    }
+    sig_thresh = {shape: args.threshold for shape in shape_dict}
+    mf_args = {}
+    if args.narrow > 0:
+        sig_thresh["narrow"] = args.narrow
+        mf_args["narrow"] = True
+    if args.streak > 0:
+        sig_thresh["streak"] = args.streak
+        mf_args["streak"] = True
+    if args.tb_aggro > 0:
+        mf_args["tb_aggro"] = args.tb_aggro
     return MF(
         freq_array=ss.freq_array,
-        sig_thresh=args.threshold,
-        streak=args.streak,
-        narrow=args.narrow,
+        sig_thresh=sig_thresh,
+        shape_dict=shape_dict,
+        **mf_args,
     )
+
+
+def apply_match_test(ins, mf, args):
+    match_test_args = {}
+    if args.tb_aggro > 0:
+        match_test_args["time_broadcast"] = True
+    ins.apply_match_test(mf, **match_test_args)
 
 
 # #### #
@@ -355,7 +405,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         # select only baselines or autos with this antenna
         ssa = ss.select(ant_str=f"{ant_num}", inplace=False)
         ins = INS(ssa, spectrum_type=args.spectrum_type)
-        mf.apply_match_test(ins)
+        apply_match_test(mf, ins, args)
         ins.sig_array[~np.isfinite(ins.sig_array)] = 0
         scores[ant_idx] = ins.sig_array
 
@@ -427,7 +477,7 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     ins = INS(ss, spectrum_type=args.spectrum_type)
 
     mf = get_match_filter(ss, args)
-    mf.apply_match_test(ins)
+    apply_match_test(mf, ins, args)
     ins.sig_array[~np.isfinite(ins.sig_array)] = 0
 
     pols = ss.get_pols()
