@@ -54,7 +54,8 @@ RUN apt-get update && \
 
 # install giant-squid
 RUN cargo install mwa_giant_squid --locked && \
-    rm -rf ${CARGO_HOME}/registry /opt/cargo/git/checkouts/
+    cargo clean && \
+    rm -rf ${CARGO_HOME}/registry ${CARGO_HOME}/git
 
 # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
 ARG CMAKE_ARGS="-DPORTABLE=True"

@@ -3,6 +3,8 @@
 # identify RFI using ssins
 # details: https://github.com/mwilensky768/SSINS
 
+# tip: you can use this script to apply the ssins mask https://raw.githubusercontent.com/MWATelescope/MWAEoR-Pipeline/refs/heads/main/templates/ssins_apply.py
+
 from pyuvdata import UVData
 from SSINS import SS, INS, MF
 import os
@@ -740,7 +742,7 @@ def read_select(uvd: UVData, args):
         read_time = time.time() - start
         print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
     else:
-        raise ValueError
+        raise ValueError(f"could not determine visibility file type {file_groups}")
 
     if args.sel_pols:
         select_kwargs["polarizations"] = args.sel_pols
