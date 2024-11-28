@@ -26,6 +26,11 @@ fi
 # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
 # - if the files we need are missing, then run 05_prep.
 export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}\*.uvfits
+for f in $(ls -1 $prep_uvfits_pattern); do
+    set -x
+    fitsheader $f
+    echo $?
+done
 if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
     echo "prep_uvfits $prep_uvfits_pattern does not exist. trying 05_prep.sh"
     $SCRIPT_BASE/05_prep.sh
