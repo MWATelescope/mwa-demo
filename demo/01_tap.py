@@ -23,7 +23,7 @@ tap = pyvo.dal.TAPService("http://vo.mwatelescope.org/mwa_asvo/tap")
 obs = (
     tap.search(
         f"""
-SELECT TOP 10 *
+SELECT TOP 99 *
 FROM mwa.observation
 WHERE CONTAINS(
     POINT('ICRS', ra_pointing, dec_pointing),  -- pointing center

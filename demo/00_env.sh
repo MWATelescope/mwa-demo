@@ -9,7 +9,7 @@ if [[ "$PAWSEY" == "setonix" ]]; then
     export modulepath="/software/projects/pawsey1094/setonix/2024.05/modules/zen3/gcc/12.2.0"
     if [[ ! -d $modulepath ]]; then
         echo "modulepath $modulepath does not exist"
-        exit 1;
+        exit 1
     fi
     # TODO: maybe module unuse and module unload first?
     module use $modulepath
@@ -31,11 +31,10 @@ export outdir=${outdir:-${PWD}/demo/data/}
 # so we explicitly unset them here.
 unset srclist
 unset MWA_BEAM_FILE
-export srclist=${srclist:-${outdir}/srclist_pumav3_EoR0LoBES_EoR1pietro_CenA-GP_2023-11-07.yaml}
+# export srclist=${srclist:-${outdir}/srclist_pumav3_EoR0LoBES_EoR1pietro_CenA-GP_2023-11-07.yaml}
 # hint: here's another sky model you can try.
-# export srclist=${srclist:-${outdir}/GGSM_updated.fits}
+export srclist=${srclist:-${outdir}/GGSM_updated.fits}
 export MWA_BEAM_FILE=${MWA_BEAM_FILE:-${outdir}/mwa_full_embedded_element_pattern.h5}
-
 
 # ####### #
 # SUMMARY #

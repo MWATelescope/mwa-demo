@@ -195,9 +195,3 @@ else
         ls ${imgname}*
     done
 fi
-        -mwa-path "$beam_path" \
-        -temp-dir /tmp \
-        $cal_ms
-else
-    echo "${imgname}-image-pb.fits exists, skipping wsclean"
-fi

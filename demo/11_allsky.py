@@ -23,39 +23,36 @@ from matplotlib import pyplot as plt
 
 def select_vis_matrix(uvd: UVData, **select_kwargs) -> np.ndarray:
     """
-    Extract 1D visibility array (upper triangular) for first time, channel, pol
-    selected and convert to correlation matrix.
+    Extract 1D visibility array (upper triangular) for first time, in selected
+    vis and convert to correlation matrix.
 
-    If select_kwargs doesn't select a single time, channel, pol then the first
-    is picked.
+    If select_kwargs doesn't select a single time, then the first is picked.
 
     Args:
         uvd: Input UVData object
         select_kwargs: args for UVData.select.
 
     Returns:
-        V (np.ndarray): (N_ant x N_ant x 4 pol) correlation matrix
+        V (np.ndarray): (N_ant × N_ant × N_freq × N_pol) correlation matrix <c64>
     """
     sel = uvd.select(**select_kwargs, inplace=False)
     # if selection has multiple times or channels, select the first
     times = [Time(sel.time_array[0], format="jd").jd]
-    freqs = [sel.freq_array[0]]
-    pols = [sel.get_pols()[0]]
-    if sel.Ntimes > 0 or sel.Nfreqs > 0 or sel.Npols > 0:
-        sel.select(times=times, frequencies=freqs, polarizations=pols)
-    d = sel.data_array.reshape((sel.Ntimes, sel.Nbls, sel.Nfreqs, sel.Npols))[
-        0, :, 0, 0
-    ]
+    if sel.Ntimes > 0:
+        sel.select(times=times)
+    d = sel.data_array.reshape((sel.Nbls, sel.Nfreqs, sel.Npols))  # only 1 time
 
     ix, iy = np.triu_indices(sel.Nants_data, 1)
 
-    # Create empty NxN matrix
-    V = np.zeros((sel.Nants_data, sel.Nants_data), dtype="complex64")
+    # Create empty Na x Na x Nf x Np matrix
+    V = np.zeros(
+        (sel.Nants_data, sel.Nants_data, sel.Nfreqs, sel.Npols), dtype="complex64"
+    )
 
     # Fill in the upper triangle
-    V[ix, iy] = np.conj(d).squeeze()
+    V[ix, iy, ...] = np.conj(d)
     # Fill in the lower triangle
-    V[iy, ix] = d.squeeze()
+    V[iy, ix, ...] = d
 
     return V
 
@@ -155,14 +152,19 @@ def main():
     # t_ref_rdate_str = t_ref.strftime(r"%Y-%m-%d")
     # t_ref_zerohrs = Time(t_ref_rdate_str, format="iso", scale="utc")
     t_ref_iso_str = t_ref.strftime(r"%Y-%m-%dT%H:%M:%S")
+    time_digits = int(np.ceil(np.log10(ss.Ntimes)))
 
     if not check_diff_uniformity(times.to_value("gps")):
         raise UserWarning("uniform spacing assumed in time axis")
 
-    time_digits = int(np.ceil(np.log10(ss.Ntimes)))
+    freqs = ss.freq_array
     f_delta = ss.channel_width[0]
-    if not check_diff_uniformity(ss.freq_array):
+    if not check_diff_uniformity(freqs):
         raise UserWarning("uniform spacing assumed in freq axis")
+    freqs_out = freqs
+    if args.combine_freq:
+        freqs_out = np.array([np.mean(freqs)])
+        f_delta *= ss.Nfreqs
 
     if ss.Npols > 1:
         pol_indexing = np.argsort(np.abs(ss.polarization_array))
@@ -215,10 +217,10 @@ def main():
             "CUNIT": "s",
         },
         {
-            "NAXIS": ss.Nfreqs,
+            "NAXIS": len(freqs_out),
             "CTYPE": "FREQ",
-            "CRPIX": ss.Nfreqs // 2 + 1,
-            "CRVAL": ss.freq_array[ss.Nfreqs // 2],
+            "CRPIX": len(freqs_out) // 2 + 1,
+            "CRVAL": freqs_out[len(freqs_out) // 2],
             "CDELT": f_delta,
             "CUNIT": "Hz",
         },
@@ -232,7 +234,7 @@ def main():
     ]
     degenerate_axes = set()
     for ax in extra_axes:
-        if ax["NAXIS"] == 1 and ax["CTYPE"] != "FREQ":
+        if ax["NAXIS"] == 1:
             print("degenerate axis " + ax["CTYPE"] + " dropped")
             degenerate_axes.add(ax["CTYPE"])
             continue
@@ -258,9 +260,14 @@ def main():
     # Create lmn grid
     lmn = create_lmn_grid(n_pix)
 
+    # λ^-1
+    inv_λ = freqs / 2.99e8
+
     # Generate our weight vector
     # i,j: pixel indexes, a: antenna index, d: lmn/xyz index
-    phs = np.einsum("ijd,ad", lmn, ant_pos_enu, optimize=True)
+    phs = np.einsum("ijd,ad,c->caij", lmn, ant_pos_enu, inv_λ, optimize=True)
+
+    w_vec = np.exp(1j * 2 * np.pi * phs)
 
     for t_idx, t in enumerate(times):
         # Attach earth location and compute local sidereal time
@@ -271,33 +278,37 @@ def main():
 
         print(f"{t.iso} mjd={t.mjd:.6f} unix={t.unix:.3f}")
 
-        for f_idx, f in enumerate(ss.freq_array):
-            λ = 2.99e8 / f
+        V_mat = select_vis_matrix(ss, times=[t.jd])
 
-            f_slice, f_suffix = [], ""
+        # Compute w_p V_pq w*_q contraction for each pixel (i, j), stokes (s), maybe sum over channel (c)
+        # p,q: antenna indexes, i,j: pixel indexes, s: stokes, c: channel
+        img = np.einsum(
+            "cpij,pqcs,cqij->sji" if args.combine_freq else "cpij,pqcs,cqij->scji",
+            w_vec,
+            V_mat,
+            np.conj(w_vec),
+            optimize=True,
+        )
+        # print(f"{img.shape=}")
+
+        p_slice, f_slice = [], []
+        if "STOKES" not in degenerate_axes:
+            p_slice = [slice(None)]
+        if "FREQ" not in degenerate_axes:
+            f_slice = [slice(None)]
+
+        # print(f"{p_slice=} {f_slice=} {t_slice=} {xy_slice=}")
+        data_slice = (*(p_slice + f_slice + t_slice + xy_slice),)
+        data[data_slice] = img
+
+        for f_idx, _ in enumerate(freqs_out):
+            f_suffix = ""
             if "FREQ" not in degenerate_axes:
-                f_slice, f_suffix = [f_idx], f"-ch{f_idx}"
-
-            w_vec = np.exp(1j * 2 * np.pi * phs / λ)
+                f_suffix = f"-ch{f_idx}"
             for p_idx, pol in enumerate(ss.get_pols()):
-
-                p_slice, p_suffix = [], ""
+                p_suffix = ""
                 if "STOKES" not in degenerate_axes:
-                    p_slice, p_suffix = [p_idx], f"-{pol}"
-
-                V_mat = select_vis_matrix(
-                    ss, times=[t.jd], frequencies=[f], polarizations=[pol]
-                )
-
-                # Compute w_p V_pq w*_q contraction for each pixel (i, j)
-                # p,q: antenna indexes, i,j: pixel indexes
-                img = np.einsum(
-                    "pij,pq,qij->ij", w_vec, V_mat, np.conj(w_vec), optimize=True
-                )
-
-                data_slice = (*(p_slice + f_slice + t_slice + xy_slice),)
-                data[data_slice] = img[::-1]
-
+                    p_suffix = f"-{pol}"
                 if args.thumbs:
                     plt.clf()
                     plt.suptitle(f"{base}.img1{t_suffix}{f_suffix}{p_suffix}")
@@ -309,7 +320,7 @@ def main():
                     )
 
                     # Note a convention flip is done with the ::-1 indexing
-                    plt.imshow(np.abs(img[::-1]))
+                    plt.imshow(np.abs(img[..., p_idx][::-1]))
                     plt.grid(color="white", ls="dotted")
 
                     plt.savefig(p := f"{base}.img1{t_suffix}{f_suffix}{p_suffix}.png")

@@ -50,8 +50,8 @@ fi
 # details: https://mwatelescope.github.io/mwa_hyperdrive/user/di_cal/intro.html
 # (optional) add --model-filenames $model_ms to write model visibilities
 # if using GPU, no need for source count limit
-export dical_args="--num-sources 500 --time-average 8s"
-export apply_args="--time-average 8s --freq-average 80kHz"
+export dical_args="${dical_args:---num-sources 500}" # e.g. --uvw-min 30 --max-iterations 300
+export apply_args="${apply_args:-}"                  # e.g. --time-average 8s --freq-average 80kHz
 if [[ -n "${gpus:-}" ]]; then
     dical_args=""
 fi
@@ -60,7 +60,7 @@ mkdir -p "${outdir}/${obsid}/cal"
 set -eu
 # loop over all the preprocessed files
 eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
-    export prep_uvfits;
+    export prep_uvfits
 
     # find prepqa relative to this uvfits file
     export prepqa="${prep_uvfits%%.uvfits}_qa.json"
@@ -88,7 +88,7 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
             --source-list "$srclist" \
             --outputs "$hyp_soln" \
             $([[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants)
-            # TODO: --cpu if login node
+        # TODO: --cpu if login node
     else
         echo "hyp_soln $hyp_soln exists, skipping hyperdrive di-calibrate"
     fi

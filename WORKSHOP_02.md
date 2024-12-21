@@ -78,6 +78,12 @@ python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits
 
 It seems to have done it, but with a little bit of collateral dammage. We can also see Starlink RFI at 175MHz
 
+```bash
+export obsid=1341914000
+demo/06_cal.sh
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.175MHz' --sel-pols yy --combine-freq --freq-range 174.99e6 175.01e6
+```
+
 <!-- <details>
   <summary>Bonus RFI Workshop content</summary> -->
 
@@ -97,6 +103,12 @@ python demo/04_ssins.py ${outdir:-demo/data/}1087596040/raw/1087596040{.metafits
 
 ![ch134 Snake](demo/data/1087596040/raw/1087596040.cross.ch134.yy.spectrum.png)
 
+```bash
+export obsid=1087596040
+demo/06_cal.sh
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.171MHz' --sel-pols yy --combine-freq --freq-range 171.0e6 171.9e6
+```
+
 ### `1087596040` channel 143 - Tile108 Swoosh
 
 ```bash
@@ -112,6 +124,12 @@ python demo/04_ssins.py ${outdir:-demo/data/}1088806248/raw/1088806248{.metafits
 ```
 
 ![ch133 Snake](demo/data/1088806248/raw/1088806248.diff.cross.ch133.xx.spectrum.png)
+
+```bash
+export obsid=1088806248
+demo/06_cal.sh
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.170MHz' --sel-pols yy --combine-freq --freq-range 169.6e6 170.8e6
+```
 
 ### `1088806248` channel 145 - Tile055 Discontinuity
 
@@ -129,6 +147,12 @@ python demo/04_ssins.py ${outdir:-demo/data/}1089238040/raw/1089238040{.metafits
 
 ![ch133 Snake](demo/data/1089238040/raw/1089238040.auto.ch133.xx.spectrum.png)
 
+```bash
+export obsid=1089238040
+demo/06_cal.sh
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.170MHz' --sel-pols yy --combine-freq --freq-range 169.8e6 170.8e6
+```
+
 ### `1090871744` channel 137 - Slow-moving TV
 
 ```bash
@@ -138,6 +162,12 @@ python demo/04_ssins.py ${outdir:-demo/data/}1090871744/raw/1090871744{.metafits
 todo: all-sky images
 
 ![ch137 Slow TV](demo/data/1090871744/raw/1090871744.cross.ch137.xx.spectrum.png)
+
+```bash
+export obsid=1090871744
+demo/06_cal.sh
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.170MHz' --sel-pols yy --combine-freq
+```
 
 ### `1094319712` channel 142 - Tile108 Swoosh
 
