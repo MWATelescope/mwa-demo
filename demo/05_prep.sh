@@ -85,7 +85,10 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
     # store prepqa relative to this uvfits
     export prepqa="${prep_uvfits%%.uvfits}_qa.json"
     if [[ ! -f "$prepqa" ]]; then
+        echo "running run_prepvisqa on $prep_uvfits -> $prepqa"
         run_prepvisqa.py $prep_uvfits $metafits --out $prepqa
+    else
+        echo "prepqa $prepqa exists, skipping run_prepvisqa"
     fi
 
     # DEMO: extract bad antennas from prepqa json with jq
