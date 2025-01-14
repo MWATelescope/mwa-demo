@@ -22,8 +22,16 @@ echo ms_pattern=$ms_pattern
 # IMG #
 # ### #
 
+#   ** GRIDDING **
+# -gridder <type>
+#    Set gridder type: direct-ft, idg, wgridder, tuned-wgridder, or wstacking. Default: wgridder.
+# -idg-mode [cpu/gpu/hybrid]
+#    Sets the IDG mode. Default: cpu. Hybrid is recommended when a GPU is available.
+# -grid-with-beam
+#    Apply a-terms to correct for the primary beam. This is only possible when IDG is enabled.
+export wsclean_args=${wsclean_args:--gridder idg -grid-with-beam}
+
 #   ** GENERAL OPTIONS **
-export wsclean_args=${wsclean_args:-}
 # -j <threads>
 #    Specify number of computing threads to use, i.e., number of cpu cores that will be used.
 #    Default: use all cpu cores.
@@ -134,18 +142,6 @@ export mscale_bias=${mscale_bias:-0.6}
 if [[ -n $mscale_bias ]]; then
     export wsclean_args="${wsclean_args} -multiscale -multiscale-scale-bias ${mscale_bias}"
 fi
-
-# -gridder <type>
-#    Set gridder type: direct-ft, idg, wgridder, tuned-wgridder, or wstacking. Default: wgridder.
-# -idg-mode [cpu/gpu/hybrid]
-#    Sets the IDG mode. Default: cpu. Hybrid is recommended when a GPU is available.
-# -grid-with-beam
-#    Apply a-terms to correct for the primary beam. This is only possible when IDG is enabled.
-export idg_mode="cpu"
-if [[ -n "${gpus:-}" ]]; then
-    export idg_mode="hybrid"
-fi
-export wsclean_args="${wsclean_args} -gridder idg -grid-with-beam -idg-mode ${idg_mode}"
 
 function maybe_wsclean() {
     # first argument is the -name argument, check for existence of images
