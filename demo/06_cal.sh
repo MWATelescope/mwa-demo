@@ -24,8 +24,13 @@ fi
 
 # check preprocessed visibility and qa files exist from previous steps
 # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
-# - if the files we need are missing, then run 05_prep.
-export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}\*.uvfits
+# - if the files we need are missing, then run 05_prep.sh
+export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
+[[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
+[[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
+[[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
+export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
+
 for f in $(ls -1 $prep_uvfits_pattern); do
     set -x
     fitsheader $f

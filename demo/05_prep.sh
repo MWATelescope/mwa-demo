@@ -47,7 +47,10 @@ mkdir -p "${outdir}/${obsid}/prep"
 # multiple files add a channel suffix to the output file names.
 # So to test if the uvfits files exist, we need to look for a pattern.
 export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
-export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}\*.uvfits
+[[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
+[[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
+[[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
+export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
 
 # since we don't expect the uvfits files to exist the first time around, 2>/dev/null silences the warning
 if ! eval ls -1 $prep_uvfits_pattern 2>/dev/null; then
@@ -77,6 +80,7 @@ fi
 
 # loop over all the preprocessed visibility files birli produced
 eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
+    # the current uvfits file we're looking at
     export prep_uvfits
     # obsid plus any channel suffix that birli might add.
     export obs_ch=${prep_uvfits##*/birli_}
@@ -86,7 +90,7 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
     export prepqa="${prep_uvfits%%.uvfits}_qa.json"
     if [[ ! -f "$prepqa" ]]; then
         echo "running run_prepvisqa on $prep_uvfits -> $prepqa"
-        run_prepvisqa.py $prep_uvfits $metafits --out $prepqa
+        run_prepvisqa.py --split $prep_uvfits $metafits --out $prepqa
     else
         echo "prepqa $prepqa exists, skipping run_prepvisqa"
     fi
