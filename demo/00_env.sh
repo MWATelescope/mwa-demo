@@ -5,16 +5,11 @@
 if [[ "$PAWSEY" == "setonix" ]]; then
     # set outdir to $MYSCRATCH if it's not already set.
     if [[ -n $MYSCRATCH ]]; then export outdir=${outdir:-${MYSCRATCH}}; fi
-    # load the radio school modules
-    export modulepath="/software/projects/pawsey1094/setonix/2024.05/modules/zen3/gcc/12.2.0"
-    if [[ ! -d $modulepath ]]; then
-        echo "modulepath $modulepath does not exist"
-        exit 1
-    fi
     # TODO: maybe module unuse and module unload first?
-    module use $modulepath
-    module load hyperdrive/default birli/default giant-squid/default hyperbeam/default wsclean/default mwalib/default singularity/default
-    module load py-pip/default py-numpy/default
+    module load hyperdrive-amd-gfx90a/default
+    # module load hyperdrive/0.4.1-peel-26pcn5v # for mwaeor users
+    module load birli/default giant-squid/default hyperbeam/default wsclean/default mwalib/default singularity/default
+    module load py-pip/default py-numpy/default casacore/default
 fi
 
 # silly hack for macOS Birli
