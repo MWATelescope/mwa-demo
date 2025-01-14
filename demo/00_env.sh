@@ -12,6 +12,11 @@ if [[ "$PAWSEY" == "setonix" ]]; then
     module load py-pip/default py-numpy/default casacore/default
 fi
 
+# activate the python virtual environment if it exists
+if [[ -f .venv/bin/activate ]]; then
+    source .venv/bin/activate
+fi
+
 # silly hack for macOS Birli
 if [[ $(uname -o) == "Darwin" ]]; then
     export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib/
