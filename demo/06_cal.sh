@@ -57,6 +57,7 @@ fi
 # if using GPU, no need for source count limit
 export dical_args="${dical_args:---num-sources 500}" # e.g. --uvw-min 30 --max-iterations 300
 export apply_args="${apply_args:-}"                  # e.g. --time-average 8s --freq-average 80kHz
+export dical_suffix=${dical_suffix:-""}
 if [[ -n "${gpus:-}" ]]; then
     dical_args=""
 fi
@@ -65,7 +66,7 @@ mkdir -p "${outdir}/${obsid}/cal"
 set -eu
 # loop over all the preprocessed files
 eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
-    export prep_uvfits
+    export prep_uvfits;
 
     # find prepqa relative to this uvfits file
     export prepqa="${prep_uvfits%%.uvfits}_qa.json"
@@ -80,11 +81,11 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
     # e.g. for prep_uvfits=a/b/prep/birli_X_chY.uvfits, parent=a/b, obs=X_chY
     export parent=${prep_uvfits%/*}
     export parent=${parent%/*}
-    export obs=${prep_uvfits##*/birli_}
-    export obs=${obs%.uvfits}
-    export hyp_soln="${parent}/cal/hyp_soln_${obs}.fits"
-    export cal_ms="${parent}/cal/hyp_cal_${obs}.ms"
-    export model_ms="${parent}/cal/hyp_model_${obs}.ms"
+    export dical_name=${prep_uvfits##*/birli_}
+    export dical_name="${dical_name%.uvfits}${dical_suffix}"
+    export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
+    export cal_ms="${parent}/cal/hyp_cal_${dical_name}.ms"
+    export model_ms="${parent}/cal/hyp_model_${dical_name}.ms"
 
     if [[ ! -f "$hyp_soln" ]]; then
         echo "calibrating with sourcelist $srclist"

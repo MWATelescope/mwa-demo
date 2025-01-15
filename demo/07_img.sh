@@ -9,9 +9,15 @@ export SCRIPT_BASE=${SCRIPT_BASE:-$(dirname $ME)}
 source "$SCRIPT_BASE/00_env.sh"
 
 export obsid=${obsid:-1121334536}
+
+# ### #
+# CAL #
+# ### #
+
+export dical_suffix=${dical_suffix:-""}
 # check for calibrated measurement set from previous step
 # export cal_ms="${cal_ms:-${outdir}/${obsid}/cal/hyp_cal_${obsid}.ms}"
-export ms_pattern=${ms_pattern:-${outdir}/${obsid}/\{cal,peel\}/hyp_\*${obsid}\*.ms}
+export ms_pattern=${ms_pattern:-${outdir}/${obsid}/\{cal,peel\}/hyp_\*${obsid}\*${dical_suffix}\*.ms}
 if ! eval ls -1d $ms_pattern >/dev/null; then
     echo "ms_pattern=$ms_pattern does not exist. trying 06_cal.sh"
     $SCRIPT_BASE/06_cal.sh
