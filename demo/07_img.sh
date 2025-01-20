@@ -190,6 +190,10 @@ else
         echo parent=$parent
         mkdir -p "$parent/img"
         export imgname=${ms%.ms}
+        # imname is an optional suffix, not to be confused with imgname
+        [ -z "${imname:-}" ] || export imgname="${imgname}${imname}"
+        # img_suffix does the same thing
+        [ -z "${img_suffix:-}" ] || export imgname="${imgname}${img_suffix}"
         export imgname=wsclean_${imgname##*/}
         export imgname="${parent}/img/${imgname##*/}"
         echo imgname=$imgname
