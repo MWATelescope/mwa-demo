@@ -33,8 +33,7 @@ if ! giant-squid --version; then
     echo "WARNING: giant-squid not found. https://github.com/MWATelescope/giant-squid?tab=readme-ov-file#installation "
 fi
 if ! wsclean --version; then
-    echo "wsclean not found. https://wsclean.readthedocs.io/en/latest/installation.html "
-    exit 1
+    echo "WARNING: wsclean not found. https://wsclean.readthedocs.io/en/latest/installation.html "
 fi
 if ! hyperdrive --version; then
     echo "hyperdrive not found. https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html "
