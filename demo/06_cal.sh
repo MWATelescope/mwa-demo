@@ -19,6 +19,7 @@ export obsid=${obsid:-1341914000}
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
 if [[ ! -f "$metafits" ]]; then
     echo "metafits not present, downloading $metafits"
+    mkdir -p $(dirname $metafits)
     curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='"${obsid}"
 fi
 
