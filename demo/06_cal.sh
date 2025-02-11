@@ -86,6 +86,8 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
     export dical_name="${dical_name%.uvfits}${dical_suffix}"
     export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
     export cal_ms="${parent}/cal/hyp_cal_${dical_name}.ms"
+    export cal_uvfits="" # optional
+    # export cal_uvfits="${parent}/cal/hyp_cal_${dical_name}.uvfits"
     export model_ms="${parent}/cal/hyp_model_${dical_name}.ms"
 
     if [[ ! -f "$hyp_soln" ]]; then
@@ -153,8 +155,19 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
             --solutions "$hyp_soln" \
             --outputs "$cal_ms" \
             $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
+        # TODO: use raw files if available
+        # --data "$metafits" $( [[ -n $raw_files ]] && echo $raw_files || echo $prep_uvfits) \
     else
         echo "cal_ms $cal_ms exists, skipping hyperdrive apply"
+    fi
+    if [[ -n "$cal_uvfits" && ! -f "$cal_uvfits" ]]; then
+        hyperdrive apply ${apply_args:-} \
+            --data "$metafits" $( [[ -n $raw_files ]] && echo $raw_files || echo $prep_uvfits) \
+            --solutions "$hyp_soln" \
+            --outputs "$cal_uvfits" \
+            $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
+    else
+        echo "cal_uvfits $cal_uvfits exists, skipping hyperdrive apply"
     fi
 done
 
