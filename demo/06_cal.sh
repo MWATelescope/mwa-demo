@@ -47,6 +47,27 @@ if ! eval ls -1 $prep_qa_pattern >/dev/null; then
     $SCRIPT_BASE/05_prep.sh
 fi
 
+mkdir -p "${outdir}/${obsid}/cal"
+
+# ####### #
+# SRCLIST #
+# ####### #
+# DEMO: generate a smaller sourcelist for calibration
+export srclist_args="${srclist_args:-}" # e.g. --veto-threshold --source-dist-cutoff
+export num_sources=${num_sources:-500}
+if [[ -n "${num_sources:-}" ]]; then
+    srclist_args="${srclist_args} -n $num_sources"
+fi
+export topn_srclist=${srclist##*/}
+export topn_srclist=${topn_srclist%.*}
+export topn_srclist=$outdir/$obsid/cal/${topn_srclist}_top${num_sources}.yaml
+if [[ ! -f "$topn_srclist" ]]; then
+    echo "generating top $num_sources sources from $srclist with args $srclist_args"
+    hyperdrive srclist-by-beam $srclist_args -m $metafits $srclist -- $topn_srclist
+else
+    echo "topn_srclist $topn_srclist exists, skipping hyperdrive srclist-by-beam"
+fi
+
 # ### #
 # CAL #
 # ### #
@@ -56,7 +77,7 @@ fi
 # details: https://mwatelescope.github.io/mwa_hyperdrive/user/di_cal/intro.html
 # (optional) add --model-filenames $model_ms to write model visibilities
 # if using GPU, no need for source count limit
-export dical_args="${dical_args:---num-sources 500}" # e.g. --uvw-min 30 --max-iterations 300
+export dical_args="${dical_args:-}" # e.g. --uvw-min 30 --max-iterations 300
 export apply_args="${apply_args:-}"                  # e.g. --time-average 8s --freq-average 80kHz
 export dical_suffix=${dical_suffix:-""}
 if [[ -n "${gpus:-}" ]]; then
@@ -91,10 +112,10 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
     export model_ms="${parent}/cal/hyp_model_${dical_name}.ms"
 
     if [[ ! -f "$hyp_soln" ]]; then
-        echo "calibrating with sourcelist $srclist"
+        echo "calibrating with sourcelist $topn_srclist"
         hyperdrive di-calibrate ${dical_args:-} \
             --data "$metafits" "$prep_uvfits" \
-            --source-list "$srclist" \
+            --source-list "$topn_srclist" \
             --outputs "$hyp_soln" \
             $([[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants)
         # TODO: --cpu if login node
