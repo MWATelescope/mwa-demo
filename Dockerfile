@@ -40,6 +40,8 @@ RUN apt-get update && \
     libxml2-dev \
     pkg-config \
     procps \
+    python3 \
+    python3-pip \
     tzdata \
     unzip \
     vim \
@@ -51,6 +53,9 @@ RUN apt-get update && \
     apt-get clean all && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
     apt-get -y autoremove
+
+# if the python command does not exist, use python3 as the default
+RUN command -v python || update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # install giant-squid
 RUN cargo install mwa_giant_squid --locked && \
