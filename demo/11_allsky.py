@@ -108,9 +108,23 @@ def main():
         action="store_true",
         help="combine times together",
     )
+    parser.add_argument(
+        "--img-extent",
+        default=np.pi / 2,
+        type=float,
+        help="angular extent [radians] from phase centre to edge of image",
+    )
+    parser.add_argument(
+        "--zenith",
+        default=False,
+        help="phase to zenith instead of phase centre",
+    )
 
     args = parser.parse_args()
     print(f"{args=}")
+    if args.diff:
+        print("diff not supported")
+        exit(1)
     n_pix = args.pix
 
     suffix = ssins_tools.get_suffix(args)
@@ -126,9 +140,10 @@ def main():
         exit(1)
 
     # phase to zenith
-    ss.phase(
-        lon=0, lat=pi / 2, cat_name="zenith", phase_frame="altaz", cat_type="driftscan"
-    )
+    if args.zenith:
+        ss.phase(
+            lon=0, lat=pi / 2, cat_name="zenith", phase_frame="altaz", cat_type="driftscan"
+        )
 
     plt.style.use("dark_background")
 
@@ -179,6 +194,8 @@ def main():
 
     lat, lon, height = tel.location_lat_lon_alt_degrees
 
+    cdelt = 2 * args.img_extent / n_pix
+
     header = {
         "SIMPLE": "T",
         "NAXIS1": n_pix,
@@ -189,8 +206,8 @@ def main():
         "CRPIX2": n_pix // 2 + 1,
         "CRVAL1": 0.0,
         "CRVAL2": 90.0,
-        "CDELT1": -360 / np.pi / n_pix,
-        "CDELT2": 360 / np.pi / n_pix,
+        "CDELT1": -cdelt,
+        "CDELT2": cdelt,
         "CUNIT1": "deg",
         "CUNIT2": "deg",
         "JDREF": jd_midnight,
@@ -336,8 +353,6 @@ def main():
             continue
     if len(axes_to_average):
         data = np.mean(data, axis=(*axes_to_average,))
-        for ax in sorted(axes_to_average, reverse=True):
-            wcs = wcs.dropaxis(ax)
 
     # With WCS we can write the image to FITS
     hdu = fits.PrimaryHDU(header=wcs.to_header(), data=np.abs(data))
