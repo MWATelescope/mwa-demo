@@ -336,6 +336,8 @@ def main():
             continue
     if len(axes_to_average):
         data = np.mean(data, axis=(*axes_to_average,))
+        for ax in sorted(axes_to_average, reverse=True):
+            wcs = wcs.dropaxis(ax)
 
     # With WCS we can write the image to FITS
     hdu = fits.PrimaryHDU(header=wcs.to_header(), data=np.abs(data))
