@@ -12,9 +12,11 @@ source "$SCRIPT_BASE/00_env.sh"
 
 export obsid=${obsid:-1341914000}
 
-# #### #
-# PREP #
-# #### #
+# ### #
+# RAW #
+# ### #
+# check for raw files
+# export raw_pattern=${outdir}/${obsid}/raw/${obsid}_2\*.fits
 # check for metafits files
 export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
 if [[ ! -f "$metafits" ]]; then
@@ -32,17 +34,17 @@ export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
 [[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
 export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
 
-for f in $(ls -1 $prep_uvfits_pattern); do
+for f in $(ls -1d $prep_uvfits_pattern); do
     set -x
     fitsheader $f
     echo $?
 done
-if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
+if ! eval ls -1d $prep_uvfits_pattern >/dev/null; then
     echo "prep_uvfits $prep_uvfits_pattern does not exist. trying 05_prep.sh"
     $SCRIPT_BASE/05_prep.sh
 fi
 export prep_qa_pattern="${outdir}/${obsid}/prep/birli_${obsid}*_qa.json"
-if ! eval ls -1 $prep_qa_pattern >/dev/null; then
+if ! eval ls -1d $prep_qa_pattern >/dev/null; then
     echo "warning: prepqa $prep_qa_pattern does not exist. trying 05_prep.sh"
     $SCRIPT_BASE/05_prep.sh
 fi
@@ -53,7 +55,7 @@ mkdir -p "${outdir}/${obsid}/cal"
 # SRCLIST #
 # ####### #
 # DEMO: generate a smaller sourcelist for calibration
-export srclist_args="${srclist_args:-}" # e.g. --veto-threshold --source-dist-cutoff
+export srclist_args="${srclist_args:---source-dist-cutoff=180}" # e.g. --veto-threshold --source-dist-cutoff
 export num_sources=${num_sources:-500}
 if [[ -n "${num_sources:-}" ]]; then
     srclist_args="${srclist_args} -n $num_sources"
@@ -87,7 +89,7 @@ fi
 mkdir -p "${outdir}/${obsid}/cal"
 set -eu
 # loop over all the preprocessed files
-eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
+eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
     export prep_uvfits;
 
     # find prepqa relative to this uvfits file
@@ -106,14 +108,12 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
     export dical_name=${prep_uvfits##*/birli_}
     export dical_name="${dical_name%.uvfits}${dical_suffix}"
     export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
-    export cal_ms="${parent}/cal/hyp_cal_${dical_name}.ms"
-    export cal_uvfits="" # optional
-    # export cal_uvfits="${parent}/cal/hyp_cal_${dical_name}.uvfits"
-    export model_ms="${parent}/cal/hyp_model_${dical_name}.ms"
+    export cal_vis="${parent}/cal/hyp_cal_${dical_name}.uvfits"
+    # export model_ms="${parent}/cal/hyp_model_${dical_name}.ms"
 
     if [[ ! -f "$hyp_soln" ]]; then
         echo "calibrating with sourcelist $topn_srclist"
-        hyperdrive di-calibrate ${dical_args:-} \
+        hyperdrive di-calibrate ${dical_args:-} ${srclist_args:-} \
             --data "$metafits" "$prep_uvfits" \
             --source-list "$topn_srclist" \
             --outputs "$hyp_soln" \
@@ -129,6 +129,14 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
             -m "$metafits" \
             --no-ref-tile \
             --max-amp 1.5 \
+            --output-directory "${outdir}/${obsid}/cal" \
+            "$hyp_soln"
+        mv ${hyp_soln%%.fits}_phases.png ${hyp_soln%%.fits}_phases_noref.png
+        mv ${hyp_soln%%.fits}_amps.png ${hyp_soln%%.fits}_amps_noref.png
+        hyperdrive solutions-plot \
+            -m "$metafits" \
+            --max-amp 1.5 \
+            --ref-tile 0 \
             --output-directory "${outdir}/${obsid}/cal" \
             "$hyp_soln"
     else
@@ -173,25 +181,14 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
 
     # apply calibration solutions to preprocessed visibilities
     # details: https://mwatelescope.github.io/mwa_hyperdrive/user/solutions_apply/intro.html
-    if [[ ! -d "$cal_ms" ]]; then
+    if [[ -n "$cal_vis" && ! -f "$cal_vis" && ! -d "$cal_vis" ]]; then
         hyperdrive apply ${apply_args:-} \
             --data "$metafits" "$prep_uvfits" \
             --solutions "$hyp_soln" \
-            --outputs "$cal_ms" \
-            $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
-        # TODO: use raw files if available
-        # --data "$metafits" $( [[ -n $raw_files ]] && echo $raw_files || echo $prep_uvfits) \
-    else
-        echo "cal_ms $cal_ms exists, skipping hyperdrive apply"
-    fi
-    if [[ -n "$cal_uvfits" && ! -f "$cal_uvfits" ]]; then
-        hyperdrive apply ${apply_args:-} \
-            --data "$metafits" $( [[ -n $raw_files ]] && echo $raw_files || echo $prep_uvfits) \
-            --solutions "$hyp_soln" \
-            --outputs "$cal_uvfits" \
+            --outputs "$cal_vis" \
             $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
     else
-        echo "cal_uvfits $cal_uvfits exists, skipping hyperdrive apply"
+        echo "cal_vis $cal_vis exists, skipping hyperdrive apply"
     fi
 done
 
