@@ -22,8 +22,14 @@ if ! eval ls -1 $raw_pattern >/dev/null; then
     exit 1
 fi
 # check for metafits files
-export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
+# use _fixed if available
+export metafits=${outdir}/${obsid}/raw/${obsid}_fixed.metafits
 if [[ ! -f "$metafits" ]]; then
+    # otherwise use the original
+    export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
+fi
+if [[ ! -f "$metafits" ]]; then
+    # otherwise download it
     echo "metafits not present, downloading $metafits"
     curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
 fi
@@ -34,11 +40,11 @@ fi
 # DEMO: preprocess raw files with birli
 # Cotter only works on legacy correlator files and has been discontinued.
 
-# uncomment to modify preprocessing settings
-# export freqres_khz=10     # frequency resolution to average to in kHz
-# export birli_args=""      # extra birli args if any
+# optional preprocessing settings for 00_env.sh
+# export freqres_khz=10   # frequency resolution to average to in kHz
+# export birli_args=""    # extra birli args if any
 # export timeres_s=4      # time resolution to average to in seconds
-export edgewidth_khz=80 # edge width to flag on each coarse channel in kHz
+# export edgewidth_khz=80 # edge width to flag on each coarse channel in kHz
 
 mkdir -p "${outdir}/${obsid}/prep"
 
@@ -67,6 +73,8 @@ if ! eval ls -1 $prep_uvfits_pattern 2>/dev/null; then
         -u "${prep_uvfits}" \
         $raw_pattern \
         $@
+    export birli_return=$?
+    echo return code $birli_return
     # -M "${prep_uvfits%%.uvfits}.ms" \
 else
     echo "prep_uvfits $prep_uvfits_pattern exists, skipping birli"
