@@ -10,8 +10,7 @@ if [ -n "$ZSH_VERSION" ]; then ME="${0:A}"; else ME=$(realpath ${BASH_SOURCE:0})
 export SCRIPT_BASE=${SCRIPT_BASE:-$(dirname $ME)}
 source "$SCRIPT_BASE/00_env.sh"
 
-# export obsid=${obsid:-1341914000}
-export obsid=${obsid:-1069759984}
+export obsid=${obsid:-UNSET}
 
 # #### #
 # PREP #
@@ -51,7 +50,8 @@ export dical_suffix=${dical_suffix:-""}
 # check preprocessed visibility and qa files exist from previous steps
 # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
 # - if the files we need are missing, then run 05_prep.
-export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}\*.uvfits
+# export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}\*.uvfits
+export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}.uvfits
 if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
     echo "prep_uvfits $prep_uvfits_pattern does not exist. trying 05_prep.sh"
     $SCRIPT_BASE/05_prep.sh
@@ -71,9 +71,9 @@ for prep_uvfits in $prep_uvfits_pattern; do
     # ### #
 
     export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
-    export cal_ms="${parent}/cal/hyp_cal_${dical_name}.ms"
-    if ! eval ls -1 $cal_ms >/dev/null; then
-        echo "warning: cal_ms $cal_ms does not exist. trying" 06_cal.sh
+    export cal_vis="${parent}/cal/hyp_cal_${dical_name}.ms"
+    if ! eval ls -1 $cal_vis >/dev/null; then
+        echo "warning: cal_vis $cal_vis does not exist. trying" 06_cal.sh
         $SCRIPT_BASE/06_cal.sh
     fi
 
@@ -94,22 +94,23 @@ for prep_uvfits in $prep_uvfits_pattern; do
     export time_average=${time_average:-8s}
     export iono_freq_average=${iono_freq_average:-1280kHz}
     export iono_time_average=${iono_time_average:-8s}
-    export uvw_min=${uvw_min:-50lambda}
-    export uvw_max=${uvw_max:-300lambda}
     export short_baseline_sigma=${short_baseline_sigma:-40}
     export convergence=${convergence:-0.9}
+    # recommended settings for GGSM (phase1)
+    export uvw_min=${uvw_min:-75lambda}
+    export uvw_max=${uvw_max:-1667lambda}
 
 
     mkdir -p "${outdir}/${obsid}/cal"
     export peel_prefix="${peel_prefix:-peel_}"
-    export peel_ms="${parent}/peel/hyp_${peel_prefix}${dical_name}.ms"
-    export iono_json="${peel_ms%.ms}_iono.json"
+    export peel_vis="${parent}/peel/hyp_${peel_prefix}${dical_name}.ms"
+    export iono_json="${parent}/peel/hyp_${peel_prefix}${dical_name}_iono.json"
 
-    if [[ ! -f "$peel_ms" ]]; then
+    if [[ ! -f "$peel_vis" && ! -d "$peel_vis" ]]; then
         echo "ionospherically subtracting $iono_sources (total $num_sources) from sourcelist $topn_srclist"
-        hyperdrive peel ${dical_args:-} \
-            --data "$metafits" "$cal_ms" \
-            --outputs "$peel_ms" "$iono_json" \
+        hyperdrive peel ${peel_args:-} \
+            --data "$metafits" "$cal_vis" \
+            --outputs "$peel_vis" "$iono_json" \
             --iono-sub $iono_sources \
             --num-passes $num_passes \
             --num-loops $num_loops \
@@ -122,7 +123,7 @@ for prep_uvfits in $prep_uvfits_pattern; do
             --source-list "$topn_srclist" \
             $@
     else
-        echo "peel_ms $peel_ms exists, skipping hyperdrive peel"
+        echo "peel_vis $peel_vis exists, skipping hyperdrive peel"
     fi
 done
 
