@@ -144,26 +144,29 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
 
     if [[ ! -f "$calqa" ]]; then
         echo "running calqa on solutions $hyp_soln"
-        run_calqa.py --pol X --out "$calqa" "$hyp_soln" "$metafits"
+        run_calqa.py --pol X --out "$calqa" "$hyp_soln" "$metafits" || true
     else
         echo "calqa $calqa exists, skipping run_calqa.py"
     fi
 
-    # plot the cal qa results
-    plot_calqa.py "$calqa" --save --out "${hyp_soln%%.fits}"
+    # if the above didn't fail
+    if [[ -f "$calqa" ]]; then
+        # plot the cal qa results
+        plot_calqa.py "$calqa" --save --out "${hyp_soln%%.fits}" || true
 
-    # extract the percentage of channels that converged
-    cal_pct_nonconvg=$(jq -r $'.PERCENT_NONCONVERGED_CHS|tonumber|round' "$calqa")
-    export cal_pct_nonconvg
+        # extract the percentage of channels that converged
+        cal_pct_nonconvg=$(jq -r $'.PERCENT_NONCONVERGED_CHS|tonumber|round' "$calqa") || true
+        export cal_pct_nonconvg
 
-    if [[ $cal_pct_nonconvg -ge 95 ]]; then
-        echo "calibration failed, $cal_pct_nonconvg% of channels did not converge. hint: try a different sky model in demo/00_env.sh"
-        continue
+        if [[ $cal_pct_nonconvg -ge 95 ]]; then
+            echo "calibration failed, $cal_pct_nonconvg% of channels did not converge. hint: try a different sky model in demo/00_env.sh"
+            continue
+        fi
+
+        # extract bad antennas from calqa json with jq
+        cal_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' "$calqa") || true
+        export cal_bad_ants
     fi
-
-    # extract bad antennas from calqa json with jq
-    cal_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' "$calqa")
-    export cal_bad_ants
 
     # echo "deliberately disabling cal bad ants for the first round :)"
     # export cal_bad_ants=""
