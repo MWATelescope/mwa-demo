@@ -288,7 +288,7 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
             gps_times.append(corr_ctx.timesteps[time_idx].gps_time_ms / 1000.0)
     times = Time(gps_times, format="gps", scale="utc")
     int_time = times[1] - times[0]
-    times -= int_time / 2.0
+    times += int_time / 2.0
     return times
 
 
@@ -605,6 +605,29 @@ def du_bs(path: Path, bs=1024 * 1024):
     return sum(f.stat().st_size for f in path.glob("**/*") if f.is_file()) / bs
 
 
+def display_time(t: Time):
+    return f"({t.isot} gps={t.gps:13.2f} unix={t.unix:13.2f} jd={t.jd:14.6f})"
+
+def compare_time(ta: Time, tb: Time):
+    """
+    smallest mwax resolution is 0.25s
+    """
+    return np.abs(ta.gps - tb.gps) < 0.25
+
+def compare_channel_times(ch, common_times, channel_times, time_descriptor=''):
+    print(
+        f"channel {ch} - found {len(channel_times)}{time_descriptor} times "
+        f"from {display_time(channel_times[0])} to {display_time(channel_times[-1])}"
+    )
+    if not compare_time(channel_times[0], common_times[0]):
+        print(
+            f"WARN: channel {ch} - starts at {display_time(channel_times[0])} but common is {display_time(common_times[0])}"
+        )
+    if not compare_time(channel_times[-1], common_times[-1]):
+        print(
+            f"WARN: channel {ch} - ends at {display_time(channel_times[-1])} but common is {display_time(common_times[-1])}"
+        )
+
 def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     file_sizes_mb = {f: du_bs(Path(f)) for f in raw_fits}
     total_size_mb = sum(file_sizes_mb.values())
@@ -623,10 +646,10 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     good = True
     times = mwalib_get_common_times(metafits, raw_fits, good)
     time_array = times.jd.astype(float)
+    good_descriptor = ' good' if good else ''
     print(
-        f"mwalib found {len(times)}{' good' if good else ''} times "
-        f"from {times[0].isot} (gps={times[0].gps} jd={times[0].jd}) "
-        f"to {times[-1].isot} (gps={times[-1].gps} jd={times[-1].jd})"
+        f"mwalib found {len(times)}{good_descriptor} times "
+        f"from {display_time(times[0])} to {display_time(times[-1])}"
     )
 
     n_chs = len(raw_channel_groups)
@@ -639,31 +662,33 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
             uvd_ = type(uvd)()
 
         channel_raw_fits = raw_channel_groups[ch]
-        channel_times = mwalib_get_common_times(metafits, raw_fits, good)
-        print(
-            f"channel {ch} - times from {channel_times[0].isot} "
-            f"({channel_times[0].gps}) to {channel_times[-1].isot} ({channel_times[-1].gps})"
-        )
-        if channel_times[0] != times[0]:
-            print(
-                f"WARN: channel {ch} - starts at {channel_times[0].isot} but common is {times[0].isot}"
-            )
-        if channel_times[-1] != times[-1]:
-            print(
-                f"WARN: channel {ch} - ends at {channel_times[-1].isot} but common is {times[-1].isot}"
-            )
+        mwalib_channel_times = mwalib_get_common_times(metafits, channel_raw_fits, good)
+
+        compare_channel_times(ch, times, mwalib_channel_times, (' mwalib good' if good else ' mwalib'))
 
         channel_size_mb = sum([file_sizes_mb[f] for f in channel_raw_fits])
         print(
             f"reading channel {ch}: {int(channel_size_mb)}MB of raw files ({ch_idx+1} of {n_chs})"
         )
         ch_start = time.time()
+        # initial read: no data, just get time array
         uvd_.read(
-            [metafits, *raw_channel_groups[ch]],
-            read_data=True,
-            times=time_array,
-            **read_kwargs,
+            [metafits, *channel_raw_fits],
+            read_data=False,
         )
+        uv_channel_times = Time(np.unique(uvd_.time_array), format="jd")
+        compare_channel_times(ch, times, uv_channel_times, ' uv')
+
+        try:
+            uvd_.read(
+                [metafits, *channel_raw_fits],
+                read_data=True,
+                times=time_array,
+                **read_kwargs,
+            )
+        except ValueError as exc:
+            traceback.print_exception(exc)
+            exit(1)
         read_time = time.time() - ch_start
         print(
             f"reading channel {ch} took {int(read_time)}s. {int(channel_size_mb/read_time)} MB/s"
