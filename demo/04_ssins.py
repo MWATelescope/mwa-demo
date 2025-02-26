@@ -2,8 +2,22 @@
 
 # identify RFI using ssins
 # details: https://github.com/mwilensky768/SSINS
+# takes any format supported by pyuvdata https://github.com/RadioAstronomySoftwareGroup/pyuvdata
+# although measurement set support is not as good as uvfits or uvh5
 
 # tip: you can use this script to apply the ssins mask https://raw.githubusercontent.com/MWATelescope/MWAEoR-Pipeline/refs/heads/main/templates/ssins_apply.py
+
+# isolated example:
+"""
+export outdir= ... # e.g. /data , which has adequate space
+export obsid=1418228256
+giant-squid submit-vis -w $obsid
+docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD $([ -d /demo ] && echo " -v /demo:/demo") -w ${outdir} -e obsid -e outdir --entrypoint /demo/04_ssins.py mwatelescope/mwa-demo:latest $(cd $outdir; ls -1 ${obsid}*fits)
+"""
+# (default)                     = plot diff spectrum
+# --no-diff                     = don't difference visibilities in time (sky-subtract)
+# --sigchain --no-diff --autos  = per-auto z-scores
+# --flags                       = flag occupancy
 
 from pyuvdata import UVData
 from SSINS import SS, INS, MF
@@ -20,6 +34,8 @@ import time
 import traceback
 from pathlib import Path
 import pandas as pd
+from pprint import pformat
+import sys
 
 from matplotlib.axis import Axis
 
@@ -831,7 +847,17 @@ def main():
 
     elif args.plot_type == "flags":
         plot_flags(ss, args, obsname, suffix, cmap)
-
+    plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.95)
+    # put text box in global coordinates
+    endl = '\n'
+    plt.text(
+        0.5,
+        0.5,
+        f"{pformat(vars(args))}\n{endl.join(sys.argv)}",
+        horizontalalignment="center",
+        verticalalignment="center",
+        transform=plt.gca().transAxes,
+    )
     figname = f"{base}{suffix}.{args.plot_type}.png"
     plt.savefig(figname, bbox_inches="tight")
     print(f"wrote {figname}")
