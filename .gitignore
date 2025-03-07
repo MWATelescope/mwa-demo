@@ -3,3 +3,5 @@
 bin/*
 */__pycache__
 **/*.ms/**
+.cache/*
+.astropy/*
