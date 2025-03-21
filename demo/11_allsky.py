@@ -45,9 +45,7 @@ def select_vis_matrix(uvd: UVData, **select_kwargs) -> np.ndarray:
     ix, iy = np.triu_indices(sel.Nants_data, 1)
 
     # Create empty Na x Na x Nf x Np matrix
-    V = np.zeros(
-        (sel.Nants_data, sel.Nants_data, sel.Nfreqs, sel.Npols), dtype="complex64"
-    )
+    V = np.zeros((sel.Nants_data, sel.Nants_data, sel.Nfreqs, sel.Npols), dtype="complex64")
 
     # Fill in the upper triangle
     V[ix, iy, ...] = np.conj(d)
@@ -85,7 +83,6 @@ def check_diff_uniformity(series, epsilon=0.001):
 
 
 def main():
-
     sys.path.insert(0, dirname(__file__))
     ssins_tools = __import__("04_ssins")
     parser = ssins_tools.get_parser()
@@ -141,9 +138,7 @@ def main():
 
     # phase to zenith
     if args.zenith:
-        ss.phase(
-            lon=0, lat=pi / 2, cat_name="zenith", phase_frame="altaz", cat_type="driftscan"
-        )
+        ss.phase(lon=0, lat=pi / 2, cat_name="zenith", phase_frame="altaz", cat_type="driftscan")
 
     plt.style.use("dark_background")
 

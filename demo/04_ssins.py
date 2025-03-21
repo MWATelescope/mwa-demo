@@ -257,10 +257,7 @@ def group_by_filetype(paths):
         return ext
 
     return {
-        k: [*v]
-        for k, v in groupby(
-            sorted(paths, key=filetype_classifier), key=filetype_classifier
-        )
+        k: [*v] for k, v in groupby(sorted(paths, key=filetype_classifier), key=filetype_classifier)
     }
 
 
@@ -284,9 +281,7 @@ def group_raw_by_channel(metafits, raw_fits):
 
     return {
         k: sorted([*v])
-        for k, v in groupby(
-            sorted(raw_fits, key=channel_classifier), key=channel_classifier
-        )
+        for k, v in groupby(sorted(raw_fits, key=channel_classifier), key=channel_classifier)
     }
 
 
@@ -296,9 +291,7 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
     gps_times = []
     with CorrelatorContext(metafits, raw_fits) as corr_ctx:
         timestep_idxs = (
-            corr_ctx.common_good_timestep_indices
-            if good
-            else corr_ctx.common_timestep_indices
+            corr_ctx.common_good_timestep_indices if good else corr_ctx.common_timestep_indices
         )
         for time_idx in timestep_idxs:
             gps_times.append(corr_ctx.timesteps[time_idx].gps_time_ms / 1000.0)
@@ -460,9 +453,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
 
         ax_signal.yaxis.set_ticks(np.arange(len(unflagged_ants)))
         ax_signal.yaxis.set_tick_params(pad=True)
-        ax_signal.yaxis.set_ticklabels(
-            ant_labels, fontsize=args.fontsize, fontfamily="monospace"
-        )
+        ax_signal.yaxis.set_ticklabels(ant_labels, fontsize=args.fontsize, fontfamily="monospace")
 
         # by spectrum: [freq, time]
         ax_spectrum: Axis = subplots[1, i]
@@ -485,9 +476,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             ],
         )
 
-    plt.gcf().set_size_inches(
-        8 * len(pols), (len(unflagged_ants) + ss.Nfreqs) * args.fontsize / 72
-    )
+    plt.gcf().set_size_inches(8 * len(pols), (len(unflagged_ants) + ss.Nfreqs) * args.fontsize / 72)
 
 
 def plot_spectrum(ss, args, obsname, suffix, cmap):
@@ -624,13 +613,15 @@ def du_bs(path: Path, bs=1024 * 1024):
 def display_time(t: Time):
     return f"({t.isot} gps={t.gps:13.2f} unix={t.unix:13.2f} jd={t.jd:14.6f})"
 
+
 def compare_time(ta: Time, tb: Time):
     """
     smallest mwax resolution is 0.25s
     """
     return np.abs(ta.gps - tb.gps) < 0.25
 
-def compare_channel_times(ch, common_times, channel_times, time_descriptor=''):
+
+def compare_channel_times(ch, common_times, channel_times, time_descriptor=""):
     print(
         f"channel {ch} - found {len(channel_times)}{time_descriptor} times "
         f"from {display_time(channel_times[0])} to {display_time(channel_times[-1])}"
@@ -644,6 +635,7 @@ def compare_channel_times(ch, common_times, channel_times, time_descriptor=''):
             f"WARN: channel {ch} - ends at {display_time(channel_times[-1])} but common is {display_time(common_times[-1])}"
         )
 
+
 def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     file_sizes_mb = {f: du_bs(Path(f)) for f in raw_fits}
     total_size_mb = sum(file_sizes_mb.values())
@@ -653,7 +645,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     if len(raw_fits) <= 1:
         uvd.read([metafits, *raw_fits], read_data=True, **read_kwargs)
         read_time = time.time() - start
-        print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
+        print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
         return uvd
 
     # group and read raw by channel to save memory
@@ -662,7 +654,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     good = True
     times = mwalib_get_common_times(metafits, raw_fits, good)
     time_array = times.jd.astype(float)
-    good_descriptor = ' good' if good else ''
+    good_descriptor = " good" if good else ""
     print(
         f"mwalib found {len(times)}{good_descriptor} times "
         f"from {display_time(times[0])} to {display_time(times[-1])}"
@@ -680,11 +672,13 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
         channel_raw_fits = raw_channel_groups[ch]
         mwalib_channel_times = mwalib_get_common_times(metafits, channel_raw_fits, good)
 
-        compare_channel_times(ch, times, mwalib_channel_times, (' mwalib good' if good else ' mwalib'))
+        compare_channel_times(
+            ch, times, mwalib_channel_times, (" mwalib good" if good else " mwalib")
+        )
 
         channel_size_mb = sum([file_sizes_mb[f] for f in channel_raw_fits])
         print(
-            f"reading channel {ch}: {int(channel_size_mb)}MB of raw files ({ch_idx+1} of {n_chs})"
+            f"reading channel {ch}: {int(channel_size_mb)}MB of raw files ({ch_idx + 1} of {n_chs})"
         )
         ch_start = time.time()
         # initial read: no data, just get time array
@@ -693,7 +687,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
             read_data=False,
         )
         uv_channel_times = Time(np.unique(uvd_.time_array), format="jd")
-        compare_channel_times(ch, times, uv_channel_times, ' uv')
+        compare_channel_times(ch, times, uv_channel_times, " uv")
 
         try:
             uvd_.read(
@@ -707,14 +701,14 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
             exit(1)
         read_time = time.time() - ch_start
         print(
-            f"reading channel {ch} took {int(read_time)}s. {int(channel_size_mb/read_time)} MB/s"
+            f"reading channel {ch} took {int(read_time)}s. {int(channel_size_mb / read_time)} MB/s"
         )
         # if not first time around, add uvd_ into uvd
         if uvd_ != uvd:
             uvd.__add__(uvd_, inplace=True)
 
     read_time = time.time() - start
-    print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
+    print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
 
 
 def read_select(uvd: UVData, args):
@@ -765,7 +759,7 @@ def read_select(uvd: UVData, args):
         uvd.read(vis, **read_kwargs)
         uvd.scan_number_array = None  # these are not handled correctly
         read_time = time.time() - start
-        print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
+        print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
     elif len(other_types.intersection([".uvfits", ".uvh5"])) == 1:
         vis = sum(
             [
@@ -781,7 +775,7 @@ def read_select(uvd: UVData, args):
         start = time.time()
         uvd.read(vis, read_data=True, **read_kwargs)
         read_time = time.time() - start
-        print(f"read took {int(read_time)}s. {int(total_size_mb/read_time)} MB/s")
+        print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
     else:
         raise ValueError(f"could not determine visibility file type {file_groups}")
 
@@ -849,7 +843,7 @@ def main():
         plot_flags(ss, args, obsname, suffix, cmap)
     plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.95)
     # put text box in global coordinates
-    endl = '\n'
+    endl = "\n"
     plt.text(
         0.5,
         0.5,
