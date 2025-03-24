@@ -364,13 +364,14 @@ def get_match_filter(ss, args):
         "SL-175": [174.997e6 - gw, 175.003e6 + gw],  # 3kHz doppler shift
     }
     sig_thresh = {shape: args.threshold for shape in shape_dict}
-    mf_args = {}
-    if args.narrow > 0:
+    mf_args = {
+        "streak": (args.streak > 0),
+        "narrow": (args.narrow > 0),
+    }
+    if mf_args["narrow"]:
         sig_thresh["narrow"] = args.narrow
-        mf_args["narrow"] = True
-    if args.streak > 0:
+    if mf_args["streak"]:
         sig_thresh["streak"] = args.streak
-        mf_args["streak"] = True
     if args.tb_aggro > 0:
         mf_args["tb_aggro"] = args.tb_aggro
     return MF(
@@ -485,17 +486,16 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
 
     mf = get_match_filter(ss, args)
     apply_match_test(mf, ins, args)
+    # set the sig_array and metric_array to nan
+    # where ss.flag_array is True for all baselines
+    # or sig_array is not finite
+    flag_array = ss.flag_array.reshape(ss.Nbls, ss.Ntimes, ss.Nfreqs, ss.Npols)
+    all_flagged = np.all(flag_array, axis=0)
+    ins.sig_array[all_flagged] = np.nan
+    ins.metric_array[all_flagged] = np.nan
     ins.sig_array[~np.isfinite(ins.sig_array)] = np.nan
     ins.metric_array[~np.isfinite(ins.sig_array)] = np.nan
     pols = ss.get_pols()
-
-    # occupancy = np.sum(
-    #     ss.flag_array.reshape(ss.Ntimes, ss.Nbls, ss.Nspws, ss.Nfreqs, len(pols)),
-    #     axis=(1, 2),
-    # ).astype(np.float64)
-    # full_occupancy_value = np.max(occupancy)
-    # ins.sig_array[occupancy > full_occupancy_value / 2] = np.nan
-    # ins.metric_array[occupancy > full_occupancy_value / 2] = np.nan
 
     gps_times = get_gps_times(ss)
     freqs_mhz = (ss.freq_array) / 1e6
@@ -559,47 +559,37 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
 
     occupancy = np.sum(
         ss.flag_array.reshape(ss.Ntimes, ss.Nbls, ss.Nspws, ss.Nfreqs, len(pols)),
-        axis=(1, 2),
+        axis=(1, 2, 4),
     ).astype(np.float64)
-    full_occupancy_value = ss.Nbls * ss.Nspws
+    full_occupancy_value = ss.Nbls * ss.Nspws * len(pols)
     occupancy[occupancy == full_occupancy_value] = np.nan
     max_occupancy = np.nanmax(occupancy)
-    print(f"{max_occupancy=}")
+    print(f"{max_occupancy=} {full_occupancy_value=}")
     # clip at half occupancy
     # occupancy[occupancy >= full_occupancy_value / 2] = full_occupancy_value / 2
 
     occupancy /= full_occupancy_value
 
-    subplots = plt.subplots(
-        len(pols),
-        1,
-        sharex=True,
-        sharey=True,
-    )[1]
-    if len(pols) == 1:
-        subplots = [subplots]
+    plt.suptitle(f"{obsname} occupancy{suffix} {pols[0] if len(pols) == 1 else ''}")
+    plt.imshow(
+        occupancy[...],
+        aspect="auto",
+        interpolation="none",
+        cmap=cmap,
+        extent=[
+            np.min(freqs_mhz),
+            np.max(freqs_mhz),
+            np.max(gps_times),
+            np.min(gps_times),
+        ],
+    )
 
-    for i, pol in enumerate(pols):
-        ax: Axis = subplots[i]
+    # add a color bar
+    cbar = plt.colorbar()
+    cbar.set_label("Flag occupancy")
 
-        ax.set_title(f"{obsname} occupancy{suffix} {pol if len(pols) > 1 else ''}")
-        ax.imshow(
-            occupancy[..., i],
-            aspect="auto",
-            interpolation="none",
-            cmap=cmap,
-            extent=[
-                np.min(freqs_mhz),
-                np.max(freqs_mhz),
-                np.max(gps_times),
-                np.min(gps_times),
-            ],
-        )
-
-        ax.set_ylabel("GPS Time [s]")
-
-        if i == len(pols) - 1:
-            ax.set_xlabel("Frequency channel [MHz]")
+    plt.ylabel("GPS Time [s]")
+    plt.xlabel("Frequency channel [MHz]")
 
     plt.gcf().set_size_inches(16, np.min([9, 4 * len(pols)]))
 
