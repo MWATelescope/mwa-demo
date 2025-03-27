@@ -20,14 +20,17 @@ docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD $([ -d /demo ] && 
 # --flags                       = flag occupancy
 
 from pyuvdata import UVData
-from SSINS import SS, INS, MF
+from SSINS import SS, MF
+
+# from SSINS import EAVILS_INS as INS
+from SSINS import INS
 import os
 from os.path import splitext, dirname
 import matplotlib as mpl
 from matplotlib import pyplot as plt
 import numpy as np
 from astropy.time import Time
-from argparse import ArgumentParser, SUPPRESS
+from argparse import ArgumentParser, SUPPRESS, BooleanOptionalAction
 from itertools import groupby
 import re
 import time
@@ -40,7 +43,10 @@ import sys
 from matplotlib.axis import Axis
 
 
-def get_parser():
+def get_parser_common(diff=True, spectrum="cross"):
+    """
+    parser for read and select (common)
+    """
     parser = ArgumentParser()
     # arguments for SS.read()
     group_read = parser.add_argument_group("SS.read")
@@ -49,21 +55,17 @@ def get_parser():
         nargs="+",
         help="Raw .fits (with .metafits), .uvfits, .uvh5, .ms supported",
     )
-    group_mutex = group_read.add_mutually_exclusive_group()
-    group_mutex.add_argument("--diff", default=True, help=SUPPRESS)
-    group_mutex.add_argument(
-        "--no-diff",
-        action="store_false",
-        dest="diff",
-        help="Don't difference visibilities in time (sky-subtract)",
+    group_read.add_argument(
+        "--diff",
+        default=diff,
+        help=f"Difference visibilities in time (sky-subtract). default: {diff}",
+        action=BooleanOptionalAction,
     )
-    group_mutex = group_read.add_mutually_exclusive_group()
-    group_mutex.add_argument("--flag-init", default=True, help=SUPPRESS)
-    group_mutex.add_argument(
-        "--no-flag-init",
-        action="store_false",
-        dest="flag_init",
-        help="Skip flagging of quack time, edge channels",
+    group_read.add_argument(
+        "--flag-init",
+        default=True,
+        help="Flagging of quack time, edge channels, default: True",
+        action=BooleanOptionalAction,
     )
     group_read.add_argument(
         "--remove-coarse-band",
@@ -135,13 +137,28 @@ def get_parser():
         help="limit to reading N times, default: all",
     )
 
+    # common
+    parser.add_argument(
+        "--suffix",
+        default="",
+        type=str,
+        help="additional text to add to output filenames",
+    )
+
+    group_plot = parser.add_argument_group("plotting")
+    group_plot.add_argument(
+        "--cmap",
+        default="viridis",
+        help="matplotlib.colormaps.get_cmap, default: viridis",
+    )
+
     # arguments for SSINS.INS
     group_ins = parser.add_argument_group("SSINS.INS")
     group_ins.add_argument(
         "--spectrum-type",
-        default="cross",
+        default=spectrum,
         choices=["all", "auto", "cross"],
-        help="analyse auto-correlations or cross-correlations. default: cross",
+        help=f"analyse auto-correlations or cross-correlations. default: {spectrum}",
     )
     group_ins.add_argument(
         "--all",
@@ -164,6 +181,11 @@ def get_parser():
         dest="spectrum_type",
         help="shorthand for --spectrum-type=auto",
     )
+    return parser
+
+
+def get_parser():
+    parser = get_parser_common(diff=True)
 
     # arguments for SSINS.MF
     group_mf = parser.add_argument_group("SSINS.MF")
@@ -230,18 +252,6 @@ def get_parser():
         help="analyse flag occupancy",
     )
 
-    group_plot.add_argument(
-        "--cmap",
-        default="viridis",
-        help="matplotlib.colormaps.get_cmap, default: viridis",
-    )
-
-    group_plot.add_argument(
-        "--suffix",
-        default="",
-        type=str,
-        help="additional text to add to plot output filename",
-    )
     group_plot.add_argument("--fontsize", default=8, help="plot tick label font size")
 
     parser.add_argument(
@@ -331,7 +341,7 @@ def get_gps_times(uvd: UVData):
 
 def get_suffix(args):
     suffix = args.suffix
-    if args.spectrum_type != "all":
+    if "spectrum_type" in vars(args) and args.spectrum_type != "all":
         suffix = f".{args.spectrum_type}{suffix}"
     if args.diff:
         suffix = f".diff{suffix}"
@@ -341,6 +351,8 @@ def get_suffix(args):
         suffix = f"{suffix}.no{args.skip_ants[0]}"
     if len(args.sel_pols) == 1:
         suffix = f"{suffix}.{args.sel_pols[0]}"
+    # deleteme
+    # suffix += ".eavins"
     return suffix
 
 
@@ -618,11 +630,13 @@ def compare_channel_times(ch, common_times, channel_times, time_descriptor=""):
     )
     if not compare_time(channel_times[0], common_times[0]):
         print(
-            f"WARN: channel {ch} - starts at {display_time(channel_times[0])} but common is {display_time(common_times[0])}"
+            f"WARN: channel {ch} - starts at {display_time(channel_times[0])} "
+            f"but common is {display_time(common_times[0])}"
         )
     if not compare_time(channel_times[-1], common_times[-1]):
         print(
-            f"WARN: channel {ch} - ends at {display_time(channel_times[-1])} but common is {display_time(common_times[-1])}"
+            f"WARN: channel {ch} - ends at {display_time(channel_times[-1])} "
+            f"but common is {display_time(common_times[-1])}"
         )
 
 
@@ -712,10 +726,11 @@ def read_select(uvd: UVData, args):
         "correct_van_vleck": args.correct_van_vleck,  # slow
         "remove_flagged_ants": args.remove_flagged_ants,  # remove flagged ants
         "flag_init": args.flag_init,
-        "ant_str": args.spectrum_type,
         "flag_choice": args.flag_choice,
         "run_check": False,
     }
+    if "spectrum_type" in vars(args) and args.spectrum_type != "all":
+        read_kwargs["ant_str"] = args.spectrum_type
     select_kwargs = {
         "run_check": False,
     }

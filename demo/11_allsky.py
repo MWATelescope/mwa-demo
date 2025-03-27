@@ -85,7 +85,9 @@ def check_diff_uniformity(series, epsilon=0.001):
 def main():
     sys.path.insert(0, dirname(__file__))
     ssins_tools = __import__("04_ssins")
-    parser = ssins_tools.get_parser()
+    phase_tools = __import__("10_phase")
+    parser = phase_tools.get_parser()
+
     parser.add_argument("--pix", default=201, type=int, help="number of image pixels")
     parser.add_argument(
         "--thumbs",
@@ -111,11 +113,6 @@ def main():
         type=float,
         help="angular extent [radians] from phase centre to edge of image",
     )
-    parser.add_argument(
-        "--zenith",
-        default=False,
-        help="phase to zenith instead of phase centre",
-    )
 
     args = parser.parse_args()
     print(f"{args=}")
@@ -136,9 +133,7 @@ def main():
         parser.print_usage()
         exit(1)
 
-    # phase to zenith
-    if args.zenith:
-        ss.phase(lon=0, lat=pi / 2, cat_name="zenith", phase_frame="altaz", cat_type="driftscan")
+    phase_tools.phase_resample(ss, args)
 
     plt.style.use("dark_background")
 
@@ -147,8 +142,6 @@ def main():
 
     assert type(tel.location) is EarthLocation  # we're not on the moon yet
     eloc: EarthLocation = tel.location
-
-    ss.print_phase_center_info()
 
     # Load time coord data
     times = Time(np.unique(ss.time_array), format="jd", scale="utc", location=eloc)
