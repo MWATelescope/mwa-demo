@@ -137,11 +137,19 @@ def main():
 
     plt.style.use("dark_background")
 
-    tel = ss.telescope
-    ant_pos_enu = ss.get_ENU_antpos(pick_data_ants=True)[0]
+    try:
+        tel_name = ss.telescope.name
+        instrument = ss.telescope.instrument
+        eloc: EarthLocation = ss.telescope.location
+        lat, lon, height = ss.telescope.location_lat_lon_alt_degrees
 
-    assert type(tel.location) is EarthLocation  # we're not on the moon yet
-    eloc: EarthLocation = tel.location
+    except AttributeError:  # pyuvdata 2.4.1
+        tel_name = ss.telescope_name
+        instrument = ss.instrument
+        eloc = EarthLocation.from_geocentric(*ss.telescope_location, unit="m")
+        lat, lon, height = ss.telescope_location_lat_lon_alt_degrees
+
+    ant_pos_enu = ss.get_ENU_antpos(pick_data_ants=True)[0]
 
     # Load time coord data
     times = Time(np.unique(ss.time_array), format="jd", scale="utc", location=eloc)
@@ -161,7 +169,10 @@ def main():
         raise UserWarning("uniform spacing assumed in time axis")
 
     freqs = ss.freq_array
-    f_delta = ss.channel_width[0]
+    try:
+        f_delta = ss.channel_width[0]
+    except TypeError:  # pyuvdata 2.4.1
+        f_delta = ss.channel_width
     if not check_diff_uniformity(freqs):
         raise UserWarning("uniform spacing assumed in freq axis")
     freqs_out = freqs
@@ -179,8 +190,6 @@ def main():
         pol_indexing = np.asarray([0])
         polarization_array = ss.polarization_array
         pol_spacing = 1
-
-    lat, lon, height = tel.location_lat_lon_alt_degrees
 
     cdelt = 2 * args.img_extent / n_pix
 
@@ -203,11 +212,11 @@ def main():
         "OBSGEO-X": eloc.geocentric[0].value,
         "OBSGEO-Y": eloc.geocentric[1].value,
         "OBSGEO-Z": eloc.geocentric[2].value,
-        "TELESCOP": tel.name,
+        "TELESCOP": tel_name,
         "LAT     ": lat,
         "LON     ": lon,
         "ALT     ": height,
-        "INSTRUME": tel.instrument,
+        "INSTRUME": instrument,
         "SPECSYS": "TOPOCENT",
     }
 
