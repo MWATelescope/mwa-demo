@@ -57,7 +57,6 @@ if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
     $SCRIPT_BASE/05_prep.sh
 fi
 
-
 for prep_uvfits in $prep_uvfits_pattern; do
     fitsheader $prep_uvfits | grep -i COMMENT
 
@@ -100,7 +99,6 @@ for prep_uvfits in $prep_uvfits_pattern; do
     export uvw_min=${uvw_min:-75lambda}
     export uvw_max=${uvw_max:-1667lambda}
 
-
     mkdir -p "${outdir}/${obsid}/cal"
     export peel_prefix="${peel_prefix:-peel_}"
     export peel_vis="${parent}/peel/hyp_${peel_prefix}${dical_name}.ms"
@@ -126,4 +124,3 @@ for prep_uvfits in $prep_uvfits_pattern; do
         echo "peel_vis $peel_vis exists, skipping hyperdrive peel"
     fi
 done
-

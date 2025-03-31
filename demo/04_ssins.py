@@ -351,11 +351,11 @@ def get_suffix(args):
     if args.diff:
         suffix = f".diff{suffix}"
     if len(args.sel_ants) == 1:
-        suffix = f"{suffix}.{args.sel_ants[0]}"
+        suffix += f".{args.sel_ants[0]}"
     elif len(args.skip_ants) == 1:
-        suffix = f"{suffix}.no{args.skip_ants[0]}"
+        suffix += f".no{args.skip_ants[0]}"
     if len(args.sel_pols) == 1:
-        suffix = f"{suffix}.{args.sel_pols[0]}"
+        suffix += f".{args.sel_pols[0]}"
     # deleteme
     # suffix += ".eavins"
     return suffix
