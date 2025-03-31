@@ -36,8 +36,9 @@ export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
 
 for f in $(ls -1d $prep_uvfits_pattern); do
     set -x
-    fitsheader $f
+    fitsheader $f | grep "ERROR"
     echo $?
+    # TODO: detect fitsheader ERROR
 done
 if ! eval ls -1d $prep_uvfits_pattern >/dev/null; then
     echo "prep_uvfits $prep_uvfits_pattern does not exist. trying 05_prep.sh"
@@ -86,7 +87,6 @@ if [[ -n "${gpus:-}" ]]; then
     dical_args=""
 fi
 
-mkdir -p "${outdir}/${obsid}/cal"
 set -eu
 # loop over all the preprocessed files
 eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
@@ -118,7 +118,6 @@ eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
             --source-list "$topn_srclist" \
             --outputs "$hyp_soln" \
             $([[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants)
-        # TODO: --cpu if login node
     else
         echo "hyp_soln $hyp_soln exists, skipping hyperdrive di-calibrate"
     fi
