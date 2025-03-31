@@ -39,7 +39,8 @@ AND deleted_flag!='TRUE'                       -- not deleted
 AND gpubox_files_archived > 1                  -- data available
 -- AND freq_res <= 10                          -- (optional) 10kHz resolution or less
 -- AND int_time <= 1                           -- (optional) 1s integration or less
--- AND mwa_array_configuration = 'Phase II Compact' -- (optional) compact => more short baselines
+-- AND mwa_array_configuration = 'Phase II Compact'
+    -- (optional) compact => more short baselines
 ORDER BY obs_id DESC
 """
     )

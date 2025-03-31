@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Go from peel offsets to ds9 region file."""
+
 import json
 import os
 from argparse import ArgumentParser
@@ -8,10 +10,12 @@ import numpy as np
 
 
 def sanitize_json(jstr):
+    """Sanitize JSON string by replacing 'null' with 'NaN'."""
     return jstr.replace("null", "NaN")
 
 
 def get_parser():
+    """Get ArgumentParser for command line arguments."""
     parser = ArgumentParser(description="render TEC plot for offsets.")
 
     parser.add_argument("--srclist", help="source list file (yaml)")
@@ -35,7 +39,7 @@ def get_parser():
     return parser
 
 
-def main():
+def main():  # noqa: D103
     parser = get_parser()
 
     args = parser.parse_args()
@@ -66,9 +70,8 @@ def main():
     reg_file = f"{offsets_base}.reg"
     if args.reg is not None:
         reg_file = args.reg
-    print(
-        f"{ras, decs, src_names, alphas[:, args.time_offset], betas[:, args.time_offset]=}"
-    )
+    alphas_time, betas_time = alphas[:, args.time_offset], betas[:, args.time_offset]
+    print(f"{ras, decs, src_names, alphas_time, betas_time=}")
     with open(reg_file, "w") as h:
         h.write("J2000;\n")
         for ra, dec, src_name, alpha, beta in zip(

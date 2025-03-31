@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Phase the data and average in time and/or frequency."""
+
 # original WCS and einsum imaging code:
 # https://colab.research.google.com/drive/1FT-yR4kDqHdEDkOMfu1p-92ydYZVZEqN
 # by Danny C. Price
@@ -14,12 +16,12 @@ from astropy import units as u
 from astropy.coordinates import Angle
 from astropy.units.core import UnitsError
 from numpy import pi
-from SSINS import SS
-
 from pyuvdata import UVData
+from SSINS import SS
 
 
 def get_parser():
+    """Get ArgumentParser for command line arguments."""
     sys.path.insert(0, dirname(__file__))
     ssins_tools = __import__("04_ssins")
     # ^ this is bad practice.
@@ -49,6 +51,7 @@ def get_parser():
 
 
 def get_suffix(args):
+    """Get the suffix for the output file based on the arguments."""
     sys.path.insert(0, dirname(__file__))
     ssins_tools = __import__("04_ssins")
     # ^ this is bad practice.
@@ -63,9 +66,7 @@ def get_suffix(args):
 
 
 def _parse_angle_d2r(angle):
-    """
-    Specify an angle in degrees, or another unit but return it in radians
-    """
+    """Specify an angle in degrees, or another unit but return it in radians."""
     try:
         angle = Angle(angle)
     except UnitsError:  # No unit specified
@@ -74,10 +75,11 @@ def _parse_angle_d2r(angle):
 
 
 def display_pc_catalog(uvd: UVData, pc_id=None):
+    """Display the phase center catalog."""
     if pc_id is None:
         pc_id = uvd.phase_center_id_array[0]
     pc = uvd.phase_center_catalog[pc_id]
-    name, type, frame, epoch, lat, lon = (
+    name, type_, frame, epoch, lat, lon = (
         pc["cat_name"],
         pc["cat_type"],
         pc["cat_frame"],
@@ -86,10 +88,11 @@ def display_pc_catalog(uvd: UVData, pc_id=None):
         pc["cat_lon"],
     )
     lat, lon = Angle(lat, u.rad).to(u.deg), Angle(lon, u.rad).to(u.deg)
-    print(f"Phase centre {name=}, {type=}, {frame=}, {epoch=}, {lat=}, {lon=}")
+    print(f"Phase centre {name=}, {type_=}, {frame=}, {epoch=}, {lat=}, {lon=}")
 
 
 def phase_resample(uvd: UVData, args):
+    """Phase the data and resample in time and/or frequency."""
     cat_name = args.phase_centre
     uvd.print_phase_center_info()
     display_pc_catalog(uvd)
@@ -155,7 +158,7 @@ def phase_resample(uvd: UVData, args):
         uvd.frequency_average(n_chan)
 
 
-def main():
+def main():  # noqa: D103
     sys.path.insert(0, dirname(__file__))
     ssins_tools = __import__("04_ssins")
     # ^ this is bad practice.

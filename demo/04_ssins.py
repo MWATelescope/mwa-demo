@@ -1,11 +1,19 @@
 #!/usr/bin/env python
 
+"""
+Identifies RFI using SSINS.
+
+Supports various file formats such as .fits, .uvfits, .uvh5, and .ms,
+and provides options for plotting and exporting results.
+"""
+
 # identify RFI using ssins
 # details: https://github.com/mwilensky768/SSINS
 # takes any format supported by pyuvdata https://github.com/RadioAstronomySoftwareGroup/pyuvdata
 # although measurement set support is not as good as uvfits or uvh5
 
-# tip: you can use this script to apply the ssins mask https://raw.githubusercontent.com/MWATelescope/MWAEoR-Pipeline/refs/heads/main/templates/ssins_apply.py
+# tip: you can use this script to apply the ssins mask:
+# https://raw.githubusercontent.com/MWATelescope/MWAEoR-Pipeline/refs/heads/main/templates/ssins_apply.py
 
 import os
 import re
@@ -173,6 +181,7 @@ def get_parser_common(diff=True, spectrum="cross"):
 
 
 def get_parser():
+    """Parser ssins specific arguments."""
     parser = get_parser_common(diff=True)
 
     # arguments for SSINS.MF
@@ -219,7 +228,8 @@ def get_parser():
         default=0.6,
         type=float,
         help=(
-            "Threshold for flagging an entire channel, fraction of unflagged data remaining. "
+            "Threshold for flagging an entire channel, "
+            "fraction of unflagged data remaining. "
             "0=disable time broadcast"
         ),
     )
@@ -254,6 +264,8 @@ def get_parser():
 
 
 def group_by_filetype(paths):
+    """Given paths, group them by filetype."""
+
     def filetype_classifier(path):
         _, ext = splitext(path)
         return ext
@@ -267,6 +279,7 @@ def group_by_filetype(paths):
 
 
 def group_raw_by_channel(metafits, raw_fits):
+    """Given metafits and raw_fits, group them by channel."""
     __import__("sys").path.insert(0, dirname(__file__))
     mwalib_tools = __import__("03_mwalib")
     ctx = mwalib_tools.MetafitsContext(metafits)
@@ -293,6 +306,11 @@ def group_raw_by_channel(metafits, raw_fits):
 
 
 def mwalib_get_common_times(metafits, raw_fits, good=True):
+    """
+    Get times that are common to all channels in raw fits.
+
+    Optionally only return good times.
+    """
     from mwalib import CorrelatorContext
 
     gps_times = []
@@ -311,6 +329,7 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
 
 
 def get_unflagged_ants(ss: UVData, args):
+    """Get antenna numbers of all unflagged antennas."""
     all_ant_nums = np.array(ss.antenna_numbers)
     all_ant_names = np.array(ss.antenna_names)
     present_ant_nums = np.unique(ss.ant_1_array)
@@ -335,10 +354,12 @@ def get_unflagged_ants(ss: UVData, args):
 
 
 def get_gps_times(uvd: UVData):
+    """Get GPS times of all times in uvd.time_array."""
     return [*Time(np.unique(uvd.time_array), format="jd").gps]
 
 
 def get_suffix(args):
+    """Get suffix for output files based on arguments."""
     suffix = args.suffix
     if "spectrum_type" in vars(args) and args.spectrum_type != "all":
         suffix = f".{args.spectrum_type}{suffix}"
@@ -389,6 +410,7 @@ def get_match_filter(ss, args):
 
 
 def apply_match_test(ins, mf, args):
+    """Use ins.apply_match_test() to apply the match filter."""
     match_test_args = {}
     if args.tb_aggro > 0:
         match_test_args["time_broadcast"] = True
@@ -401,6 +423,7 @@ def apply_match_test(ins, mf, args):
 
 
 def plot_sigchain(ss, args, obsname, suffix, cmap):
+    """Plot signal chain z-scores."""
     mf = get_match_filter(ss, args)
 
     unflagged_ants = get_unflagged_ants(ss, args)
@@ -431,7 +454,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         2, len(pols), height_ratios=[len(unflagged_ants), ss.Nfreqs]
     )[1].reshape((2, len(pols)))
 
-    def slice(scores, axis):
+    def slice_(scores, axis):
         return np.sqrt(np.sum(scores**2, axis=axis))
 
     for i, pol in enumerate(pols):
@@ -441,7 +464,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         if i == 0:
             ax_signal.yaxis.set_label("Antenna")
 
-        signal_pscore = slice(scores[..., i], axis=-1)
+        signal_pscore = slice_(scores[..., i], axis=-1)
 
         ax_signal.imshow(
             signal_pscore,
@@ -484,6 +507,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
 
 
 def plot_spectrum(ss, args, obsname, suffix, cmap):
+    """Plot the spectrum z-scores."""
     # incoherent noise spectrum https://ssins.readthedocs.io/en/latest/incoherent_noise_spectrum.html
     ins = INS(ss, spectrum_type=args.spectrum_type)
 
@@ -551,6 +575,7 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
 
 
 def plot_flags(ss: UVData, args, obsname, suffix, cmap):
+    """Plot the flag occupancy."""
     pols = ss.get_pols()
     gps_times = get_gps_times(ss)
     freqs_mhz = (ss.freq_array) / 1e6
@@ -593,12 +618,14 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
 
 
 def du_bs(path: Path, bs=1024 * 1024):
+    """Get disk usage from stat in number of blocks of a given size."""
     if path.is_file():
         return path.stat().st_size / bs
     return sum(f.stat().st_size for f in path.glob("**/*") if f.is_file()) / bs
 
 
 def display_time(t: Time):
+    """Display the iso time, gps, unix and jd all on a single line."""
     return f"({t.isot} gps={t.gps:13.2f} unix={t.unix:13.2f} jd={t.jd:14.6f})"
 
 
@@ -608,6 +635,7 @@ def compare_time(ta: Time, tb: Time):
 
 
 def compare_channel_times(ch, common_times, channel_times, time_descriptor=""):
+    """Compare the overlap between two sets of times."""
     print(
         f"channel {ch} - found {len(channel_times)}{time_descriptor} times "
         f"from {display_time(channel_times[0])} to {display_time(channel_times[-1])}"
@@ -625,6 +653,7 @@ def compare_channel_times(ch, common_times, channel_times, time_descriptor=""):
 
 
 def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
+    """Read raw files into uvd."""
     file_sizes_mb = {f: du_bs(Path(f)) for f in raw_fits}
     total_size_mb = sum(file_sizes_mb.values())
     print(f"reading total {int(total_size_mb)}MB of raw files")
@@ -666,7 +695,8 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
 
         channel_size_mb = sum([file_sizes_mb[f] for f in channel_raw_fits])
         print(
-            f"reading channel {ch}: {int(channel_size_mb)}MB of raw files ({ch_idx + 1} of {n_chs})"
+            f"reading channel {ch}: {int(channel_size_mb)}MB of raw files"
+            f" ({ch_idx + 1} of {n_chs})"
         )
         ch_start = time.time()
         # initial read: no data, just get time array
@@ -698,6 +728,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
 
 
 def read_select(uvd: UVData, args):
+    """Read provided files into uvd and select data."""
     file_groups = group_by_filetype(args.files)
 
     print(f"reading from {file_groups=}")
@@ -769,7 +800,8 @@ def read_select(uvd: UVData, args):
         ]
         if len(select_kwargs["frequencies"]) == 0:
             raise ValueError(
-                f"could not find frequencies within bounds {(fmin, fmax)} in {uvd.freq_array}"
+                f"could not find frequencies within bounds {(fmin, fmax)} "
+                f"in {uvd.freq_array}"
             )
     if args.time_limit is not None and args.time_limit > 0:
         select_kwargs["times"] = [np.unique(uvd.time_array)[: args.time_limit]]
@@ -788,7 +820,7 @@ def read_select(uvd: UVData, args):
     return base
 
 
-def main():
+def main():  # noqa: D103
     parser = get_parser()
     args = parser.parse_args()
     print(f"{args=}")
@@ -846,7 +878,12 @@ if __name__ == "__main__":
 export outdir= ... # e.g. /data , which has adequate space
 export obsid=1418228256
 giant-squid submit-vis -w $obsid
-docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD $([ -d /demo ] && echo " -v /demo:/demo") -w ${outdir} -e obsid -e outdir --entrypoint /demo/04_ssins.py mwatelescope/mwa-demo:latest $(cd $outdir; ls -1 ${obsid}*fits)
+docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD \
+    $([ -d /demo ] && echo " -v /demo:/demo") \
+    -w ${outdir} -e obsid -e outdir \
+    --entrypoint /demo/04_ssins.py \
+    mwatelescope/mwa-demo:latest \
+    $(cd $outdir; ls -1 ${obsid}*fits)
 """
 # (default)                     = plot diff spectrum
 # --no-diff                     = don't difference visibilities in time (sky-subtract)

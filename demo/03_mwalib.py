@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-# get the channel and antenna information from the metafits file
+
+"""Get channel and antenna information from the metafits file."""
 
 import sys
 
@@ -8,6 +9,7 @@ from pandas import DataFrame
 
 
 def get_channel_df(ctx: MetafitsContext):
+    """Get channel information from metafits as a DataFrame."""
     header = [
         "gpubox_number",
         "rec_chan_number",
@@ -22,6 +24,7 @@ def get_channel_df(ctx: MetafitsContext):
 
 
 def get_antenna_df(ctx: MetafitsContext):
+    """Get antenna information from metafits as a DataFrame."""
     header = [
         "ant",
         "tile_id",
@@ -44,7 +47,7 @@ def get_antenna_df(ctx: MetafitsContext):
     return df
 
 
-def main():
+def main():  # noqa: D103
     metafits = sys.argv[-1]
     ctx = MetafitsContext(metafits)
     df_ch = get_channel_df(ctx)

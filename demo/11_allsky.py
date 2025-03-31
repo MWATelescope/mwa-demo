@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+"""Generate an all-sky image from visibilities by beamforming to each pixel."""
+
 # original WCS and einsum imaging code:
 # https://colab.research.google.com/drive/1FT-yR4kDqHdEDkOMfu1p-92ydYZVZEqN
 # by Danny C. Price
@@ -16,15 +18,15 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 from matplotlib import pyplot as plt
-from SSINS import SS
-
 from pyuvdata import UVData
+from SSINS import SS
 
 
 def select_vis_matrix(uvd: UVData, **select_kwargs) -> np.ndarray:
     """
-    Extract 1D visibility array (upper triangular) for first time, in selected
-    vis and convert to correlation matrix.
+    Extract selected 1D visibility array, convert to correlation matrix.
+
+    Vis array is upper triangular, if multiple times, only select first.
 
     If select_kwargs doesn't select a single time, then the first is picked.
 
@@ -59,6 +61,7 @@ def select_vis_matrix(uvd: UVData, **select_kwargs) -> np.ndarray:
 
 
 def create_lmn_grid(n_pix):
+    """Create lmn array for a given number of pixels."""
     # Create an empty NxN grid for each (l,m,n)
     lmn = np.zeros((n_pix, n_pix, 3), dtype="float32")
 
@@ -77,6 +80,7 @@ def create_lmn_grid(n_pix):
 
 
 def check_diff_uniformity(series, epsilon=0.001):
+    """Check a series of numbers for uniform difference."""
     if len(series) > 1:
         diff = series[1] - series[0]
         for a, b in itertools.pairwise(series):
@@ -85,7 +89,7 @@ def check_diff_uniformity(series, epsilon=0.001):
     return True
 
 
-def main():
+def main():  # noqa: D103
     sys.path.insert(0, dirname(__file__))
     ssins_tools = __import__("04_ssins")
     phase_tools = __import__("10_phase")
@@ -297,7 +301,8 @@ def main():
 
         V_mat = select_vis_matrix(ss, times=[t.jd])
 
-        # Compute w_p V_pq w*_q contraction for each pixel (i, j), stokes (s), maybe sum over channel (c)
+        # Compute w_p V_pq w*_q contraction for each pixel (i, j), stokes (s),
+        # maybe sum over channel (c)
         # p,q: antenna indexes, i,j: pixel indexes, s: stokes, c: channel
         img = np.einsum(
             "cpij,pqcs,cqij->sji" if args.combine_freq else "cpij,pqcs,cqij->scji",
