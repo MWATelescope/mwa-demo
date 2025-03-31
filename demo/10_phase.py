@@ -35,7 +35,10 @@ def get_parser():
     group_phase.add_argument(
         "--avg-freq",
         default=None,
-        help="Frequency resolution to average to with units (e.g. 1MHz) or number of samples",
+        help=(
+            "Frequency resolution to average to with units (e.g. 1MHz) "
+            "or number of samples"
+        ),
     )
     group_phase.add_argument(
         "--avg-time",
@@ -182,6 +185,13 @@ def main():
     print(f"Writing to {out_path}")
     ss.write_uvfits(out_path)
 
+    # for n in range(2, ss.Nants_data):
+    #     plt.clf()
+    #     waterfall_data = ss.get_data((1, n, ss.polarization_array[0]))
+    #     fig, ax = plt.subplots(1, 1)
+    #     ax.imshow(np.abs(waterfall_data), interpolation="none", origin="lower")
+    #     fig.savefig(f"{base}{suffix}_amps_{n}.png")
+
 
 if __name__ == "__main__":
     main()
@@ -221,7 +231,8 @@ python dump_data.py 1088806248_sim.uvfits
   [ 0.25641403+0.96656704j  0.25641403+0.96656704j
     0.        +0.j          0.        +0.j        ]]
 
-python demo/10_phase.py 1088806248_sim.uvfits --phase-centre ra=23h18m18.35s,dec=-31d13m46.3s --avg-freq 40kHz --avg-time 16s
+python demo/10_phase.py 1088806248_sim.uvfits \
+    --phase-centre ra=23h18m18.35s,dec=-31d13m46.3s --avg-freq 40kHz --avg-time 16s
 
 python dump_data.py 1088806248_sim.ra=23h18m18.35s,dec=-31d13m46.3s.16s.40kHz.uvfits
 

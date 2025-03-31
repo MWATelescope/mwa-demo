@@ -7,18 +7,6 @@
 
 # tip: you can use this script to apply the ssins mask https://raw.githubusercontent.com/MWATelescope/MWAEoR-Pipeline/refs/heads/main/templates/ssins_apply.py
 
-# isolated example:
-"""
-export outdir= ... # e.g. /data , which has adequate space
-export obsid=1418228256
-giant-squid submit-vis -w $obsid
-docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD $([ -d /demo ] && echo " -v /demo:/demo") -w ${outdir} -e obsid -e outdir --entrypoint /demo/04_ssins.py mwatelescope/mwa-demo:latest $(cd $outdir; ls -1 ${obsid}*fits)
-"""
-# (default)                     = plot diff spectrum
-# --no-diff                     = don't difference visibilities in time (sky-subtract)
-# --sigchain --no-diff --autos  = per-auto z-scores
-# --flags                       = flag occupancy
-
 import os
 import re
 import sys
@@ -36,17 +24,14 @@ import pandas as pd
 from astropy.time import Time
 from matplotlib import pyplot as plt
 from matplotlib.axis import Axis
+from pyuvdata import UVData
 
 # from SSINS import EAVILS_INS as INS
 from SSINS import INS, MF, SS
 
-from pyuvdata import UVData
-
 
 def get_parser_common(diff=True, spectrum="cross"):
-    """
-    Parser for read and select (common)
-    """
+    """Parser for read and select (common)."""
     parser = ArgumentParser()
     # arguments for SS.read()
     group_read = parser.add_argument_group("SS.read")
@@ -92,7 +77,10 @@ def get_parser_common(diff=True, spectrum="cross"):
         default=None,
         choices=["original"],
         type=str,
-        help="original = apply flags from visibilities before running ssins (only recommended for --plot-type=flags)",
+        help=(
+            "original = apply flags from visibilities before running ssins "
+            "(only recommended for --plot-type=flags)"
+        ),
     )
 
     # arguments for SS.select()
@@ -193,7 +181,10 @@ def get_parser():
         "--threshold",
         default=5,
         type=float,
-        help="match filter significance threshold for shapes except narrow and streak. 0=disable",
+        help=(
+            "match filter significance threshold for shapes except narrow and streak. "
+            "0=disable"
+        ),
     )
     group_mutex = group_mf.add_mutually_exclusive_group()
     group_mutex.add_argument(
@@ -227,7 +218,10 @@ def get_parser():
         "--tb-aggro",
         default=0.6,
         type=float,
-        help="Threshold for flagging an entire channel, fraction of unflagged data remaining. 0=disable time broadcast",
+        help=(
+            "Threshold for flagging an entire channel, fraction of unflagged data remaining. "
+            "0=disable time broadcast"
+        ),
     )
 
     # plotting
@@ -362,9 +356,7 @@ def get_suffix(args):
 
 
 def get_match_filter(ss, args):
-    """
-    https://ssins.readthedocs.io/en/latest/match_filter.html
-    """
+    """https://ssins.readthedocs.io/en/latest/match_filter.html."""
     # guard width is half the fine channel width
     gw = np.median(np.diff(ss.freq_array)) / 2
     shape_dict = {
@@ -380,7 +372,7 @@ def get_match_filter(ss, args):
         # starlink
         "SL-175": [174.997e6 - gw, 175.003e6 + gw],  # 3kHz doppler shift
     }
-    sig_thresh = {shape: args.threshold for shape in shape_dict}
+    sig_thresh = dict.fromkeys(shape_dict, args.threshold)
     mf_args = {"streak": (args.streak > 0), "narrow": (args.narrow > 0)}
     if mf_args["narrow"]:
         sig_thresh["narrow"] = args.narrow
@@ -425,7 +417,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
 
     # build a scores array for each signal chain
     scores = np.zeros((len(unflagged_ants), ss.Ntimes, ss.Nfreqs, ss.Npols))
-    for ant_idx, (ant_num, ant_name) in enumerate(zip(ant_numbers, ant_names)):
+    for ant_idx, (ant_num, _) in enumerate(zip(ant_numbers, ant_names)):
         if ant_num not in unflagged_ants:
             continue
         # select only baselines or autos with this antenna
@@ -611,9 +603,7 @@ def display_time(t: Time):
 
 
 def compare_time(ta: Time, tb: Time):
-    """
-    Smallest mwax resolution is 0.25s
-    """
+    """Smallest mwax resolution is 0.25s."""
     return np.abs(ta.gps - tb.gps) < 0.25
 
 
@@ -696,7 +686,8 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
             exit(1)
         read_time = time.time() - ch_start
         print(
-            f"reading channel {ch} took {int(read_time)}s. {int(channel_size_mb / read_time)} MB/s"
+            f"reading channel {ch} took {int(read_time)}s. "
+            f"{int(channel_size_mb / read_time)} MB/s"
         )
         # if not first time around, add uvd_ into uvd
         if uvd_ != uvd:
@@ -713,7 +704,7 @@ def read_select(uvd: UVData, args):
 
     read_kwargs = {
         "diff": args.diff,  # difference timesteps
-        "remove_coarse_band": args.remove_coarse_band,  # does not work with low freq res
+        "remove_coarse_band": args.remove_coarse_band,  # doesn't work with low freq res
         "correct_van_vleck": args.correct_van_vleck,  # slow
         "remove_flagged_ants": args.remove_flagged_ants,  # remove flagged ants
         "flag_init": args.flag_init,
@@ -727,7 +718,7 @@ def read_select(uvd: UVData, args):
     # output name is basename of metafits, first uvfits or first ms if provided
     base = None
     # metafits and mwaf flag files only used if raw fits supplied
-    other_types = set(file_groups.keys()) - set([".fits", ".metafits"])
+    other_types = set(file_groups.keys()) - {".fits", ".metafits"}
     if ".fits" in file_groups:
         if ".metafits" not in file_groups:
             raise UserWarning(f"fits supplied, but no metafits in {args.files}")
@@ -849,3 +840,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# isolated example:
+"""
+export outdir= ... # e.g. /data , which has adequate space
+export obsid=1418228256
+giant-squid submit-vis -w $obsid
+docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD $([ -d /demo ] && echo " -v /demo:/demo") -w ${outdir} -e obsid -e outdir --entrypoint /demo/04_ssins.py mwatelescope/mwa-demo:latest $(cd $outdir; ls -1 ${obsid}*fits)
+"""
+# (default)                     = plot diff spectrum
+# --no-diff                     = don't difference visibilities in time (sky-subtract)
+# --sigchain --no-diff --autos  = per-auto z-scores
+# --flags                       = flag occupancy
