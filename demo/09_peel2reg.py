@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-import numpy as np
-
 import json
-from argparse import ArgumentParser
 import os
+from argparse import ArgumentParser
+
+import numpy as np
 
 
 def sanitize_json(jstr):
@@ -45,7 +45,7 @@ def main():
     src_names = []
     offsets_base, ext = os.path.splitext(args.offsets)
     if ext == ".json":
-        with open(args.offsets, "r") as h:
+        with open(args.offsets) as h:
             iono_consts = json.loads(sanitize_json(h.read()))
         alphas = []
         betas = []
@@ -71,13 +71,7 @@ def main():
     )
     with open(reg_file, "w") as h:
         h.write("J2000;\n")
-        for (
-            ra,
-            dec,
-            src_name,
-            alpha,
-            beta,
-        ) in zip(
+        for ra, dec, src_name, alpha, beta in zip(
             ras,
             decs,
             src_names,
@@ -87,7 +81,7 @@ def main():
             angle = np.arctan2(beta, alpha) * 180 / np.pi
             length = np.sqrt(alpha**2 + beta**2)
             h.write(
-                f"vector {ra}d {dec}d {length*1000}d {angle}d # text={{{src_name}}}\n"
+                f"vector {ra}d {dec}d {length * 1000}d {angle}d # text={{{src_name}}}\n"
             )
     print(f"Wrote {reg_file}")
 

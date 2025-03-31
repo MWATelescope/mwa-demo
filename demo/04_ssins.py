@@ -19,33 +19,33 @@ docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD $([ -d /demo ] && 
 # --sigchain --no-diff --autos  = per-auto z-scores
 # --flags                       = flag occupancy
 
-from pyuvdata import UVData
-from SSINS import SS, MF
-
-# from SSINS import EAVILS_INS as INS
-from SSINS import INS
 import os
-from os.path import splitext, dirname
-import matplotlib as mpl
-from matplotlib import pyplot as plt
-import numpy as np
-from astropy.time import Time
-from argparse import ArgumentParser, SUPPRESS, BooleanOptionalAction
-from itertools import groupby
 import re
+import sys
 import time
 import traceback
+from argparse import SUPPRESS, ArgumentParser, BooleanOptionalAction
+from itertools import groupby
+from os.path import dirname, splitext
 from pathlib import Path
-import pandas as pd
 from pprint import pformat
-import sys
 
+import matplotlib as mpl
+import numpy as np
+import pandas as pd
+from astropy.time import Time
+from matplotlib import pyplot as plt
 from matplotlib.axis import Axis
+
+# from SSINS import EAVILS_INS as INS
+from SSINS import INS, MF, SS
+
+from pyuvdata import UVData
 
 
 def get_parser_common(diff=True, spectrum="cross"):
     """
-    parser for read and select (common)
+    Parser for read and select (common)
     """
     parser = ArgumentParser()
     # arguments for SS.read()
@@ -233,9 +233,7 @@ def get_parser():
     # plotting
     group_plot = parser.add_argument_group("plotting")
     group_plot.add_argument(
-        "--plot-type",
-        default="spectrum",
-        choices=["spectrum", "sigchain", "flags"],
+        "--plot-type", default="spectrum", choices=["spectrum", "sigchain", "flags"]
     )
     group_plot.add_argument(
         "--sigchain",
@@ -267,7 +265,10 @@ def group_by_filetype(paths):
         return ext
 
     return {
-        k: [*v] for k, v in groupby(sorted(paths, key=filetype_classifier), key=filetype_classifier)
+        k: [*v]
+        for k, v in groupby(
+            sorted(paths, key=filetype_classifier), key=filetype_classifier
+        )
     }
 
 
@@ -291,7 +292,9 @@ def group_raw_by_channel(metafits, raw_fits):
 
     return {
         k: sorted([*v])
-        for k, v in groupby(sorted(raw_fits, key=channel_classifier), key=channel_classifier)
+        for k, v in groupby(
+            sorted(raw_fits, key=channel_classifier), key=channel_classifier
+        )
     }
 
 
@@ -301,7 +304,9 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
     gps_times = []
     with CorrelatorContext(metafits, raw_fits) as corr_ctx:
         timestep_idxs = (
-            corr_ctx.common_good_timestep_indices if good else corr_ctx.common_timestep_indices
+            corr_ctx.common_good_timestep_indices
+            if good
+            else corr_ctx.common_timestep_indices
         )
         for time_idx in timestep_idxs:
             gps_times.append(corr_ctx.timesteps[time_idx].gps_time_ms / 1000.0)
@@ -376,10 +381,7 @@ def get_match_filter(ss, args):
         "SL-175": [174.997e6 - gw, 175.003e6 + gw],  # 3kHz doppler shift
     }
     sig_thresh = {shape: args.threshold for shape in shape_dict}
-    mf_args = {
-        "streak": (args.streak > 0),
-        "narrow": (args.narrow > 0),
-    }
+    mf_args = {"streak": (args.streak > 0), "narrow": (args.narrow > 0)}
     if mf_args["narrow"]:
         sig_thresh["narrow"] = args.narrow
     if mf_args["streak"]:
@@ -434,9 +436,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         scores[ant_idx] = ins.sig_array
 
     subplots = plt.subplots(
-        2,
-        len(pols),
-        height_ratios=[len(unflagged_ants), ss.Nfreqs],
+        2, len(pols), height_ratios=[len(unflagged_ants), ss.Nfreqs]
     )[1].reshape((2, len(pols)))
 
     def slice(scores, axis):
@@ -456,17 +456,14 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             aspect="auto",
             interpolation="none",
             cmap=cmap,
-            extent=[
-                np.min(gps_times),
-                np.max(gps_times),
-                len(ant_labels) - 0.5,
-                -0.5,
-            ],
+            extent=[np.min(gps_times), np.max(gps_times), len(ant_labels) - 0.5, -0.5],
         )
 
         ax_signal.yaxis.set_ticks(np.arange(len(unflagged_ants)))
         ax_signal.yaxis.set_tick_params(pad=True)
-        ax_signal.yaxis.set_ticklabels(ant_labels, fontsize=args.fontsize, fontfamily="monospace")
+        ax_signal.yaxis.set_ticklabels(
+            ant_labels, fontsize=args.fontsize, fontfamily="monospace"
+        )
 
         # by spectrum: [freq, time]
         ax_spectrum: Axis = subplots[1, i]
@@ -489,7 +486,9 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             ],
         )
 
-    plt.gcf().set_size_inches(8 * len(pols), (len(unflagged_ants) + ss.Nfreqs) * args.fontsize / 72)
+    plt.gcf().set_size_inches(
+        8 * len(pols), (len(unflagged_ants) + ss.Nfreqs) * args.fontsize / 72
+    )
 
 
 def plot_spectrum(ss, args, obsname, suffix, cmap):
@@ -513,12 +512,7 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     freqs_mhz = (ss.freq_array) / 1e6
     channames = [f"{ch: 8.4f}" for ch in freqs_mhz]
 
-    subplots = plt.subplots(
-        2,
-        len(pols),
-        sharex=True,
-        sharey=True,
-    )[1]
+    subplots = plt.subplots(2, len(pols), sharex=True, sharey=True)[1]
     subplots = subplots.reshape((2, len(pols)))
 
     for i, pol in enumerate(pols):
@@ -618,7 +612,7 @@ def display_time(t: Time):
 
 def compare_time(ta: Time, tb: Time):
     """
-    smallest mwax resolution is 0.25s
+    Smallest mwax resolution is 0.25s
     """
     return np.abs(ta.gps - tb.gps) < 0.25
 
@@ -686,10 +680,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
         )
         ch_start = time.time()
         # initial read: no data, just get time array
-        uvd_.read(
-            [metafits, *channel_raw_fits],
-            read_data=False,
-        )
+        uvd_.read([metafits, *channel_raw_fits], read_data=False)
         uv_channel_times = Time(np.unique(uvd_.time_array), format="jd")
         compare_channel_times(ch, times, uv_channel_times, " uv")
 
@@ -731,9 +722,7 @@ def read_select(uvd: UVData, args):
     }
     if "spectrum_type" in vars(args) and args.spectrum_type != "all":
         read_kwargs["ant_str"] = args.spectrum_type
-    select_kwargs = {
-        "run_check": False,
-    }
+    select_kwargs = {"run_check": False}
 
     # output name is basename of metafits, first uvfits or first ms if provided
     base = None
@@ -767,11 +756,7 @@ def read_select(uvd: UVData, args):
         print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
     elif len(other_types.intersection([".uvfits", ".uvh5"])) == 1:
         vis = sum(
-            [
-                file_groups.get(".uvfits", []),
-                file_groups.get(".uvh5", []),
-            ],
-            start=[],
+            [file_groups.get(".uvfits", []), file_groups.get(".uvh5", [])], start=[]
         )
         base, _ = os.path.splitext(vis[0])
 
