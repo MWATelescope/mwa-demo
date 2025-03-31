@@ -53,9 +53,11 @@ echo " -> wait until a job is ready"
 echo "giant-squid wait $obsids_csv"
 echo ""
 
-echo " -> download a job"
-echo "giant-squid download jobid"
-echo ""
+echo " -> download a specific obsid (or jobid)"
+cat <<'EOF'
+mkdir -p $outdir/$obsid/raw
+giant-squid download -d $_ $obsid # or jobid
+EOF
 
 echo " -> download a bunch of obsids"
 cat <<'EOF'
