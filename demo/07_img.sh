@@ -189,12 +189,13 @@ else
         export parent=${parent%/*}
         echo parent=$parent
         mkdir -p "$parent/img"
+        # imgname is the beginning all image filenames
         export imgname=${ms%.ms}
-        # imname is an optional suffix, not to be confused with imgname
-        [ -z "${imname:-}" ] || export imgname="${imgname}${imname}"
-        # img_suffix does the same thing
+        # img_suffix is optional suffix to add to the name of the visibility file
         [ -z "${img_suffix:-}" ] || export imgname="${imgname}${img_suffix}"
         export imgname=wsclean_${imgname##*/}
+        # imname is optional suffix override, not to be confused with imgname or img_suffix
+        [ -z "${imname:-}" ] || export imgname="${imname}"
         export imgname="${parent}/img/${imgname##*/}"
         echo imgname=$imgname
         maybe_wsclean "${imgname}" $ms
