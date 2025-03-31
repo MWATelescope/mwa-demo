@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # get the channel and antenna information from the metafits file
 
+import sys
+
 from mwalib import MetafitsContext
 from pandas import DataFrame
-import sys
 
 
 def get_channel_df(ctx: MetafitsContext):
@@ -14,7 +15,9 @@ def get_channel_df(ctx: MetafitsContext):
         "chan_centre_hz",
         "chan_end_hz",
     ]
-    df = DataFrame({h: [getattr(c, h) for c in ctx.metafits_coarse_chans] for h in header})
+    df = DataFrame(
+        {h: [getattr(c, h) for c in ctx.metafits_coarse_chans] for h in header}
+    )
     return df
 
 
@@ -35,7 +38,9 @@ def get_antenna_df(ctx: MetafitsContext):
     for h in rfheader:
         df[h] = [getattr(a.rfinput_x, h) for a in ctx.antennas]
     # rec_type is "ReceiverType.RRI", I want just "RRI"
-    df["rec_type"] = [str(a.rfinput_x.rec_type).replace("ReceiverType.", "") for a in ctx.antennas]
+    df["rec_type"] = [
+        str(a.rfinput_x.rec_type).replace("ReceiverType.", "") for a in ctx.antennas
+    ]
     return df
 
 

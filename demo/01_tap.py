@@ -3,9 +3,10 @@
 # details: https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/24970532/MWA+ASVO+VO+Services
 # and https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/24970424/TAP+mwa.observation+Schema+and+Examples
 
+from sys import argv, stderr
+
 import pyvo
 from astropy.time import Time, TimeDelta
-from sys import stderr, argv
 
 if not argv:
     print(
@@ -49,18 +50,7 @@ ORDER BY obs_id DESC
 obs["config"] = obs["mwa_array_configuration"].str.split(" ").str[-1]
 obs["gigabytes"] = obs["total_archived_data_bytes"] / 1e9
 print(f"{len(obs)} results. preview:", file=stderr)
-print(
-    obs[
-        [
-            "obs_id",
-            "starttime_utc",
-            "obsname",
-            "config",
-            "gigabytes",
-        ]
-    ],
-    file=stderr,
-)
+print(obs[["obs_id", "starttime_utc", "obsname", "config", "gigabytes"]], file=stderr)
 
 out_obsids = "obsids.csv"
 if len(argv) > 1:

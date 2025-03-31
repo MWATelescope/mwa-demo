@@ -4,20 +4,19 @@
 # https://colab.research.google.com/drive/1FT-yR4kDqHdEDkOMfu1p-92ydYZVZEqN
 # by Danny C. Price
 
-import numpy as np
-from numpy import pi
-
-import sys
-from SSINS import SS
-from os.path import dirname
-from pyuvdata import UVData
-from astropy.coordinates import Angle
-from astropy import units as u
-from astropy.units.core import UnitsError
-import traceback
-import matplotlib as mpl
-from matplotlib import pyplot as plt
 import re
+import sys
+import traceback
+from os.path import dirname
+
+import numpy as np
+from astropy import units as u
+from astropy.coordinates import Angle
+from astropy.units.core import UnitsError
+from numpy import pi
+from SSINS import SS
+
+from pyuvdata import UVData
 
 
 def get_parser():
@@ -62,7 +61,7 @@ def get_suffix(args):
 
 def _parse_angle_d2r(angle):
     """
-    specify an angle in degrees, or another unit but return it in radians
+    Specify an angle in degrees, or another unit but return it in radians
     """
     try:
         angle = Angle(angle)
@@ -94,7 +93,13 @@ def phase_resample(uvd: UVData, args):
     if cat_name is None:
         pass
     elif cat_name == "zenith":
-        uvd.phase(lon=0, lat=pi / 2, cat_name=cat_name, phase_frame="altaz", cat_type="driftscan")
+        uvd.phase(
+            lon=0,
+            lat=pi / 2,
+            cat_name=cat_name,
+            phase_frame="altaz",
+            cat_type="driftscan",
+        )
     elif m := re.match(r"ra=(.*),dec=(.*)", cat_name):
         ra, dec = m.groups()
         uvd.phase(

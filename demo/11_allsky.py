@@ -4,21 +4,21 @@
 # https://colab.research.google.com/drive/1FT-yR4kDqHdEDkOMfu1p-92ydYZVZEqN
 # by Danny C. Price
 
-import numpy as np
-from numpy import pi
-
+import itertools
 import sys
-from SSINS import SS
+import traceback
 from os.path import dirname
-from pyuvdata import UVData
+
+import matplotlib as mpl
+import numpy as np
 from astropy.coordinates import EarthLocation
+from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
-from astropy.io import fits
-import traceback
-import matplotlib as mpl
-import itertools
 from matplotlib import pyplot as plt
+from SSINS import SS
+
+from pyuvdata import UVData
 
 
 def select_vis_matrix(uvd: UVData, **select_kwargs) -> np.ndarray:
@@ -32,7 +32,8 @@ def select_vis_matrix(uvd: UVData, **select_kwargs) -> np.ndarray:
         uvd: Input UVData object
         select_kwargs: args for UVData.select.
 
-    Returns:
+    Returns
+    -------
         V (np.ndarray): (N_ant × N_ant × N_freq × N_pol) correlation matrix <c64>
     """
     sel = uvd.select(**select_kwargs, inplace=False)
@@ -45,7 +46,9 @@ def select_vis_matrix(uvd: UVData, **select_kwargs) -> np.ndarray:
     ix, iy = np.triu_indices(sel.Nants_data, 1)
 
     # Create empty Na x Na x Nf x Np matrix
-    V = np.zeros((sel.Nants_data, sel.Nants_data, sel.Nfreqs, sel.Npols), dtype="complex64")
+    V = np.zeros(
+        (sel.Nants_data, sel.Nants_data, sel.Nfreqs, sel.Npols), dtype="complex64"
+    )
 
     # Fill in the upper triangle
     V[ix, iy, ...] = np.conj(d)

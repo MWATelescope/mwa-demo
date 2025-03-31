@@ -1,0 +1,49 @@
+# Contents for ruff.toml (based on pyuvdata's pyproject.toml)
+
+[lint]
+select = [
+    "E",   # pycodestyle
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "D",   # pydocstyle
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "C4",  # flake8-comprehensions
+    "N",   # pep8-naming
+    "SIM", # flake8-simplify
+    "I",   # isort
+    # "C90", # McCabe complexity. Consider for the future
+]
+ignore = [
+    "N806",   # non-lowercase variable (we use N* for axes lengths)
+    "B028",   # no-explicit-stacklevel for warnings
+    "SIM108", # prefer ternary opperators. I find them difficult to read.
+    "D203",   # one-blank-line-before-class. we use two.
+    "D212",   # multi-line-summary-first-line. We put it on the second line.
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["D"] # Don't require docstrings for tests
+"docs/*.py" = [
+    "D",
+    "A",
+] # Don't require docstrings or worry about builtins for docs
+"setup.py" = ["D"] # Don't require docstrings for setup.py
+
+[format]
+skip-magic-trailing-comma = true
+
+[lint.pycodestyle]
+max-line-length = 88
+
+# consider setting this in the future
+# [lint.mccabe]
+# max-complexity = 30
+
+[lint.isort]
+combine-as-imports = true
+split-on-trailing-comma = false
+
+[lint.pydocstyle]
+convention = "numpy"
