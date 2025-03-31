@@ -57,6 +57,26 @@ if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
     $SCRIPT_BASE/05_prep.sh
 fi
 
+
+# #### #
+# PEEL #
+# #### #
+
+mkdir -p "${outdir}/${obsid}/peel"
+
+export iono_sources=${iono_sources:-1}
+export num_passes=${num_passes:-2}
+export num_loops=${num_loops:-1}
+export freq_average=${freq_average:-80kHz}
+export time_average=${time_average:-8s}
+export iono_freq_average=${iono_freq_average:-1280kHz}
+export iono_time_average=${iono_time_average:-8s}
+export short_baseline_sigma=${short_baseline_sigma:-40}
+export convergence=${convergence:-0.9}
+# recommended settings for GGSM (phase1)
+export uvw_min=${uvw_min:-75lambda}
+export uvw_max=${uvw_max:-1667lambda}
+
 for prep_uvfits in $prep_uvfits_pattern; do
     fitsheader $prep_uvfits | grep -i COMMENT
 
@@ -85,21 +105,6 @@ for prep_uvfits in $prep_uvfits_pattern; do
     # - the number of sources to use is a trade-off between accuracy and computational cost
     # - the time-average parameter is the time window over which to average the data
 
-    export num_sources=${num_sources:-500}
-    export iono_sources=${iono_sources:-50}
-    export num_passes=${num_passes:-2}
-    export num_loops=${num_loops:-1}
-    export freq_average=${freq_average:-80kHz}
-    export time_average=${time_average:-8s}
-    export iono_freq_average=${iono_freq_average:-1280kHz}
-    export iono_time_average=${iono_time_average:-8s}
-    export short_baseline_sigma=${short_baseline_sigma:-40}
-    export convergence=${convergence:-0.9}
-    # recommended settings for GGSM (phase1)
-    export uvw_min=${uvw_min:-75lambda}
-    export uvw_max=${uvw_max:-1667lambda}
-
-    mkdir -p "${outdir}/${obsid}/cal"
     export peel_prefix="${peel_prefix:-peel_}"
     export peel_vis="${parent}/peel/hyp_${peel_prefix}${dical_name}.ms"
     export iono_json="${parent}/peel/hyp_${peel_prefix}${dical_name}_iono.json"
