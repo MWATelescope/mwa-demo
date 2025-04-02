@@ -486,7 +486,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         if i == 0:
             ax_spectrum.yaxis.set_label("Frequency channel [MHz]")
 
-        spectrum_pscore = slice(scores[..., i].transpose(2, 1, 0), axis=-1)
+        spectrum_pscore = slice_(scores[..., i].transpose(2, 1, 0), axis=-1)
 
         ax_spectrum.imshow(
             spectrum_pscore,
