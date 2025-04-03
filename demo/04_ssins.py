@@ -140,6 +140,12 @@ def get_parser_common(diff=True, spectrum="cross"):
         type=str,
         help="additional text to add to output filenames",
     )
+    parser.add_argument(
+        "--debug",
+        default=True,
+        help="Extra debugging information in plot",
+        action=BooleanOptionalAction,
+    )
 
     group_plot = parser.add_argument_group("plotting")
     group_plot.add_argument(
@@ -238,6 +244,13 @@ def get_parser():
     group_plot = parser.add_argument_group("plotting")
     group_plot.add_argument(
         "--plot-type", default="spectrum", choices=["spectrum", "sigchain", "flags"]
+    )
+    group_plot.add_argument(
+        "--spectrum",
+        action="store_const",
+        const="spectrum",
+        dest="plot_type",
+        help="analyse incoherent noise spectrum",
     )
     group_plot.add_argument(
         "--sigchain",
@@ -863,17 +876,19 @@ def main():  # noqa: D103
 
     elif args.plot_type == "flags":
         plot_flags(ss, args, obsname, suffix, cmap)
-    plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.95)
-    # put text box in global coordinates
-    endl = "\n"
-    plt.text(
-        0.5,
-        0.5,
-        f"{pformat(vars(args))}\n{endl.join(sys.argv)}",
-        horizontalalignment="center",
-        verticalalignment="center",
-        transform=plt.gca().transAxes,
-    )
+
+    if args.debug:
+        plt.subplots_adjust(top=0.95, bottom=0.05, left=0.05, right=0.95)
+        # put text box in global coordinates
+        endl = "\n"
+        plt.text(
+            0.5,
+            0.5,
+            f"{endl.join(sys.argv)}",
+            horizontalalignment="center",
+            verticalalignment="center",
+            transform=plt.gca().transAxes,
+        )
     figname = f"{base}{suffix}.{args.plot_type}.png"
     plt.savefig(figname, bbox_inches="tight")
     print(f"wrote {figname}")
