@@ -376,10 +376,10 @@ def get_suffix(args):
     return suffix
 
 
-def get_match_filter(ss, args):
+def get_match_filter(freq_array, args):
     """https://ssins.readthedocs.io/en/latest/match_filter.html."""
     # guard width is half the fine channel width
-    gw = np.median(np.diff(ss.freq_array)) / 2
+    gw = np.median(np.diff(freq_array)) / 2
     shape_dict = {
         # from https://www.acma.gov.au/sites/default/files/2024-09/General%20Information.pdf
         "TV-6": [174e6 - gw, 181e6 + gw],
@@ -402,10 +402,7 @@ def get_match_filter(ss, args):
     if args.tb_aggro > 0:
         mf_args["tb_aggro"] = args.tb_aggro
     return MF(
-        freq_array=ss.freq_array,
-        sig_thresh=sig_thresh,
-        shape_dict=shape_dict,
-        **mf_args,
+        freq_array=freq_array, sig_thresh=sig_thresh, shape_dict=shape_dict, **mf_args
     )
 
 
@@ -424,8 +421,7 @@ def apply_match_test(ins, mf, args):
 
 def plot_sigchain(ss, args, obsname, suffix, cmap):
     """Plot signal chain z-scores."""
-    mf = get_match_filter(ss, args)
-
+    mf = get_match_filter(ss.freq_array, args)
     unflagged_ants = get_unflagged_ants(ss, args)
     ant_mask = np.where(np.isin(ss.antenna_numbers, unflagged_ants))[0]
     ant_numbers = np.array(ss.antenna_numbers)[ant_mask]
@@ -509,7 +505,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
 def plot_spectrum(ss, args, obsname, suffix, cmap):
     """Plot the spectrum z-scores."""
     # incoherent noise spectrum https://ssins.readthedocs.io/en/latest/incoherent_noise_spectrum.html
-    ins = INS(ss, spectrum_type=args.spectrum_type)
+    mf = get_match_filter(ss.freq_array, args)
 
     mf = get_match_filter(ss, args)
     apply_match_test(mf, ins, args)
