@@ -42,3 +42,6 @@ export raw_glob=${outdir}/${obsid}/raw/${obsid}_2\*.fits
 if ! eval ls -1 $raw_glob; then
     echo "raw not present: $raw_glob , try ${SCRIPT_BASE}/02_download.sh"
 fi
+
+# DEMO: getting dates from raw files
+# ls */raw/*.fits | cut -d_ -f2 | while read d; do echo ${d::8}; done | sort | uniq -c

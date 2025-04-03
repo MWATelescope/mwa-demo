@@ -22,14 +22,16 @@ import time
 import traceback
 from argparse import SUPPRESS, ArgumentParser, BooleanOptionalAction
 from itertools import groupby
-from os.path import dirname, splitext
+from os.path import dirname, splitext, basename
 from pathlib import Path
 from pprint import pformat
+from itertools import chain
 
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
 from astropy.time import Time
+from astropy import units as u
 from matplotlib import pyplot as plt
 from matplotlib.axis import Axis
 from pyuvdata import UVData
@@ -290,13 +292,35 @@ def group_by_filetype(paths):
         )
     }
 
+def file_group_by_obsid(groups):
+    """Given a group of paths, group them by obsid."""
+
+    def obsid_classifier(path):
+        return splitext(basename(path))[0].split("_")[0]
+
+    return {
+        k: group_by_filetype(v)
+        for k, v in groupby(
+            sorted(chain(*groups.values()), key=obsid_classifier), key=obsid_classifier
+        )
+    }
+
 
 def group_raw_by_channel(metafits, raw_fits):
     """Given metafits and raw_fits, group them by channel."""
     __import__("sys").path.insert(0, dirname(__file__))
     mwalib_tools = __import__("03_mwalib")
-    ctx = mwalib_tools.MetafitsContext(metafits)
-    df_ch = mwalib_tools.get_channel_df(ctx)
+
+    if isinstance(metafits, str):
+        metafits = [metafits]
+    df_ch = None
+    for mf in metafits:
+        ctx = mwalib_tools.MetafitsContext(mf)
+        if df_ch is None:
+            df_ch = mwalib_tools.get_channel_df(ctx)
+        else:
+            df_ch_ = mwalib_tools.get_channel_df(ctx)
+            assert df_ch.equals(df_ch_)
 
     def channel_classifier(path):
         ch_token = path.split("_")[-2]
@@ -326,18 +350,28 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
     """
     from mwalib import CorrelatorContext
 
-    gps_times = []
-    with CorrelatorContext(metafits, raw_fits) as corr_ctx:
-        timestep_idxs = (
-            corr_ctx.common_good_timestep_indices
+    def get_indices(ctx: CorrelatorContext):
+        return (
+            ctx.common_good_timestep_indices
             if good
-            else corr_ctx.common_timestep_indices
+            else ctx.common_timestep_indices
         )
-        for time_idx in timestep_idxs:
-            gps_times.append(corr_ctx.timesteps[time_idx].gps_time_ms / 1000.0)
+
+    gps_times = []
+    # check if metafits is a string or a list
+    if isinstance(metafits, str):
+        metafits = [metafits]
+    fg_by_id = file_group_by_obsid(group_by_filetype([*metafits, *raw_fits]))
+    for obsid, obs_groups in fg_by_id.items():
+        if ".fits" not in obs_groups or ".metafits" not in obs_groups:
+            raise UserWarning( f"obsid {obsid} has no metafits or fits files in {obs_groups}" )
+        metafits_, raw_fits = obs_groups[".metafits"][0], obs_groups[".fits"]
+        with CorrelatorContext(metafits_, raw_fits) as corr_ctx:
+            for time_idx in get_indices(corr_ctx):
+                gps_times.append(corr_ctx.timesteps[time_idx].gps_time_ms / 1000.0)
     times = Time(gps_times, format="gps", scale="utc")
-    int_time = times[1] - times[0]
-    times += int_time / 2.0
+    int_time = np.median(np.diff(times.gps.astype(float)))
+    times += (int_time / 2.0) * u.s
     return times
 
 
@@ -652,29 +686,29 @@ def compare_time(ta: Time, tb: Time):
     return np.abs(ta.gps - tb.gps) < 0.25
 
 
-def compare_channel_times(ch, common_times, channel_times, time_descriptor=""):
+def compare_channel_times(segment, common_times, channel_times, time_descriptor=""):
     """Compare the overlap between two sets of times."""
     print(
-        f"channel {ch} - found {len(channel_times)}{time_descriptor} times "
+        f"{segment} - found {len(channel_times)}{time_descriptor} times "
         f"from {display_time(channel_times[0])} to {display_time(channel_times[-1])}"
     )
     if not compare_time(channel_times[0], common_times[0]):
         print(
-            f"WARN: channel {ch} - starts at {display_time(channel_times[0])} "
+            f"WARN: {segment} - starts at {display_time(channel_times[0])} "
             f"but common is {display_time(common_times[0])}"
         )
     if not compare_time(channel_times[-1], common_times[-1]):
         print(
-            f"WARN: channel {ch} - ends at {display_time(channel_times[-1])} "
+            f"WARN: {segment} - ends at   {display_time(channel_times[-1])} "
             f"but common is {display_time(common_times[-1])}"
         )
 
 
 def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
-    """Read raw files into uvd."""
+    """Read raw files into uvd one channel at a time."""
     file_sizes_mb = {f: du_bs(Path(f)) for f in raw_fits}
     total_size_mb = sum(file_sizes_mb.values())
-    print(f"reading total {int(total_size_mb)}MB of raw files")
+    print(f"reading {int(total_size_mb)}MB of raw files")
 
     start = time.time()
     if len(raw_fits) <= 1:
@@ -686,13 +720,13 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     # group and read raw by channel to save memory
     raw_channel_groups = group_raw_by_channel(metafits, raw_fits)
     # channels not always aligned in time
-    good = True
+    good = False
     times = mwalib_get_common_times(metafits, raw_fits, good)
     time_array = times.jd.astype(float)
     good_descriptor = " good" if good else ""
     print(
-        f"mwalib found {len(times)}{good_descriptor} times "
-        f"from {display_time(times[0])} to {display_time(times[-1])}"
+        f"mwalib found {len(times)}{good_descriptor}  "
+        f"times from {display_time(times[0])} to {display_time(times[-1])}"
     )
 
     n_chs = len(raw_channel_groups)
@@ -705,10 +739,12 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
             uvd_ = type(uvd)()
 
         channel_raw_fits = raw_channel_groups[ch]
+        if len(channel_raw_fits) == 0:
+            raise UserWarning(f"no raw files for channel {ch}")
         mwalib_channel_times = mwalib_get_common_times(metafits, channel_raw_fits, good)
 
         compare_channel_times(
-            ch, times, mwalib_channel_times, (" mwalib good" if good else " mwalib")
+            f"channel {ch}", times, mwalib_channel_times, (" mwalib good" if good else " mwalib")
         )
 
         channel_size_mb = sum([file_sizes_mb[f] for f in channel_raw_fits])
@@ -720,7 +756,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
         # initial read: no data, just get time array
         uvd_.read([metafits, *channel_raw_fits], read_data=False)
         uv_channel_times = Time(np.unique(uvd_.time_array), format="jd")
-        compare_channel_times(ch, times, uv_channel_times, " uv")
+        compare_channel_times(f"channel {ch}", times, uv_channel_times, " uv")
 
         try:
             uvd_.read(
@@ -771,12 +807,45 @@ def read_select(ss: SS, args):
     if ".fits" in file_groups:
         if ".metafits" not in file_groups:
             raise UserWarning(f"fits supplied, but no metafits in {args.files}")
-        if len(file_groups[".metafits"]) > 1:
-            raise UserWarning(f"multiple metafits supplied in {args.files}")
-        metafits = file_groups[".metafits"][0]
+        total_size_mb = sum(du_bs(Path(f)) for f in file_groups[".fits"] + file_groups[".metafits"])
+        metafits = sorted(file_groups[".metafits"])[0]
         base, _ = splitext(metafits)
-        total_size_mb = sum(du_bs(Path(f)) for f in file_groups[".fits"] + [metafits])
-        read_raw(ss, metafits, file_groups[".fits"], read_kwargs)
+        fg_by_id = file_group_by_obsid(file_groups)
+        # fg_by_id = {"AAA": file_groups}
+        print(fg_by_id)
+        if len(fg_by_id) == 1:
+            read_raw(ss, file_groups[".metafits"], file_groups[".fits"], read_kwargs)
+        else:
+            print( f"multiple obsids supplied for {base}: {[*fg_by_id.keys()]}" )
+            for idx, obsid in enumerate(sorted([*fg_by_id.keys()])):
+                obs_groups = fg_by_id[obsid]
+                if ".fits" not in file_groups or ".metafits" not in file_groups:
+                    raise UserWarning( f"obsid {obsid} has no metafits or fits files in {obs_groups}" )
+                metafits_, raw_fits = obs_groups[".metafits"][0], obs_groups[".fits"]
+                if ss.data_array is None:
+                    # first time around, read into existing object
+                    ss_ = ss
+                else:
+                    # otherwise make a new object, the same type as ss
+                    ss_ = type(ss)()
+                ss_ = ss
+                read_raw(ss_, metafits_, raw_fits, read_kwargs)
+                # if not first time around, add uvd_ into uvd
+                if ss_ != ss:
+                    ss.__add__(ss_, inplace=True)
+                ss_times = Time(np.unique(ss.time_array), format="jd")
+                print(
+                    f"obsid {obsid} - found {len(ss_times)} times "
+                    f"from {display_time(ss_times[0])} to {display_time(ss_times[-1])}"
+                )
+
+                print(f"{ss.data_array.shape=} {ss_.data_array.shape=}")
+            ss_times = Time(np.unique(ss.time_array), format="jd")
+            print(
+                f"all obsids - found {len(ss_times)} times "
+                f"from {display_time(ss_times[0])} to {display_time(ss_times[-1])}"
+            )
+
     elif len(other_types) > 1:
         raise UserWarning(f"multiple file types found ({[*other_types]}) {args.files}")
     elif len(other_types.intersection([".ms"])) == 1:
