@@ -406,19 +406,34 @@ def get_match_filter(freq_array, args):
     )
 
 
-def apply_match_test(ins, mf, args):
+def preapply_flags(ss: SS, ins: INS, args):
+    """
+    Optionally Apply flags to INS based on SS before MF if flag_choice is original.
+
+    set the INS sig_array and metric_array to nan
+    where ss.flag_array is True for all baselines
+    or sig_array is not finite
+    """
+    if args.flag_choice == "original":
+        flag_array = ss.flag_array.reshape(ss.Nbls, ss.Ntimes, ss.Nfreqs, ss.Npols)
+        all_flagged = np.all(flag_array, axis=0)
+        ins.sig_array[all_flagged] = np.nan
+        ins.metric_array[all_flagged] = np.nan
+        ins.sig_array[~np.isfinite(ins.sig_array)] = np.nan
+        ins.metric_array[~np.isfinite(ins.sig_array)] = np.nan
+
+
+def apply_match_test(mf: MF, ins: INS, args):
     """Use ins.apply_match_test() to apply the match filter."""
     match_test_args = {}
     if args.tb_aggro > 0:
         match_test_args["time_broadcast"] = True
-    ins.apply_match_test(mf, **match_test_args)
+    mf.apply_match_test(ins, **match_test_args)
 
 
 # #### #
 # PLOT #
 # #### #
-
-
 def plot_sigchain(ss, args, obsname, suffix, cmap):
     """Plot signal chain z-scores."""
     mf = get_match_filter(ss.freq_array, args)
@@ -441,9 +456,10 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             continue
         # select only baselines or autos with this antenna
         ssa = ss.select(ant_str=f"{ant_num}", inplace=False)
-        ins = INS(ssa, spectrum_type=args.spectrum_type)
+        with np.errstate(invalid="ignore"):
+            ins = INS(ssa, spectrum_type=args.spectrum_type)
+        preapply_flags(ssa, ins, args)
         apply_match_test(mf, ins, args)
-        ins.sig_array[~np.isfinite(ins.sig_array)] = 0
         scores[ant_idx] = ins.sig_array
 
     subplots = plt.subplots(
@@ -451,7 +467,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
     )[1].reshape((2, len(pols)))
 
     def slice_(scores, axis):
-        return np.sqrt(np.sum(scores**2, axis=axis))
+        return np.sqrt(np.nansum(scores**2, axis=axis))
 
     for i, pol in enumerate(pols):
         # by signal chain: [ant, time]
@@ -461,6 +477,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             ax_signal.yaxis.set_label("Antenna")
 
         signal_pscore = slice_(scores[..., i], axis=-1)
+        signal_pscore[signal_pscore == 0] = np.nan
 
         ax_signal.imshow(
             signal_pscore,
@@ -483,6 +500,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             ax_spectrum.yaxis.set_label("Frequency channel [MHz]")
 
         spectrum_pscore = slice_(scores[..., i].transpose(2, 1, 0), axis=-1)
+        spectrum_pscore[spectrum_pscore == 0] = np.nan
 
         ax_spectrum.imshow(
             spectrum_pscore,
@@ -506,18 +524,9 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     """Plot the spectrum z-scores."""
     # incoherent noise spectrum https://ssins.readthedocs.io/en/latest/incoherent_noise_spectrum.html
     mf = get_match_filter(ss.freq_array, args)
-
-    mf = get_match_filter(ss, args)
+    with np.errstate(invalid="ignore"):
+        ins = INS(ss, spectrum_type=args.spectrum_type)
     apply_match_test(mf, ins, args)
-    # set the sig_array and metric_array to nan
-    # where ss.flag_array is True for all baselines
-    # or sig_array is not finite
-    flag_array = ss.flag_array.reshape(ss.Nbls, ss.Ntimes, ss.Nfreqs, ss.Npols)
-    all_flagged = np.all(flag_array, axis=0)
-    ins.sig_array[all_flagged] = np.nan
-    ins.metric_array[all_flagged] = np.nan
-    ins.sig_array[~np.isfinite(ins.sig_array)] = np.nan
-    ins.metric_array[~np.isfinite(ins.sig_array)] = np.nan
     pols = ss.get_pols()
 
     gps_times = get_gps_times(ss)
@@ -576,7 +585,7 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
     gps_times = get_gps_times(ss)
     freqs_mhz = (ss.freq_array) / 1e6
 
-    occupancy = np.sum(
+    occupancy = np.nansum(
         ss.flag_array.reshape(ss.Ntimes, ss.Nbls, ss.Nspws, ss.Nfreqs, len(pols)),
         axis=(1, 2, 4),
     ).astype(np.float64)
@@ -723,8 +732,8 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
 
 
-def read_select(uvd: UVData, args):
-    """Read provided files into uvd and select data."""
+def read_select(ss: SS, args):
+    """Read provided files into ss and select data."""
     file_groups = group_by_filetype(args.files)
 
     print(f"reading from {file_groups=}")
@@ -754,7 +763,7 @@ def read_select(uvd: UVData, args):
         metafits = file_groups[".metafits"][0]
         base, _ = splitext(metafits)
         total_size_mb = sum(du_bs(Path(f)) for f in file_groups[".fits"] + [metafits])
-        read_raw(uvd, metafits, file_groups[".fits"], read_kwargs)
+        read_raw(ss, metafits, file_groups[".fits"], read_kwargs)
     elif len(other_types) > 1:
         raise UserWarning(f"multiple file types found ({[*other_types]}) {args.files}")
     elif len(other_types.intersection([".ms"])) == 1:
@@ -768,8 +777,8 @@ def read_select(uvd: UVData, args):
         if args.diff:
             read_kwargs["run_check"] = False
             select_kwargs["run_check"] = False
-        uvd.read(vis, **read_kwargs)
-        uvd.scan_number_array = None  # these are not handled correctly
+        ss.read(vis, **read_kwargs)
+        ss.scan_number_array = None  # these are not handled correctly
         read_time = time.time() - start
         print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
     elif len(other_types.intersection([".uvfits", ".uvh5"])) == 1:
@@ -781,7 +790,7 @@ def read_select(uvd: UVData, args):
         total_size_mb = sum(du_bs(Path(f)) for f in vis)
         print(f"reading total {int(total_size_mb)}MB")
         start = time.time()
-        uvd.read(vis, read_data=True, **read_kwargs)
+        ss.read(vis, read_data=True, **read_kwargs)
         read_time = time.time() - start
         print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
     else:
@@ -791,27 +800,30 @@ def read_select(uvd: UVData, args):
         select_kwargs["polarizations"] = args.sel_pols
     if args.freq_range:
         fmin, fmax = map(float, args.freq_range)
-        select_kwargs["frequencies"] = uvd.freq_array[
-            np.where(np.logical_and(uvd.freq_array >= fmin, uvd.freq_array <= fmax))
+        select_kwargs["frequencies"] = ss.freq_array[
+            np.where(np.logical_and(ss.freq_array >= fmin, ss.freq_array <= fmax))
         ]
         if len(select_kwargs["frequencies"]) == 0:
             raise ValueError(
                 f"could not find frequencies within bounds {(fmin, fmax)} "
-                f"in {uvd.freq_array}"
+                f"in {ss.freq_array}"
             )
     if args.time_limit is not None and args.time_limit > 0:
-        select_kwargs["times"] = [np.unique(uvd.time_array)[: args.time_limit]]
+        select_kwargs["times"] = [np.unique(ss.time_array)[: args.time_limit]]
 
-    uvd.history = uvd.history or ""
+    ss.history = ss.history or ""
 
     start = time.time()
-    uvd.select(inplace=True, **select_kwargs)
+    ss.select(inplace=True, **select_kwargs)
     select_time = time.time() - start
     select_message = ""
     if int(select_time) >= 1:
         select_message = f"select took {int(select_time)}s. "
     print(f"select took {int(select_time)}s. {select_message}")
-    print("history:", uvd.history)
+    print("history:", ss.history)
+
+    if args.flag_choice is not None:
+        ss.apply_flags(flag_choice=args.flag_choice)
 
     return base
 
@@ -830,8 +842,6 @@ def main():  # noqa: D103
         traceback.print_exception(exc)
         parser.print_usage()
         exit(1)
-
-    # TODO: ss.apply_flags(flag_choice=flag_choice) ?
 
     plt.style.use("dark_background")
     cmap = mpl.colormaps.get_cmap(args.cmap)
