@@ -18,7 +18,7 @@ mkdir -p ${outdir:-demo/data/}1060550888/raw
 curl -L -o ${outdir:-demo/data/}1060550888/raw/1060550888_20130814212851_gpubox12_01.fits 'https://projects.pawsey.org.au/birli-test/1060550888_20130814212851_gpubox12_01.fits'
 ```
 
-## SSINS
+## 1341914000 - AOFlagger vs SSINS
 
 Did aoflagger really get all the RFI? you can inspect the raw, preprocessed and calibrated files using ssins.py.
 
@@ -53,7 +53,7 @@ python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits
 let's make a note to flag LBA5 for this observation and plot the others
 
 ```bash
-python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits,_20220715095302_ch137_000.fits} --suffix '.ch137' --no-diff --autos --sigchain --skip-ants LBA5 --sel-pols xx
+python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits,_20220715095302_ch137_000.fits} --suffix '.ch137' --no-diff --autos --sigchain --skip-ants LBA5 --sel-pols xx --flag-choice original
 ```
 
 ![broadband stripes](demo/data/1341914000/raw/1341914000.auto.ch137.noLBA5.xx.sigchain.png)
@@ -63,7 +63,7 @@ Now we can see three broadband RFI events seen by almost all tiles.
 Let's see if we can flag it by asking ssins to look at the autocorrelations
 
 ```bash
-python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits,_20220715095302_ch137_000.fits} --suffix '.ch137' --autos --skip-ants LBA5 --sel-pols yy
+python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits,_20220715095302_ch137_000.fits} --suffix '.ch137' --autos --skip-ants LBA5 --sel-pols yy --flag-choice original
 ```
 
 ![ssins on the auto-correlations](demo/data/1341914000/raw/1341914000.diff.auto.ch137.noLBA5.yy.spectrum.png)
@@ -71,12 +71,12 @@ python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits
 It found the start and end of the broadband stripes, but doesn't flag the middle. Let's try cross-correlations.
 
 ```bash
-python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits,_20220715095302_ch137_000.fits} --suffix '.ch137' --crosses --skip-ants LBA5 --sel-pols yy
+python demo/04_ssins.py ${outdir:-demo/data/}1341914000/raw/1341914000{.metafits,_20220715095302_ch137_000.fits} --suffix '.ch137' --crosses --skip-ants LBA5 --sel-pols yy --flag-choice original
 ```
 
 ![ssins on the cross-correlations](demo/data/1341914000/raw/1341914000.diff.cross.ch137.noLBA5.yy.spectrum.png)
 
-It seems to have done it, but with a little bit of collateral dammage. We can also see Starlink RFI at 175MHz
+It seems to have done it! We can also see Starlink RFI at 175MHz now.
 
 ```bash
 export obsid=1341914000
