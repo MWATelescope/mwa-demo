@@ -87,13 +87,28 @@ demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-dif
 <!-- <details>
   <summary>Bonus RFI Workshop content</summary> -->
 
-### `1060550888` channel 143 - Tile104 Narrow Swoosh
+### `1060550888` channel 143 - Tile104 Whiskers
 
 ```bash
 python demo/04_ssins.py ${outdir:-demo/data/}1060550888/raw/1060550888{.metafits,_20130814212851_gpubox12_01.fits} --no-diff --autos --sigchain --suffix '.ch143' --sel-ants Tile104 --sel-pols yy
 ```
 
-![Tile104 Narrow Swoosh](demo/data/1060550888/raw/1060550888.auto.ch143.Tile104.yy.sigchain.png)
+![Tile104 Whiskers](demo/data/1060550888/raw/1060550888.auto.ch143.Tile104.yy.sigchain.png)
+
+does aoflagger see it?
+
+```bash
+export obsid=1060550888
+demo/05_prep.sh
+for suff in Tile{10..11}; do
+  python demo/04_ssins.py ${outdir:-demo/data/}1060550888/prep/birli_1060550888_edg80.uvfits --no-diff --crosses --suffix '.ch143.'${suff}X --sel-ants ${suff}{1..8} --flags --flag-choice=original;
+done
+```
+
+it's visible in receiver 10 but not 11
+
+![Rx10 Whiskers](demo/data/1060550888/prep/birli_1060550888_edg80.cross.ch143.Tile10X.flags.png)
+![Rx11 Whiskers](demo/data/1060550888/prep/birli_1060550888_edg80.cross.ch143.Tile11X.flags.png)
 
 ### `1087596040` channel 134 - 171MHz Snake
 

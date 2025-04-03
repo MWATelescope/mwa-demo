@@ -814,6 +814,9 @@ def read_select(ss: SS, args):
     ss.history = ss.history or ""
 
     start = time.time()
+    unflagged_ants = get_unflagged_ants(ss, args)
+    if len(unflagged_ants) != len(ss.antenna_numbers):
+        select_kwargs["antenna_nums"] = unflagged_ants
     ss.select(inplace=True, **select_kwargs)
     select_time = time.time() - start
     select_message = ""
