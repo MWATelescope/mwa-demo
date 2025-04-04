@@ -862,6 +862,7 @@ def read_select(ss: SS, args):
         fg_by_id = file_group_by_obsid(file_groups)
         # fg_by_id = {"AAA": file_groups}
         print(fg_by_id)
+        # TODO: Add tests for this section (cov. read_raw fg_by_id == 1 and else...)
         if len(fg_by_id) == 1:
             read_raw(ss, file_groups[".metafits"][0], file_groups[".fits"], read_kwargs)
         else:
