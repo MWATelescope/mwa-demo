@@ -114,6 +114,7 @@ RUN python -m pip install --no-cache-dir --force-reinstall \
     'setuptools_scm>=8.1' \
     'pyuvdata[casa]>=3.1.1' \
     'pandas>=2.2.3' \
+    'matplotlib==3.9.0' \
     'python-casacore>=3.5.2' \
     git+https://github.com/mwilensky768/SSINS.git \
     git+https://github.com/d3v-null/mwa_qa.git@dev \
