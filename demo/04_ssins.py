@@ -814,7 +814,7 @@ def read_select(ss: SS, args):
         # fg_by_id = {"AAA": file_groups}
         print(fg_by_id)
         if len(fg_by_id) == 1:
-            read_raw(ss, file_groups[".metafits"], file_groups[".fits"], read_kwargs)
+            read_raw(ss, file_groups[".metafits"][0], file_groups[".fits"], read_kwargs)
         else:
             print( f"multiple obsids supplied for {base}: {[*fg_by_id.keys()]}" )
             for idx, obsid in enumerate(sorted([*fg_by_id.keys()])):
