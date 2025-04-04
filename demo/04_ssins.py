@@ -21,17 +21,15 @@ import sys
 import time
 import traceback
 from argparse import SUPPRESS, ArgumentParser, BooleanOptionalAction
-from itertools import groupby
-from os.path import dirname, splitext, basename
+from itertools import chain, groupby
+from os.path import basename, dirname, splitext
 from pathlib import Path
-from pprint import pformat
-from itertools import chain
 
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
-from astropy.time import Time
 from astropy import units as u
+from astropy.time import Time
 from matplotlib import pyplot as plt
 from matplotlib.axis import Axis
 from pyuvdata import UVData
@@ -109,6 +107,20 @@ def get_parser_common(diff=True, spectrum="cross"):
         nargs="*",
         type=str,
         help="antenna names to skip, default: none",
+    )
+    group_mutex.add_argument(
+        "--sel-rxs",
+        default=[],
+        nargs="*",
+        type=str,
+        help="receiver numbers to select, default: all",
+    )
+    group_mutex.add_argument(
+        "--skip-rxs",
+        default=[],
+        nargs="*",
+        type=str,
+        help="receiver numbers to skip, default: none",
     )
 
     group_sel.add_argument(
@@ -292,6 +304,7 @@ def group_by_filetype(paths):
         )
     }
 
+
 def file_group_by_obsid(groups):
     """Given a group of paths, group them by obsid."""
 
@@ -351,11 +364,7 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
     from mwalib import CorrelatorContext
 
     def get_indices(ctx: CorrelatorContext):
-        return (
-            ctx.common_good_timestep_indices
-            if good
-            else ctx.common_timestep_indices
-        )
+        return ctx.common_good_timestep_indices if good else ctx.common_timestep_indices
 
     gps_times = []
     # check if metafits is a string or a list
@@ -364,7 +373,9 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
     fg_by_id = file_group_by_obsid(group_by_filetype([*metafits, *raw_fits]))
     for obsid, obs_groups in fg_by_id.items():
         if ".fits" not in obs_groups or ".metafits" not in obs_groups:
-            raise UserWarning( f"obsid {obsid} has no metafits or fits files in {obs_groups}" )
+            raise UserWarning(
+                f"obsid {obsid} has no metafits or fits files in {obs_groups}"
+            )
         metafits_, raw_fits = obs_groups[".metafits"][0], obs_groups[".fits"]
         with CorrelatorContext(metafits_, raw_fits) as corr_ctx:
             for time_idx in get_indices(corr_ctx):
@@ -376,7 +387,11 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
 
 
 def get_unflagged_ants(ss: UVData, args):
-    """Get antenna numbers of all unflagged antennas."""
+    """
+    Get antenna numbers of all unflagged antennas.
+
+    if args.sel_rxs or skip_rxs provided, gets rx numbers from metafits.
+    """
     all_ant_nums = np.array(ss.antenna_numbers)
     all_ant_names = np.array(ss.antenna_names)
     present_ant_nums = np.unique(ss.ant_1_array)
@@ -396,6 +411,33 @@ def get_unflagged_ants(ss: UVData, args):
     elif args.skip_ants:
         skip_ants = np.array([*map(sanitize, args.skip_ants)])
         return present_ant_nums[np.where(~np.isin(present_ant_names, skip_ants))[0]]
+    elif args.sel_rxs or args.skip_rxs:
+        __import__("sys").path.insert(0, dirname(__file__))
+        mwalib_tools = __import__("03_mwalib")
+        metafits = group_by_filetype(args.files)[".metafits"]
+        if len(metafits) == 0:
+            raise UserWarning("can't determine rx numbers without metafits")
+        df_ant = None
+        for mf in metafits if isinstance(metafits, list) else [metafits]:
+            ctx = mwalib_tools.MetafitsContext(mf)
+            if df_ant is None:
+                df_ant = mwalib_tools.get_antenna_df(ctx)
+            else:
+                df_ant_ = mwalib_tools.get_antenna_df(ctx)
+                assert df_ant.equals(df_ant_)
+        present_rx_nums = np.array(
+            [*map(int, df_ant.rec_number[df_ant.tile_id.isin(present_ant_nums)])]
+        )
+        if args.sel_rxs:
+            sel_rxs = np.array([*map(int, args.sel_rxs)])
+            if not set(sel_rxs).issubset(df_ant.rec_number):
+                print(f"no intersection between {sel_rxs=} and {df_ant.rec_number=}")
+            return present_ant_nums[np.where(np.isin(present_rx_nums, sel_rxs))[0]]
+        elif args.skip_rxs:
+            skip_rxs = np.array([*map(int, args.skip_rxs)])
+            if not set(skip_rxs).issubset(df_ant.rec_number):
+                print(f"no intersection between {skip_rxs=} and {df_ant.rec_number=}")
+            return present_ant_nums[np.where(~np.isin(present_rx_nums, skip_rxs))[0]]
 
     return present_ant_nums
 
@@ -416,10 +458,12 @@ def get_suffix(args):
         suffix += f".{args.sel_ants[0]}"
     elif len(args.skip_ants) == 1:
         suffix += f".no{args.skip_ants[0]}"
+    if len(args.sel_rxs) == 1:
+        suffix += f".rx{args.sel_rxs[0]}"
+    elif len(args.skip_rxs) == 1:
+        suffix += f".norx{args.skip_rxs[0]}"
     if len(args.sel_pols) == 1:
         suffix += f".{args.sel_pols[0]}"
-    # deleteme
-    # suffix += ".eavins"
     return suffix
 
 
@@ -744,7 +788,10 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
         mwalib_channel_times = mwalib_get_common_times(metafits, channel_raw_fits, good)
 
         compare_channel_times(
-            f"channel {ch}", times, mwalib_channel_times, (" mwalib good" if good else " mwalib")
+            f"channel {ch}",
+            times,
+            mwalib_channel_times,
+            (" mwalib good" if good else " mwalib"),
         )
 
         channel_size_mb = sum([file_sizes_mb[f] for f in channel_raw_fits])
@@ -807,7 +854,9 @@ def read_select(ss: SS, args):
     if ".fits" in file_groups:
         if ".metafits" not in file_groups:
             raise UserWarning(f"fits supplied, but no metafits in {args.files}")
-        total_size_mb = sum(du_bs(Path(f)) for f in file_groups[".fits"] + file_groups[".metafits"])
+        total_size_mb = sum(
+            du_bs(Path(f)) for f in file_groups[".fits"] + file_groups[".metafits"]
+        )
         metafits = sorted(file_groups[".metafits"])[0]
         base, _ = splitext(metafits)
         fg_by_id = file_group_by_obsid(file_groups)
@@ -816,11 +865,13 @@ def read_select(ss: SS, args):
         if len(fg_by_id) == 1:
             read_raw(ss, file_groups[".metafits"][0], file_groups[".fits"], read_kwargs)
         else:
-            print( f"multiple obsids supplied for {base}: {[*fg_by_id.keys()]}" )
-            for idx, obsid in enumerate(sorted([*fg_by_id.keys()])):
+            print(f"multiple obsids supplied for {base}: {[*fg_by_id.keys()]}")
+            for _idx, obsid in enumerate(sorted([*fg_by_id.keys()])):
                 obs_groups = fg_by_id[obsid]
                 if ".fits" not in file_groups or ".metafits" not in file_groups:
-                    raise UserWarning( f"obsid {obsid} has no metafits or fits files in {obs_groups}" )
+                    raise UserWarning(
+                        f"obsid {obsid} has no metafits or fits files in {obs_groups}"
+                    )
                 metafits_, raw_fits = obs_groups[".metafits"][0], obs_groups[".fits"]
                 if ss.data_array is None:
                     # first time around, read into existing object
