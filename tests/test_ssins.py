@@ -5,17 +5,16 @@ Longer term should also afford baselining for peak memory usage, which is the co
 Must: use < 240GB of RAM peak for ~ 60 GB fits file.
 
 """
-from ctypes import memset
-import pytest
 import importlib.util
 import sys
-from pathlib import Path
-from SSINS import INS, MF, SS
 from argparse import Namespace
+from pathlib import Path
+
 import numpy as np
-from numpy.testing import assert_array_equal
-import os
+import pytest
 from memory_profiler import memory_usage
+from numpy.testing import assert_array_equal
+from SSINS import SS
 
 MAX_MEM = 240 # GB
 MAX_FILE = 60 # GB

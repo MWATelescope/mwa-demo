@@ -26,7 +26,7 @@ from os.path import dirname, splitext, basename
 from pathlib import Path
 from pprint import pformat
 from itertools import chain
-
+from collections import defaultdict
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
@@ -38,6 +38,7 @@ from pyuvdata import UVData
 
 # from SSINS import EAVILS_INS as INS
 from SSINS import INS, MF, SS
+from traitlets.traitlets import Float
 
 
 def get_parser_common(diff=True, spectrum="cross"):
@@ -292,7 +293,7 @@ def group_by_filetype(paths):
         )
     }
 
-def file_group_by_obsid(groups):
+def group_by_obsid(groups):
     """Given a group of paths, group them by obsid."""
 
     def obsid_classifier(path):
@@ -361,7 +362,7 @@ def mwalib_get_common_times(metafits, raw_fits, good=True):
     # check if metafits is a string or a list
     if isinstance(metafits, str):
         metafits = [metafits]
-    fg_by_id = file_group_by_obsid(group_by_filetype([*metafits, *raw_fits]))
+    fg_by_id = group_by_obsid(group_by_filetype([*metafits, *raw_fits]))
     for obsid, obs_groups in fg_by_id.items():
         if ".fits" not in obs_groups or ".metafits" not in obs_groups:
             raise UserWarning( f"obsid {obsid} has no metafits or fits files in {obs_groups}" )
@@ -656,7 +657,7 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
             np.max(freqs_mhz),
             np.max(gps_times),
             np.min(gps_times),
-        ],
+        ], # type: ignore
     )
 
     # add a color bar
@@ -669,11 +670,11 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
     plt.gcf().set_size_inches(16, np.min([9, 4 * len(pols)]))
 
 
-def du_bs(path: Path, bs=1024 * 1024):
+def disk_usage_in_blocks(path: Path, block_size=1024 * 1024) -> float:
     """Get disk usage from stat in number of blocks of a given size."""
     if path.is_file():
-        return path.stat().st_size / bs
-    return sum(f.stat().st_size for f in path.glob("**/*") if f.is_file()) / bs
+        return path.stat().st_size / block_size
+    return sum(f.stat().st_size for f in path.glob("**/*") if f.is_file()) / block_size
 
 
 def display_time(t: Time):
@@ -683,7 +684,7 @@ def display_time(t: Time):
 
 def compare_time(ta: Time, tb: Time):
     """Smallest mwax resolution is 0.25s."""
-    return np.abs(ta.gps - tb.gps) < 0.25
+    return np.abs(ta.gps - tb.gps) < 0.25 # type: ignore
 
 
 def compare_channel_times(segment, common_times, channel_times, time_descriptor=""):
@@ -706,7 +707,7 @@ def compare_channel_times(segment, common_times, channel_times, time_descriptor=
 
 def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
     """Read raw files into uvd one channel at a time."""
-    file_sizes_mb = {f: du_bs(Path(f)) for f in raw_fits}
+    file_sizes_mb = {f: disk_usage_in_blocks(Path(f)) for f in raw_fits}
     total_size_mb = sum(file_sizes_mb.values())
     print(f"reading {int(total_size_mb)}MB of raw files")
 
@@ -783,8 +784,10 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
 
 def read_select(ss: SS, args):
     """Read provided files into ss and select data."""
-    file_groups = group_by_filetype(args.files)
-
+    # sort files by their suffix (extension)
+    file_groups = defaultdict(list)
+    for file in args.files:
+        file_groups[Path(file).suffix].append(file)
     print(f"reading from {file_groups=}")
 
     read_kwargs = {
@@ -804,13 +807,21 @@ def read_select(ss: SS, args):
     base = None
     # metafits and mwaf flag files only used if raw fits supplied
     other_types = set(file_groups.keys()) - {".fits", ".metafits"}
-    if ".fits" in file_groups:
-        if ".metafits" not in file_groups:
+    def process_fits(file_group):
+        if ".fits" not in file_group:
+            return None
+
+        if ".metafits" not in file_group:
             raise UserWarning(f"fits supplied, but no metafits in {args.files}")
-        total_size_mb = sum(du_bs(Path(f)) for f in file_groups[".fits"] + file_groups[".metafits"])
+
+        total_size_mb = sum(disk_usage_in_blocks(Path(f)) for f in file_groups[".fits"]
+            + file_groups[".metafits"])
+
+
+    if ".fits" in file_groups:
         metafits = sorted(file_groups[".metafits"])[0]
         base, _ = splitext(metafits)
-        fg_by_id = file_group_by_obsid(file_groups)
+        fg_by_id = group_by_obsid(file_groups)
         # fg_by_id = {"AAA": file_groups}
         print(fg_by_id)
         # TODO: Add tests for this section (cov. read_raw fg_by_id == 1 and else...)
@@ -818,7 +829,7 @@ def read_select(ss: SS, args):
             read_raw(ss, file_groups[".metafits"], file_groups[".fits"], read_kwargs)
         else:
             print( f"multiple obsids supplied for {base}: {[*fg_by_id.keys()]}" )
-            for idx, obsid in enumerate(sorted([*fg_by_id.keys()])):
+            for _, obsid in enumerate(sorted([*fg_by_id.keys()])):
                 obs_groups = fg_by_id[obsid]
                 if ".fits" not in file_groups or ".metafits" not in file_groups:
                     raise UserWarning( f"obsid {obsid} has no metafits or fits files in {obs_groups}" )
@@ -852,7 +863,7 @@ def read_select(ss: SS, args):
     elif len(other_types.intersection([".ms"])) == 1:
         vis = file_groups.get(".ms", [])
         base, _ = os.path.splitext(vis[0])
-        total_size_mb = sum(du_bs(Path(f)) for f in vis)
+        total_size_mb = sum(disk_usage_in_blocks(Path(f)) for f in vis)
         print(f"reading total {int(total_size_mb)}MB")
         start = time.time()
         if len(vis) > 0:
@@ -870,7 +881,7 @@ def read_select(ss: SS, args):
         )
         base, _ = os.path.splitext(vis[0])
 
-        total_size_mb = sum(du_bs(Path(f)) for f in vis)
+        total_size_mb = sum(disk_usage_in_blocks(Path(f)) for f in vis)
         print(f"reading total {int(total_size_mb)}MB")
         start = time.time()
         ss.read(vis, read_data=True, **read_kwargs)
@@ -921,9 +932,10 @@ def main():  # noqa: D103
 
     # sky-subtract https://ssins.readthedocs.io/en/latest/sky_subtract.html
     ss = SS()
-
+    breakpoint()
     try:
         base = read_select(ss, args)
+        breakpoint()
     except ValueError as exc:
         traceback.print_exception(exc)
         parser.print_usage()
