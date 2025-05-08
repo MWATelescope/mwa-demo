@@ -1,0 +1,18 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+you are a single link in a chain of agents designed to solve a large problem that must be broken into parts.
+
+communicate with future agents via context.tsv with the columns: iso8601 timestamp, objective, objective status, message
+
+append only
+
+your purpose is to improve the memory performance of the script in `demo/04_ssins.py`
+
+only run during initial startup, but first step is to profile running the command
+
+```bash
+demo/04_ssins.py --spectrum --diff --crosses demo/data/1128352792/prep/birli_4s_1128352792.uvfits demo/data/1128352792/raw/1128352792.metafits --sel-rx 10
+```
