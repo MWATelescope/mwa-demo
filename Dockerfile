@@ -2,7 +2,8 @@
 # cross-platform, cpu-only dockerfile for demoing MWA software stack
 # on amd64, arm64
 # ref: https://docs.docker.com/build/building/multi-platform/
-FROM mwatelescope/hyperdrive:birli0.14 AS base
+ARG BASE_IMAGE=mwatelescope/hyperdrive:main
+FROM $BASE_IMAGE AS base
 
 # Suppress perl locale errors
 ENV LC_ALL=C
