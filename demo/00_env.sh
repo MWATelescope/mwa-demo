@@ -22,6 +22,9 @@ if [[ $(uname -o) == "Darwin" ]]; then
     export DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib/
 fi
 
+# basically wsclean needs this
+export OPENBLAS_NUM_THREADS=1
+
 # base directory for demo data
 # - defaults to demo/data in the current working directory (^ unless Setonix)
 # - you may want to change this do a directory with more space if extending this demo
