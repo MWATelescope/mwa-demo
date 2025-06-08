@@ -6,8 +6,12 @@ FROM mwatelescope/hyperdrive:birli0.14 AS base
 
 # Suppress perl locale errors
 ENV LC_ALL=C
-RUN apt-get update && \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    build-essential \
+    autoconf \
     build-essential \
     ca-certificates \
     casacore-data \
@@ -17,6 +21,8 @@ RUN apt-get update && \
     curl \
     ffmpeg \
     g++ \
+    gfortran \
+    git \
     jq \
     lcov \
     libatlas3-base \
@@ -24,6 +30,7 @@ RUN apt-get update && \
     libboost-date-time-dev \
     libboost-filesystem-dev \
     libboost-program-options-dev \
+    libboost-python-dev \
     libboost-system-dev \
     libboost-test-dev \
     liberfa-dev \
@@ -35,32 +42,38 @@ RUN apt-get update && \
     libhdf5-dev \
     liblapack-dev \
     liblua5.3-dev \
+    libopenblas-dev \
     libpng-dev \
     libssl-dev \
+    libstarlink-pal-dev \
+    libtool \
     libxml2-dev \
     pkg-config \
     procps \
     python3 \
     python3-pip \
+    time \
     tzdata \
     unzip \
     vim \
-    wget \
     wcslib-dev \
-    libboost-python-dev \
+    wget \
     zip \
+    zlib1g-dev \
     && \
     apt-get clean all && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* && \
+    rm -rf /tmp/* /var/tmp/* && \
     apt-get -y autoremove
 
 # if the python command does not exist, use python3 as the default
 RUN command -v python || update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
 # install giant-squid
-RUN cargo install mwa_giant_squid --locked && \
-    cargo clean && \
-    rm -rf ${CARGO_HOME}/registry ${CARGO_HOME}/git
+RUN --mount=type=cache,target=/app/target/ \
+    --mount=type=cache,target=${CARGO_HOME}/git/db \
+    --mount=type=cache,target=${CARGO_HOME}/registry/ \
+    cargo install mwa_giant_squid --locked && \
+    cargo clean
 
 # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
 ARG CMAKE_ARGS="-DPORTABLE=True"
@@ -72,7 +85,7 @@ RUN git clone --depth 1 --branch=${EVERYBEAM_BRANCH} --recurse-submodules https:
     mkdir build && \
     cd build && \
     cmake $CMAKE_ARGS .. && \
-    make install -j`nproc` && \
+    make install -j && \
     cd / && \
     rm -rf /EveryBeam
 
@@ -83,7 +96,7 @@ RUN git clone --depth 1 --branch=${IDG_BRANCH} https://git.astron.nl/RD/idg.git 
     mkdir build && \
     cd build && \
     cmake $CMAKE_ARGS .. && \
-    make install -j`nproc` && \
+    make install -j && \
     cd / && \
     rm -rf /idg
 
@@ -96,27 +109,40 @@ RUN git clone --depth 1 --branch=${WSCLEAN_BRANCH} https://gitlab.com/aroffringa
     mkdir build && \
     cd build && \
     cmake $CMAKE_ARGS .. && \
-    make install -j`nproc` && \
+    make install -j && \
     cd / && \
     rm -rf /wsclean
 
+# install chips
+RUN git clone --depth 1 https://github.com/d3v-null/chips2024.git /chips && \
+    cd /chips && \
+    make install -j PAL_LIBS="-lstarlink_pal" PREFIX=/usr/local && \
+    cd / && \
+    rm -rf /chips
+
 # install python prerequisites
-RUN python -m pip install --no-cache-dir --force-reinstall \
+# - install Cython first to fix pyuvdata compilation issues
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install \
+    'cython<3.0' \
+    'scikit_build_core' \
+    'setuptools-scm==8.2.0' \
+    'packaging==24.2' \
+    && python -m pip install \
     'pyvo>=1.5.2' \
     'psutil>=6.0.0' \
     'docstring_parser>=0.15' \
-    'astropy>=6.0' \
+    'astropy>=6.0,<7' \
     'h5py>=3.4' \
-    'numpy>=1.23' \
+    'numpy>=1.23,<2' \
     'pyerfa>=2.0.1.1' \
     'pyyaml>=5.4.1' \
     'scipy>=1.8' \
-    'setuptools_scm>=8.1' \
-    'pyuvdata[casa]>=3.1.1' \
     'pandas>=2.2.3' \
     'matplotlib==3.9.0' \
-    'python-casacore>=3.5.2' \
-    git+https://github.com/mwilensky768/SSINS.git \
+    'python-casacore>=3.5.2,<3.7' \
+    'pyuvdata[casa]==3.1.3' \
+    git+https://github.com/d3v-null/SSINS.git@eavils-copilot \
     git+https://github.com/d3v-null/mwa_qa.git@dev \
     git+https://github.com/PaulHancock/Aegean.git \
     git+https://github.com/tjgalvin/fits_warp.git
@@ -140,17 +166,17 @@ RUN cd /mwax_mover && \
     python -m pip install .
 ENV PATH="/mwax_mover/scripts/:${PATH}"
 
-# # python /mwax_mover/scripts/cal_analysis.py \
-# # --name "${name}" \
-# # --metafits "${metafits}" --solns ${soln} \
-# # --phase-diff-path=/mwax_mover/phase_diff.txt \
-# # --plot-residual --residual-vmax=0.5
+# python /mwax_mover/scripts/cal_analysis.py \
+# --name "${name}" \
+# --metafits "${metafits}" --solns ${soln} \
+# --phase-diff-path=/mwax_mover/phase_diff.txt \
+# --plot-residual --residual-vmax=0.5
 
-# # export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-# # export raw="$(ls -1 ${outdir}/${obsid}/raw/${obsid}*.fits)"
-# # export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
-# # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
-# # docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
+# export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
+# export raw="$(ls -1 ${outdir}/${obsid}/raw/${obsid}*.fits)"
+# export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
+# docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
+# docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
 
 # Copy the demo files
 COPY ./demo /demo
