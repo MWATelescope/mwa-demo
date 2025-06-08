@@ -15,12 +15,8 @@ export obsid=${obsid:-1341914000}
 # ### #
 # RAW #
 # ### #
-# check for raw files
+# pattern to check for raw files
 export raw_pattern=${outdir}/${obsid}/raw/${obsid}_2\*.fits
-if ! eval ls -1 $raw_pattern >/dev/null; then
-    echo "raw not present: $raw_pattern , try ${SCRIPT_BASE}/02_download.sh"
-    exit 1
-fi
 # check for metafits files
 # use _fixed if available
 export metafits=${outdir}/${obsid}/raw/${obsid}_fixed.metafits
@@ -44,7 +40,7 @@ fi
 # export freqres_khz=10   # frequency resolution to average to in kHz
 # export birli_args=""    # extra birli args if any
 # export timeres_s=4      # time resolution to average to in seconds
-# export edgewidth_khz=80 # edge width to flag on each coarse channel in kHz
+export edgewidth_khz=${edgewidth_khz:-80} # edge width to flag on each coarse channel in kHz
 
 mkdir -p "${outdir}/${obsid}/prep"
 
@@ -57,9 +53,15 @@ export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
 [[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
 [[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
 export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
+echo prep_uvfits=$prep_uvfits prep_uvfits_pattern=$prep_uvfits_pattern
 
-# since we don't expect the uvfits files to exist the first time around, 2>/dev/null silences the warning
-if ! eval ls -1 $prep_uvfits_pattern 2>/dev/null; then
+# since we don't expect the uvfits files to exist the first time around,
+# >/dev/null silences the warning
+if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
+    if ! eval ls -1 $raw_pattern >/dev/null; then
+        echo "raw not present: $raw_pattern , try ${SCRIPT_BASE}/02_download.sh"
+        exit 1
+    fi
     echo "running birli on $raw_pattern" \
         $([[ -n "${edgewidth_khz:-}" ]] && echo " edge width ${edgewidth_khz}kHz") \
         $([[ -n "${freqres_khz:-}" ]] && echo " freq res ${freqres_khz}kHz") \
