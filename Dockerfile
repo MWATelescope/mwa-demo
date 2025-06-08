@@ -141,7 +141,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     'pandas>=2.2.3' \
     'matplotlib==3.9.0' \
     'python-casacore>=3.5.2,<3.7' \
+    && python -m pip install --no-build-isolation \
     'pyuvdata[casa]==3.1.3' \
+    && python -m pip install \
     git+https://github.com/d3v-null/SSINS.git@eavils-copilot \
     git+https://github.com/d3v-null/mwa_qa.git@dev \
     git+https://github.com/PaulHancock/Aegean.git \
