@@ -6,7 +6,7 @@ We will skip the preprocessing and calibration steps, and download data with and
 
 We'll start with a known good observation, and then move on to a more challenging observation.
 
-## Downloads
+## Downloads / Setup
 
 run the these before the workshop:
 
@@ -22,9 +22,12 @@ wget -O ${outdir}/1069761080/peel/hyp_1069761080_ionosub_ssins_30l_src8k_300it_8
 docker pull mwatelescope/mwa-demo:latest
 ```
 
-## Known good observation
+Note that the baremetal instructions won't work for running CHIPS on macOS yet, so your best bet is to use the docker image (via Singularity if you're on HPC).
 
-TODO
+note: CHIPS grids take up a lot of disk space.
+Each 2GB input file will produce 100GB of grids.
+
+## Known good observation
 
 add the following to `demo/00_env.sh`:
 
@@ -36,5 +39,8 @@ and run the following:
 
 ```bash
 export obsid=1069761080
+export uvf_pattern=${outdir}/${obsid}/cal/hyp_${obsid}_ssins_30l_src8k_300it_8s_80kHz.uvfits
+demo/12_chips.sh
+export uvf_pattern=${outdir}/${obsid}/peel/hyp_${obsid}_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.uvfits
 demo/12_chips.sh
 ```
