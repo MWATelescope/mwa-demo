@@ -22,20 +22,21 @@ wget -O ${outdir}/1069761080/peel/hyp_1069761080_ionosub_ssins_30l_src8k_300it_8
 docker pull mwatelescope/mwa-demo:latest
 ```
 
-Note that the baremetal instructions won't work for running CHIPS on macOS yet, so your best bet is to use the docker image (via Singularity if you're on HPC).
+See [SETUP.md](SETUP.md) for setup options, but for a quick start, the following commands should be run in a shell from  the docker image (via Singularity if you're on HPC).
+
+```bash
+# quickstart
+docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} mwatelescope/mwa-demo:main
+```
+
+Note: the baremetal instructions won't work for running CHIPS on macOS yet, so your best bet is to use the docker image (via Singularity if you're on HPC).
 
 note: CHIPS grids take up a lot of disk space.
 Each 2GB input file will produce 100GB of grids.
 
 ## Known good observation
 
-add the following to `demo/00_env.sh`:
-
-```bash
-# TODO
-```
-
-and run the following:
+run the following:
 
 ```bash
 export obsid=1069761080
