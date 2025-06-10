@@ -12,27 +12,112 @@ source "$SCRIPT_BASE/00_env.sh"
 
 export obsid=${obsid:-1341914000}
 
+# Cal-specific functions used only in this script
+# Function to extract bad antennas from prepqa
+get_prep_bad_ants() {
+    local prep_uvfits_file="$1"
+    local prepqa="${prep_uvfits_file%%.uvfits}_qa.json"
+
+    if [[ -f "$prepqa" ]] && command -v jq >/dev/null 2>&1; then
+        export prep_bad_ants=$(jq -r '.BAD_ANTS|join(" ")' "$prepqa")
+    else
+        export prep_bad_ants=""
+        if [[ ! -f "$prepqa" ]]; then
+            echo "Warning: prepqa file not found, skipping bad antenna extraction"
+        fi
+        if ! command -v jq >/dev/null 2>&1; then
+            echo "Warning: jq not found, skipping bad antenna extraction"
+        fi
+    fi
+}
+
+# Function to plot calibration solutions
+plot_cal_solutions() {
+    local soln_file="$1"
+    local metafits_file="$2"
+    local output_dir="$3"
+
+    if [[ ! -f "${soln_file%%.fits}_phases.png" ]]; then
+        # Plot without reference tile
+        run_if_available hyperdrive solutions-plot \
+            -m "$metafits_file" \
+            --no-ref-tile \
+            --max-amp 1.5 \
+            --output-directory "$output_dir" \
+            "$soln_file"
+
+        # Rename files to indicate no reference tile
+        [[ -f "${soln_file%%.fits}_phases.png" ]] && mv "${soln_file%%.fits}_phases.png" "${soln_file%%.fits}_phases_noref.png"
+        [[ -f "${soln_file%%.fits}_amps.png" ]] && mv "${soln_file%%.fits}_amps.png" "${soln_file%%.fits}_amps_noref.png"
+
+        # Plot with reference tile
+        run_if_available hyperdrive solutions-plot \
+            -m "$metafits_file" \
+            --max-amp 1.5 \
+            --ref-tile 0 \
+            --output-directory "$output_dir" \
+            "$soln_file"
+    else
+        echo "phases_png ${soln_file%%.fits}_phases.png exists, skipping hyperdrive solutions-plot"
+    fi
+}
+
+# Function to run calibration QA and extract bad antennas
+run_cal_qa() {
+    local hyp_soln="$1"
+    local metafits="$2"
+    local calqa="$3"
+
+    # Run calqa if not exists
+    if [[ ! -f "$calqa" ]]; then
+        echo "running calqa on solutions $hyp_soln"
+        run_if_available run_calqa.py --pol X --out "$calqa" "$hyp_soln" "$metafits"
+    else
+        echo "calqa $calqa exists, skipping run_calqa.py"
+    fi
+
+    # Process QA results if file exists
+    if [[ -f "$calqa" ]]; then
+        # Plot the cal qa results
+        run_if_available plot_calqa.py "$calqa" --save --out "${hyp_soln%%.fits}"
+
+        # Extract convergence percentage and check quality
+        if command -v jq >/dev/null 2>&1; then
+            cal_pct_nonconvg=$(jq -r '.PERCENT_NONCONVERGED_CHS|tonumber|round' "$calqa" 2>/dev/null) || cal_pct_nonconvg=""
+            export cal_pct_nonconvg
+
+            if [[ -n "$cal_pct_nonconvg" && $cal_pct_nonconvg -ge 95 ]]; then
+                echo "calibration failed, $cal_pct_nonconvg% of channels did not converge. hint: try a different sky model in demo/00_env.sh"
+                return 1 # Signal failure
+            fi
+
+            # Extract bad antennas from calqa json
+            cal_bad_ants=$(jq -r '.BAD_ANTS|join(" ")' "$calqa" 2>/dev/null) || cal_bad_ants=""
+            export cal_bad_ants
+        else
+            export cal_pct_nonconvg=""
+            export cal_bad_ants=""
+        fi
+    else
+        export cal_pct_nonconvg=""
+        export cal_bad_ants=""
+    fi
+
+    return 0 # Success
+}
+
 # ### #
 # RAW #
 # ### #
 # check for raw files
 # export raw_pattern=${outdir}/${obsid}/raw/${obsid}_2\*.fits
 # check for metafits files
-export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-if [[ ! -f "$metafits" ]]; then
-    echo "metafits not present, downloading $metafits"
-    mkdir -p $(dirname $metafits)
-    curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='"${obsid}"
-fi
+ensure_metafits
 
 # check preprocessed visibility and qa files exist from previous steps
 # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
 # - if the files we need are missing, then run 05_prep.sh
-export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
-[[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
-[[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
-[[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
-export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
+set_prep_uvfits_vars
 
 for f in $(ls -1d $prep_uvfits_pattern); do
     set -x
@@ -50,26 +135,14 @@ if ! eval ls -1d $prep_qa_pattern >/dev/null; then
     $SCRIPT_BASE/05_prep.sh
 fi
 
-mkdir -p "${outdir}/${obsid}/cal"
+create_obsid_dirs "cal"
 
 # ####### #
 # SRCLIST #
 # ####### #
 # DEMO: generate a smaller sourcelist for calibration
 export srclist_args="${srclist_args:---source-dist-cutoff=180}" # e.g. --veto-threshold --source-dist-cutoff
-export num_sources=${num_sources:-500}
-if [[ -n "${num_sources:-}" ]]; then
-    srclist_args="${srclist_args} -n $num_sources"
-fi
-export topn_srclist=${srclist##*/}
-export topn_srclist=${topn_srclist%.*}
-export topn_srclist=$outdir/$obsid/cal/${topn_srclist}_top${num_sources}.yaml
-if [[ ! -f "$topn_srclist" ]]; then
-    echo "generating top $num_sources sources from $srclist with args $srclist_args"
-    hyperdrive srclist-by-beam $srclist_args -m $metafits $srclist -- $topn_srclist
-else
-    echo "topn_srclist $topn_srclist exists, skipping hyperdrive srclist-by-beam"
-fi
+setup_srclist
 
 # ### #
 # CAL #
@@ -92,23 +165,12 @@ set -eu
 eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
     export prep_uvfits
 
-    # find prepqa relative to this uvfits file
-    export prepqa="${prep_uvfits%%.uvfits}_qa.json"
-    if [[ -f "$prepqa" ]]; then
-        prep_bad_ants=$(jq -r '.BAD_ANTS|join(" ")' "$prepqa")
-        export prep_bad_ants
-    else
-        export prep_bad_ants=""
-    fi
+    # find prepqa relative to this uvfits file and extract bad antennas
+    get_prep_bad_ants "$prep_uvfits"
 
     # store calibration outputs for the prepqa file in the sibling cal/ folder
     # e.g. for prep_uvfits=a/b/prep/birli_X_chY.uvfits, parent=a/b, obs=X_chY
-    export parent=${prep_uvfits%/*}
-    export parent=${parent%/*}
-    export dical_name=${prep_uvfits##*/birli_}
-    export dical_name="${dical_name%.uvfits}${dical_suffix}"
-    export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
-    export cal_vis="${parent}/cal/hyp_cal_${dical_name}.ms"
+    set_cal_paths "$prep_uvfits"
     # export model_ms="${parent}/cal/hyp_model_${dical_name}.ms"
 
     if [[ ! -f "$hyp_soln" ]]; then
@@ -123,56 +185,14 @@ eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
     fi
 
     # plot solutions file
-    if [[ ! -f "${hyp_soln%%.fits}_phases.png" ]]; then
-        hyperdrive solutions-plot \
-            -m "$metafits" \
-            --no-ref-tile \
-            --max-amp 1.5 \
-            --output-directory "${outdir}/${obsid}/cal" \
-            "$hyp_soln"
-        mv ${hyp_soln%%.fits}_phases.png ${hyp_soln%%.fits}_phases_noref.png
-        mv ${hyp_soln%%.fits}_amps.png ${hyp_soln%%.fits}_amps_noref.png
-        hyperdrive solutions-plot \
-            -m "$metafits" \
-            --max-amp 1.5 \
-            --ref-tile 0 \
-            --output-directory "${outdir}/${obsid}/cal" \
-            "$hyp_soln"
-    else
-        echo "phases_png ${hyp_soln%%.fits}_phases.png exists, skipping hyperdrive solutions-plot"
-    fi
+    plot_cal_solutions "$hyp_soln" "$metafits" "${outdir}/${obsid}/cal"
 
     # ###### #
     # CAL QA #
     # ###### #
     # DEMO: use mwa_qa to check calibration solutions
-
-    export calqa="${hyp_soln%%.fits}_qa.json"
-
-    if [[ ! -f "$calqa" ]]; then
-        echo "running calqa on solutions $hyp_soln"
-        run_calqa.py --pol X --out "$calqa" "$hyp_soln" "$metafits" || true
-    else
-        echo "calqa $calqa exists, skipping run_calqa.py"
-    fi
-
-    # if the above didn't fail
-    if [[ -f "$calqa" ]]; then
-        # plot the cal qa results
-        plot_calqa.py "$calqa" --save --out "${hyp_soln%%.fits}" || true
-
-        # extract the percentage of channels that converged
-        cal_pct_nonconvg=$(jq -r $'.PERCENT_NONCONVERGED_CHS|tonumber|round' "$calqa") || true
-        export cal_pct_nonconvg
-
-        if [[ $cal_pct_nonconvg -ge 95 ]]; then
-            echo "calibration failed, $cal_pct_nonconvg% of channels did not converge. hint: try a different sky model in demo/00_env.sh"
-            continue
-        fi
-
-        # extract bad antennas from calqa json with jq
-        cal_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' "$calqa") || true
-        export cal_bad_ants
+    if ! run_cal_qa "$hyp_soln" "$metafits" "$calqa"; then
+        continue # Skip to next file if calibration failed
     fi
 
     # echo "deliberately disabling cal bad ants for the first round :)"

@@ -16,31 +16,14 @@ export obsid=${obsid:-UNSET}
 # PREP #
 # #### #
 # check for metafits files
-export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-if [[ ! -f "$metafits" ]]; then
-    echo "metafits not present, downloading $metafits"
-    mkdir -p $(dirname $metafits)
-    curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='"${obsid}"
-fi
+ensure_metafits
 
 # ####### #
 # SRCLIST #
 # ####### #
 # DEMO: generate a smaller sourcelist for calibration
 export srclist_args="${srclist_args:-}" # e.g. --veto-threshold --source-dist-cutoff
-export num_sources=${num_sources:-500}
-if [[ -n "${num_sources:-}" ]]; then
-    srclist_args="${srclist_args} -n $num_sources"
-fi
-export topn_srclist=${srclist##*/}
-export topn_srclist=${topn_srclist%.*}
-export topn_srclist=$outdir/$obsid/cal/${topn_srclist}_top${num_sources}.yaml
-if [[ ! -f "$topn_srclist" ]]; then
-    echo "generating top $num_sources sources from $srclist with args $srclist_args"
-    hyperdrive srclist-by-beam $srclist_args -m $metafits $srclist -- $topn_srclist
-else
-    echo "topn_srclist $topn_srclist exists, skipping hyperdrive srclist-by-beam"
-fi
+setup_srclist
 
 # ### #
 # CAL #
@@ -50,19 +33,17 @@ export dical_suffix=${dical_suffix:-""}
 # check preprocessed visibility and qa files exist from previous steps
 # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
 # - if the files we need are missing, then run 05_prep.
-# export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}\*.uvfits
-export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}.uvfits
+set_prep_uvfits_vars
 if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
     echo "prep_uvfits $prep_uvfits_pattern does not exist. trying 05_prep.sh"
     $SCRIPT_BASE/05_prep.sh
 fi
 
-
 # #### #
 # PEEL #
 # #### #
 
-mkdir -p "${outdir}/${obsid}/peel"
+create_obsid_dirs "peel"
 
 export iono_sources=${iono_sources:-1}
 export num_passes=${num_passes:-2}
@@ -80,17 +61,11 @@ export uvw_max=${uvw_max:-1667lambda}
 for prep_uvfits in $prep_uvfits_pattern; do
     fitsheader $prep_uvfits | grep -i COMMENT
 
-    export parent=${prep_uvfits%/*}
-    export parent=${parent%/*}
-    export dical_name=${prep_uvfits##*/birli_}
-    export dical_name="${dical_name%.uvfits}${dical_suffix}"
+    set_cal_paths "$prep_uvfits"
 
     # ### #
     # CAL #
     # ### #
-
-    export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
-    export cal_vis="${parent}/cal/hyp_cal_${dical_name}.ms"
     if ! eval ls -1 $cal_vis >/dev/null; then
         echo "warning: cal_vis $cal_vis does not exist. trying" 06_cal.sh
         $SCRIPT_BASE/06_cal.sh

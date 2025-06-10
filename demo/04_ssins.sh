@@ -14,18 +14,9 @@ export obsid=${obsid:-1341914000}
 # ### #
 # RAW #
 # ### #
-# check for raw files
-export raw_glob=${outdir}/${obsid}/raw/${obsid}_2\*.fits
-if ! eval ls -1 $raw_glob; then
-    echo "raw not present: $raw_glob , try ${SCRIPT_BASE}/02_download.sh"
-    exit 1
-fi
-# check for metafits files
-export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-if [[ ! -f "$metafits" ]]; then
-    echo "metafits not present, downloading $metafits"
-    curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='"${obsid}"
-fi
+# check for raw files and metafits
+check_raw_files
+ensure_metafits
 
 # ##### #
 # SSINS #

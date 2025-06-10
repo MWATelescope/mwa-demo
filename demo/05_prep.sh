@@ -15,19 +15,12 @@ export obsid=${obsid:-1341914000}
 # ### #
 # RAW #
 # ### #
-# pattern to check for raw files
-export raw_pattern=${outdir}/${obsid}/raw/${obsid}_2\*.fits
 # check for metafits files
 # use _fixed if available
 export metafits=${outdir}/${obsid}/raw/${obsid}_fixed.metafits
 if [[ ! -f "$metafits" ]]; then
-    # otherwise use the original
-    export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-fi
-if [[ ! -f "$metafits" ]]; then
-    # otherwise download it
-    echo "metafits not present, downloading $metafits"
-    curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
+    # otherwise use the original and ensure it exists
+    ensure_metafits
 fi
 
 # #### #
@@ -42,27 +35,19 @@ fi
 # export timeres_s=4      # time resolution to average to in seconds
 export edgewidth_khz=${edgewidth_khz:-80} # edge width to flag on each coarse channel in kHz
 
-mkdir -p "${outdir}/${obsid}/prep"
+create_obsid_dirs "prep"
 
 # Prep_uvfits is where we tell birli to write our preprocessed visibility files to.
 # However, If the channels in the observation are non-contiguous, birli will output
 # multiple files add a channel suffix to the output file names.
 # So to test if the uvfits files exist, we need to look for a pattern.
-export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
-[[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
-[[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
-[[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
-export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
-echo prep_uvfits=$prep_uvfits prep_uvfits_pattern=$prep_uvfits_pattern
+set_prep_uvfits_vars
 
 # since we don't expect the uvfits files to exist the first time around,
 # >/dev/null silences the warning
 if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
-    if ! eval ls -1 $raw_pattern >/dev/null; then
-        echo "raw not present: $raw_pattern , try ${SCRIPT_BASE}/02_download.sh"
-        exit 1
-    fi
-    echo "running birli on $raw_pattern" \
+    check_raw_files
+    echo "running birli on $raw_glob" \
         $([[ -n "${edgewidth_khz:-}" ]] && echo " edge width ${edgewidth_khz}kHz") \
         $([[ -n "${freqres_khz:-}" ]] && echo " freq res ${freqres_khz}kHz") \
         $([[ -n "${timeres_s:-}" ]] && echo " time res ${timeres_s}s") \
@@ -73,7 +58,7 @@ if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
         $([[ -n "${freqres_khz:-}" ]] && echo "--avg-freq-res ${freqres_khz}") \
         $([[ -n "${timeres_s:-}" ]] && echo "--avg-time-res ${timeres_s}") \
         -u "${prep_uvfits}" \
-        $raw_pattern \
+        $raw_glob \
         $@
     export birli_return=$?
     echo return code $birli_return
@@ -100,17 +85,31 @@ eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
     export prepqa="${prep_uvfits%%.uvfits}_qa.json"
     if [[ ! -f "$prepqa" ]]; then
         echo "running run_prepvisqa on $prep_uvfits -> $prepqa"
-        run_prepvisqa.py --split $prep_uvfits $metafits --out $prepqa
+        if run_if_available run_prepvisqa.py --split $prep_uvfits $metafits --out $prepqa; then
+            echo "prepqa completed successfully"
+        fi
     else
         echo "prepqa $prepqa exists, skipping run_prepvisqa"
     fi
 
     # DEMO: extract bad antennas from prepqa json with jq
-    prep_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' $prepqa)
+    if [[ -f "$prepqa" ]] && command -v jq >/dev/null 2>&1; then
+        prep_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' $prepqa)
+    else
+        prep_bad_ants=""
+        if [[ ! -f "$prepqa" ]]; then
+            echo "Warning: prepqa file not found, skipping bad antenna extraction"
+        fi
+        if ! command -v jq >/dev/null 2>&1; then
+            echo "Warning: jq not found, skipping bad antenna extraction"
+        fi
+    fi
 
     # DEMO: plot the prep qa results
     # - RMS plot: RMS of all autocorrelation values for each antenna
-    plot_prepvisqa.py $prepqa --save --out ${prep_uvfits%%.uvfits}
+    if [[ -f "$prepqa" ]]; then
+        run_if_available plot_prepvisqa.py $prepqa --save --out ${prep_uvfits%%.uvfits}
+    fi
 
     echo $obs_ch $prep_bad_ants
 done

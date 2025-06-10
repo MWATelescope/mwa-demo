@@ -26,11 +26,7 @@ export obsid=${obsid:-1341914000} # mwax
 mkdir -p ${outdir}/${obsid}/raw
 
 # DEMO: check for metafits, download unless present
-export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-if [[ ! -f "$metafits" ]]; then
-    echo "metafits not present, downloading $metafits"
-    curl -L -o "$metafits" $'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
-fi
+ensure_metafits
 
 # get channel and antenna info
 python ${SCRIPT_BASE}/03_mwalib.py $metafits
@@ -38,10 +34,7 @@ python ${SCRIPT_BASE}/03_mwalib.py $metafits
 # DEMO: antenna info
 
 # DEMO: mwalib can also be used to read raw visibility data!
-export raw_glob=${outdir}/${obsid}/raw/${obsid}_2\*.fits
-if ! eval ls -1 $raw_glob; then
-    echo "raw not present: $raw_glob , try ${SCRIPT_BASE}/02_download.sh"
-fi
+check_raw_files false
 
 # DEMO: getting dates from raw files
 # ls */raw/*.fits | cut -d_ -f2 | while read d; do echo ${d::8}; done | sort | uniq -c
