@@ -14,8 +14,8 @@ if [[ "$PAWSEY" == "setonix" ]]; then
     module load py-pip/default py-numpy/default casacore/default
 fi
 
-# activate the python virtual environment if it exists
-if [[ -f .venv/bin/activate ]]; then
+# activate the python virtual environment if it exists (but not in Docker)
+if [[ -f .venv/bin/activate && ! -f /.dockerenv ]]; then
     source .venv/bin/activate
 fi
 
