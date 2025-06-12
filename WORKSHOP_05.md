@@ -22,16 +22,22 @@ wget -O ${outdir}/1069761080/peel/hyp_1069761080_ionosub_ssins_30l_src8k_300it_8
 docker pull mwatelescope/mwa-demo:latest
 ```
 
-See [SETUP.md](SETUP.md) for setup options, but for a quick start, the following commands should be run in a shell from  the docker image (via Singularity if you're on HPC).
+### Quickstart
+
+The quickest way to get started is to run this workshop in a docker container
+(or Singularity if you're on HPC).
 
 ```bash
-# quickstart
+# quickstart, Docker
 docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} mwatelescope/mwa-demo:main
+# or, on singularity
+singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
 ```
 
-Note: the baremetal instructions won't work for running CHIPS on macOS yet, so your best bet is to use the docker image (via Singularity if you're on HPC).
+There are other setup options available in [SETUP.md](SETUP.md), but the baremetal instructions
+won't work for running CHIPS on macOS yet.
 
-note: CHIPS grids take up a lot of disk space.
+Note: CHIPS grids take up a lot of disk space.
 Each 2GB input file will produce 100GB of grids.
 
 ## Known good observation

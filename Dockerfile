@@ -169,6 +169,11 @@ RUN cd /mwax_mover && \
     python -m pip install .
 ENV PATH="/mwax_mover/scripts/:${PATH}"
 
+# add chips wrappers
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install \
+    git+https://github.com/d3v-null/CHIPS_wrappers.git@rn-changes
+
 # python /mwax_mover/scripts/cal_analysis.py \
 # --name "${name}" \
 # --metafits "${metafits}" --solns ${soln} \
