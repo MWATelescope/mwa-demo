@@ -186,14 +186,16 @@ COPY ./demo /demo
 ENV PATH="/demo:${PATH}"
 WORKDIR /demo
 
-# RUN <<EOF
-# #!/usr/bin/env python
-# import sys
-# from sys import implementation, stdout
-# print( f"{implementation=}", file=stdout)
-# EOF
+# Ensure 00_env.sh is sourced in every bash shell unless already sourced
+RUN echo 'if [[ -z "$_ENV_SOURCED" ]]; then source /demo/00_env.sh; fi' >> /etc/bash.bashrc
+
+# Create custom entrypoint that sources env unless already sourced
+RUN echo '#!/bin/bash' > /entrypoint.sh && \
+    echo 'if [[ -z "$_ENV_SOURCED" ]]; then source /demo/00_env.sh; fi' >> /entrypoint.sh && \
+    echo 'exec "$@"' >> /entrypoint.sh && \
+    chmod +x /entrypoint.sh
 
 ARG TEST_SHIM=""
 RUN ${TEST_SHIM}
 
-ENTRYPOINT /bin/bash
+ENTRYPOINT ["/entrypoint.sh", "/bin/bash"]

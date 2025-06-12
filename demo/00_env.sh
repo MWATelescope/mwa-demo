@@ -1,6 +1,8 @@
 #!/bin/bash
 # common environment variable defaults for the demo
 
+export _ENV_SOURCED=1
+
 # overrides for Setonix
 if [[ "$PAWSEY" == "setonix" ]]; then
     # set outdir to $MYSCRATCH if it's not already set.
