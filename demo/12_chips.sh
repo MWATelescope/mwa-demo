@@ -167,25 +167,44 @@ for pol in $pols; do
             exit 1
         fi
     fi
-
-    set -eux
-    chips1D_tsv.py \
-        --basedir $parent_parent/ps/ \
-        --chips_tag $ext \
-        --outputdir $parent_parent/ps/ \
-        --polarisation $pol \
-        --N_kperp $nbins \
-        --N_chan_orig $nchan \
-        --lowerfreq_orig $lowfreq \
-        --chan_width $chanwidth \
-        --umax $maxu \
-        --bias_mode $bias_mode \
-        --density_correction 2.15 \
-        --ktot_bin_edges $outdir/k_edges.txt \
-        --kperp_max 0.06 \
-        --kperp_min 0.02 \
-        --kparra_min 0.11 \
-        --kparra_max 100
-    set +eux
-
 done
+
+export plot_pols="both"
+if [ "$pols" == "xx" ] || [ "$pols" == "yy" ]; then
+    export plot_pols=$pols
+fi
+
+set -eux
+
+# Common arguments for both plotting commands
+common_args="--basedir $parent_parent/ps/ \
+ --chips_tag $ext \
+ --outputdir $parent_parent/ps/ \
+ --polarisation $plot_pols \
+ --N_kperp $nbins \
+ --N_chan_orig $nchan \
+ --lowerfreq_orig $lowfreq \
+ --chan_width $chanwidth \
+ --umax $maxu \
+ --ktot_bin_edges $outdir/k_edges.txt \
+ --density_correction 2.15 \
+ --bias_mode $bias_mode \
+ --kperp_max 0.06 \
+ --kperp_min 0.02 \
+ --kparra_min 0.11 \
+ --kparra_max 100"
+
+chips1D_tsv.py $common_args
+
+plotchips_all.py \
+    --plot_type 2D \
+    --min_power 1E+5 \
+    --max_power 1E+14 \
+    $common_args
+
+plotchips_all.py \
+    --plot_type 1D \
+    --plot_delta \
+    $common_args
+
+set +eux

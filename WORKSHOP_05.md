@@ -62,6 +62,13 @@ You can use your favourite data vis tool to plot the TSV files produced.
 
 ![1D Delta plot 1069761080](./imgs/1D%20Delta%201069761080.png)
 
+Or see the plots produced by plotchips_all.py:
+
+![1D Delta plot 1069761080 ionosub](./demo/data/1069761080/ps/chips1D_xx+yy_hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.png)
+![1D Delta plot 1069761080 nosub](./demo/data/1069761080/ps/chips1D_xx+yy_hyp_1069761080_ssins_30l_src8k_300it_8s_80kHz.png)
+![2D plot 1069761080 ionosub](./demo/data/1069761080/ps/chips2D_xx+yy_hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000_crosspower.png)
+![2D plot 1069761080 nosub](./demo/data/1069761080/ps/chips2D_xx+yy_hyp_1069761080_ssins_30l_src8k_300it_8s_80kHz_crosspower.png)
+
 ## Observation with known RFI
 
 This observation was studied in detail in [workshop 2](WORKSHOP_02.md#1090871744-channel-137---slow-moving-tv) and is known to contain RFI that much stronger
@@ -76,4 +83,9 @@ export uvf_pattern=${outdir}/${obsid}/cal/hyp_${obsid}_30l_src4k_8s_80kHz.uvfits
 demo/12_chips.sh
 ```
 
+Clearly there is much more power in XX than YY.
+
 ![1D Delta plot 1090871744](./imgs/1D%20Delta%201090871744.png)
+
+![1D Delta plot 1090871744 nosub](./demo/data/1090871744/ps/chips1D_xx+yy_hyp_1090871744_30l_src4k_8s_80kHz.png)
+![2D plot 1090871744 nosub](./demo/data/1090871744/ps/chips2D_xx+yy_hyp_1090871744_30l_src4k_8s_80kHz_crosspower.png)
