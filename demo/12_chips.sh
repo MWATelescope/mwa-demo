@@ -41,7 +41,7 @@ export maxu=300          # maximum u value
 export chanwidth=80000   # channel width in Hz
 export lowfreq=167035000 # first frequency in the data in Hz
 export bias_mode=0       # bias mode = 0/10/11/12 e.g. 0
-export pols="yy"         # list of polarizations to process
+export pols="xx yy"      # list of polarizations to process
 
 OMP_NUM_THREADS=$(nproc)
 export OMP_NUM_THREADS
