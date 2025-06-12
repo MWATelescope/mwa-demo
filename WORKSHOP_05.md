@@ -51,3 +51,7 @@ demo/12_chips.sh
 export uvf_pattern=${outdir}/${obsid}/peel/hyp_${obsid}_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.uvfits
 demo/12_chips.sh
 ```
+
+You can use your favourite data vis tool to plot the TSV files produced.
+
+![TSV plot](./imgs/1D%20Delta%201069761080.png)
