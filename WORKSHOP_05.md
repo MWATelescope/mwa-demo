@@ -14,10 +14,16 @@ run the these before the workshop:
 export obsid=1069761080
 export outdir=${outdir:-${PWD}/demo/data/}
 mkdir -p ${outdir}/${obsid}/{cal,peel}
+
+# part 1: good data
 # ssins flagging and calibration, no ionospheric subtraction
 wget -O ${outdir}/1069761080/cal/hyp_1069761080_ssins_30l_src8k_300it_8s_80kHz.uvfits https://projects.pawsey.org.au/high0.uvfits/hyp_1069761080_ssins_30l_src8k_300it_8s_80kHz.uvfits
 # ssins flagging, calibration ionospheric subtraction
 wget -O ${outdir}/1069761080/peel/hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.uvfits https://projects.pawsey.org.au/high0.uvfits/hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.uvfits
+
+# part 2: RFI data, only aoflagger flags
+wget -O ${outdir}/1090871744/cal/hyp_1090871744_30l_src4k_8s_80kHz.uvfits https://projects.pawsey.org.au/high0.uvfits/hyp_1090871744_30l_src4k_8s_80kHz.uvfits
+
 # pull the latest mwa-demo image
 docker pull mwatelescope/mwa-demo:latest
 ```
@@ -54,4 +60,20 @@ demo/12_chips.sh
 
 You can use your favourite data vis tool to plot the TSV files produced.
 
-![TSV plot](./imgs/1D%20Delta%201069761080.png)
+![1D Delta plot 1069761080](./imgs/1D%20Delta%201069761080.png)
+
+## Observation with known RFI
+
+This observation was studied in detail in [workshop 2](WORKSHOP_02.md#1090871744-channel-137---slow-moving-tv) and is known to contain RFI that much stronger
+in XX than YY. Because it is slow-moving, it is not detected by AOFlagger or SSINS, but
+it is clearly visible in EAVILS.
+
+![RFI](./demo/data/1090871744/raw/1090871744.cross.ch137.spectrum.png)
+
+```bash
+export obsid=1090871744
+export uvf_pattern=${outdir}/${obsid}/cal/hyp_${obsid}_30l_src4k_8s_80kHz.uvfits
+demo/12_chips.sh
+```
+
+![1D Delta plot 1090871744](./imgs/1D%20Delta%201090871744.png)
