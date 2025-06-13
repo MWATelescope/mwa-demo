@@ -64,10 +64,15 @@ You can use your favourite data vis tool to plot the TSV files produced.
 
 Or see the plots produced by plotchips_all.py:
 
-![1D Delta plot 1069761080 ionosub](./demo/data/1069761080/ps/chips1D_xx+yy_hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.png)
-![1D Delta plot 1069761080 nosub](./demo/data/1069761080/ps/chips1D_xx+yy_hyp_1069761080_ssins_30l_src8k_300it_8s_80kHz.png)
-![2D plot 1069761080 ionosub](./demo/data/1069761080/ps/chips2D_xx+yy_hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000_crosspower.png)
+no subtraction:
+
 ![2D plot 1069761080 nosub](./demo/data/1069761080/ps/chips2D_xx+yy_hyp_1069761080_ssins_30l_src8k_300it_8s_80kHz_crosspower.png)
+![1D Delta plot 1069761080 nosub](./demo/data/1069761080/ps/chips1D_xx+yy_hyp_1069761080_ssins_30l_src8k_300it_8s_80kHz.png)
+
+ionospheric subtraction:
+
+![2D plot 1069761080 ionosub](./demo/data/1069761080/ps/chips2D_xx+yy_hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000_crosspower.png)
+![1D Delta plot 1069761080 ionosub](./demo/data/1069761080/ps/chips1D_xx+yy_hyp_1069761080_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.png)
 
 ## Observation with known RFI
 
