@@ -53,6 +53,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     procps \
     python3 \
     python3-pip \
+    strace \
     time \
     tzdata \
     unzip \
