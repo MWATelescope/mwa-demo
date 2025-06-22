@@ -37,8 +37,6 @@ export eorfield=0        # EOR field = 0, 1, 2, 3
 export period=8.0        # integration time in seconds
 export nbins=80          # number of k bins
 export maxu=300          # maximum u value
-export chanwidth=80000   # channel width in Hz
-export lowfreq=167035000 # first frequency in the data in Hz
 export bias_mode=0       # bias mode = 0/10/11/12 e.g. 0
 export pols="xx yy"      # list of polarizations to process
 
@@ -125,8 +123,10 @@ for uvf in $uvf_list; do
     export ext=${ext##*/}
 
     nchan=$(python -c 'from astropy.io import fits; from sys import argv; print(fits.open(argv[-1])[0].header["NAXIS4"])' $uvf)
-    export nchan
-    echo nchan=$nchan
+    chanwidth=$(python -c 'from astropy.io import fits; from sys import argv; print(fits.open(argv[-1])[0].header["CDELT4"])' $uvf)
+    lowfreq=$(python -c 'from astropy.io import fits; from sys import argv; hdr=fits.open(argv[-1])[0].header; print(hdr["CRVAL4"] - hdr["CDELT4"] * hdr["CRPIX4"])' $uvf)
+    export nchan chanwidth lowfreq
+    echo nchan=$nchan chanwidth=$chanwidth lowfreq=$lowfreq
     # redundant, but CHIPS needs these
     # this produces {noisec,bv,noisecdiff,bvdiff,weightsc}_{xx,yy}.${ext}.dat in $OUTPUTDIR
     export DATADIR="$parent/" INPUTDIR="$parent/" OUTPUTDIR="$parent_parent/ps/" OBSDIR="$parent/"
