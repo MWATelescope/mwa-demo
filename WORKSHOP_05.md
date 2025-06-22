@@ -43,8 +43,9 @@ singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://mwatelescop
 There are other setup options available in [SETUP.md](SETUP.md), but the baremetal instructions
 won't work for running CHIPS on macOS yet.
 
-Note: CHIPS grids take up a lot of disk space.
-Each 2GB input file will produce 100GB of grids.
+Note: CHIPS grids take up a lot of memory and disk space.
+Each 2GB input file requires 42GB of RAM to produce 100GB of grids.
+If the program exits without a message, try increasing the memory limit in Docker.
 
 ## Known good observation
 
