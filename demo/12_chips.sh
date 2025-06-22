@@ -32,9 +32,8 @@ echo uvf_pattern=$uvf_pattern
 # - combine_data - combine data over multiple gridded sets
 # - lssa_fg_simple - compute the LS spectral power (no kriging)
 
-export eorband=0         # EOR band = 0 (low, 139-170MHz), 1 (high, 167-198MHz)
-export eorfield=1        # EOR field = 0, 1, 2, 3
-export nchan=384         # number of channels in the file
+export eorband=1         # EOR band = 0 (low, 139-170MHz), 1 (high, 167-198MHz)
+export eorfield=0        # EOR field = 0, 1, 2, 3
 export period=8.0        # integration time in seconds
 export nbins=80          # number of k bins
 export maxu=300          # maximum u value
@@ -125,6 +124,9 @@ for uvf in $uvf_list; do
     export ext=${uvf%.uvfits}
     export ext=${ext##*/}
 
+    nchan=$(python -c 'from astropy.io import fits; from sys import argv; print(fits.open(argv[-1])[0].header["NAXIS4"])' $uvf)
+    export nchan
+    echo nchan=$nchan
     # redundant, but CHIPS needs these
     # this produces {noisec,bv,noisecdiff,bvdiff,weightsc}_{xx,yy}.${ext}.dat in $OUTPUTDIR
     export DATADIR="$parent/" INPUTDIR="$parent/" OUTPUTDIR="$parent_parent/ps/" OBSDIR="$parent/"
