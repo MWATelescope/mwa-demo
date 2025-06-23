@@ -57,10 +57,13 @@ if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
     $SCRIPT_BASE/05_prep.sh
 fi
 
-
 # #### #
 # PEEL #
 # #### #
+# - this is a computationally expensive step
+# - it is recommended to run this on a GPU
+# - the number of sources to use is a trade-off between accuracy and computational cost
+# - the time-average parameter is the time window over which to average the data
 
 mkdir -p "${outdir}/${obsid}/peel"
 
@@ -76,39 +79,13 @@ export convergence=${convergence:-0.9}
 # recommended settings for GGSM (phase1)
 export uvw_min=${uvw_min:-75lambda}
 export uvw_max=${uvw_max:-1667lambda}
+export fmt=${fmt:-ms}
+export peel_prefix="${peel_prefix:-peel_}"
 
-for prep_uvfits in $prep_uvfits_pattern; do
-    fitsheader $prep_uvfits | grep -i COMMENT
-
-    export parent=${prep_uvfits%/*}
-    export parent=${parent%/*}
-    export dical_name=${prep_uvfits##*/birli_}
-    export dical_name="${dical_name%.uvfits}${dical_suffix}"
-
-    # ### #
-    # CAL #
-    # ### #
-
-    export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
-    export cal_vis="${parent}/cal/hyp_cal_${dical_name}.ms"
-    if ! eval ls -1 $cal_vis >/dev/null; then
-        echo "warning: cal_vis $cal_vis does not exist. trying" 06_cal.sh
-        $SCRIPT_BASE/06_cal.sh
-    fi
-
-    # #### #
-    # PEEL #
-    # #### #
-
-    # - this is a computationally expensive step
-    # - it is recommended to run this on a GPU
-    # - the number of sources to use is a trade-off between accuracy and computational cost
-    # - the time-average parameter is the time window over which to average the data
-
-    export peel_prefix="${peel_prefix:-peel_}"
-    export peel_vis="${parent}/peel/hyp_${peel_prefix}${dical_name}.ms"
-    export iono_json="${parent}/peel/hyp_${peel_prefix}${dical_name}_iono.json"
-
+function maybe_peel() {
+    local cal_vis=$1
+    local peel_vis=$2
+    local iono_json=$3
     if [[ ! -f "$peel_vis" && ! -d "$peel_vis" ]]; then
         echo "ionospherically subtracting $iono_sources (total $num_sources) from sourcelist $topn_srclist"
         hyperdrive peel ${peel_args:-} \
@@ -123,9 +100,61 @@ for prep_uvfits in $prep_uvfits_pattern; do
             --uvw-max $uvw_max \
             --short-baseline-sigma $short_baseline_sigma \
             --convergence $convergence \
-            --source-list "$topn_srclist" \
-            $@
+            --source-list "$topn_srclist"
     else
         echo "peel_vis $peel_vis exists, skipping hyperdrive peel"
     fi
-done
+}
+
+if [[ -n "$uvf_pattern" ]]; then
+    uvf_list=$(eval ls -1d $uvf_pattern)
+    echo "gridding each uvf separately, uvf_list=$uvf_list"
+    for uvf in $uvf_list; do
+        echo uvf=$uvf
+        export parent=${uvf%/*}
+        export parent_parent=${parent%/*}
+        echo parent_parent=$parent_parent
+
+        export ext=${uvf%.uvfits}
+        export ext=${ext##*/}
+
+        export peel_vis="${parent}/peel/hyp_${peel_prefix}${ext}.${fmt}"
+        export iono_json="${parent}/peel/hyp_${peel_prefix}${ext}_iono.json"
+
+        maybe_peel $uvf $peel_vis $iono_json
+    done
+else
+    # check preprocessed visibility and qa files exist from previous steps
+    # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
+    # - if the files we need are missing, then run 05_prep.sh
+    export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
+    [[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
+    [[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
+    [[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
+    export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
+
+    for prep_uvfits in $prep_uvfits_pattern; do
+        fitsheader $prep_uvfits | grep -i COMMENT
+
+        export parent=${prep_uvfits%/*}
+        export parent=${parent%/*}
+        export dical_name=${prep_uvfits##*/birli_}
+        export dical_name="${dical_name%.uvfits}${dical_suffix}"
+
+        # ### #
+        # CAL #
+        # ### #
+
+        export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
+        export cal_vis="${parent}/cal/hyp_cal_${dical_name}.${fmt}"
+        if ! eval ls -1 $cal_vis >/dev/null; then
+            echo "warning: cal_vis $cal_vis does not exist. trying" 06_cal.sh
+            $SCRIPT_BASE/06_cal.sh
+        fi
+
+        export peel_vis="${parent}/peel/hyp_${peel_prefix}${dical_name}.${fmt}"
+        export iono_json="${parent}/peel/hyp_${peel_prefix}${dical_name}_iono.json"
+
+        maybe_peel $cal_vis $peel_vis $iono_json
+    done
+fi
