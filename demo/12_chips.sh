@@ -32,13 +32,13 @@ echo uvf_pattern=$uvf_pattern
 # - combine_data - combine data over multiple gridded sets
 # - lssa_fg_simple - compute the LS spectral power (no kriging)
 
-export eorband=1         # EOR band = 0 (low, 139-170MHz), 1 (high, 167-198MHz)
-export eorfield=0        # EOR field = 0, 1, 2, 3
-export period=8.0        # integration time in seconds
-export nbins=80          # number of k bins
-export maxu=300          # maximum u value
-export bias_mode=0       # bias mode = 0/10/11/12 e.g. 0
-export pols="xx yy"      # list of polarizations to process
+export eorband=1    # EOR band = 0 (low, 139-170MHz), 1 (high, 167-198MHz)
+export eorfield=0   # EOR field = 0, 1, 2, 3
+export period=8.0   # integration time in seconds
+export nbins=80     # number of k bins
+export maxu=300     # maximum u value
+export bias_mode=0  # bias mode = 0/10/11/12 e.g. 0
+export pols="xx yy" # list of polarizations to process
 
 OMP_NUM_THREADS=$(nproc)
 export OMP_NUM_THREADS
@@ -182,7 +182,6 @@ set -eux
 common_args="--basedir $parent_parent/ps/ \
  --chips_tag $ext \
  --outputdir $parent_parent/ps/ \
- --polarisation $plot_pols \
  --N_kperp $nbins \
  --N_chan_orig $nchan \
  --lowerfreq_orig $lowfreq \
@@ -200,13 +199,32 @@ chips1D_tsv.py $common_args
 
 plotchips_all.py \
     --plot_type 2D \
+    --polarisation $plot_pols \
     --min_power 1E+5 \
     --max_power 1E+14 \
     $common_args
 
 plotchips_all.py \
     --plot_type 1D \
+    --polarisation $plot_pols \
     --plot_delta \
     $common_args
+
+for pol in $pols; do
+    plotchips_all.py \
+        --plot_type 2D \
+        --polarisation $pol \
+        --min_power 1E+5 \
+        --max_power 1E+14 \
+        $common_args
+    [ -f 2D_coords_and_power.npz ] && mv 2D_coords_and_power.npz $parent_parent/ps/2D_coords_and_power.${pol}.${ext}.npz
+
+    plotchips_all.py \
+        --plot_type 1D \
+        --polarisation $pol \
+        --plot_delta \
+        $common_args
+    [ -f 1D_power_${pol}.npz ] && mv 1D_power_${pol}.npz $parent_parent/ps/1D_power_${pol}.${ext}.npz
+done
 
 set +eux
