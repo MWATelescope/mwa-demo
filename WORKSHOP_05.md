@@ -35,7 +35,7 @@ The quickest way to get started is to run this workshop in a docker container
 
 ```bash
 # quickstart, Docker
-docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} mwatelescope/mwa-demo:main
+docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} -v${outdir}:${outdir} mwatelescope/mwa-demo:main
 # or, on singularity
 singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
 ```
@@ -95,3 +95,23 @@ Clearly there is much more power in XX than YY.
 
 ![1D Delta plot 1090871744 nosub](./demo/data/1090871744/ps/chips1D_xx+yy_hyp_1090871744_30l_src4k_8s_80kHz.png)
 ![2D plot 1090871744 nosub](./demo/data/1090871744/ps/chips2D_xx+yy_hyp_1090871744_30l_src4k_8s_80kHz_crosspower.png)
+
+### Bonus content: convert uvfits to measurement set with beam info
+
+This requires two different docker containers.
+
+```bash
+export obsid=1069761080
+export uvfits=${outdir}/${obsid}/peel/hyp_${obsid}_ionosub_ssins_30l_src8k_300it_8s_80kHz_i1000.uvfits
+# export uvfits=${outdir}/${obsid}/cal/hyp_${obsid}_ssins_30l_src8k_300it_8s_80kHz.uvfits
+# export obsid=1090871744
+# export uvfits=${outdir}/${obsid}/cal/hyp_${obsid}_30l_src4k_8s_80kHz.uvfits
+export metafits=${outdir}/${obsid}/raw/hyp_${obsid}_30l_src4k_8s_80kHz.metafits
+# get metafits with wget -O $metafits 'http://ws.mwatelescope.org/metadata/fits?obs_id='${obsid}
+export ms=${uvfits%%.uvfits}.ms
+docker run --rm -it -v$PWD:$PWD -w$PWD --entrypoint=casa d3vnull0/casa -c "importuvfits('${uvfits}', '${ms}')"
+docker run -it --rm -v$PWD:$PWD -w$PWD --entrypoint=fixmwams mwatelescope/cotter ${ms} ${metafits}
+# or in singularity
+singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://d3vnull0/casa casa -c "importuvfits('${uvfits}', '${ms}')"
+singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://mwatelescope/cotter fixmwams ${ms} ${metafits}
+```
