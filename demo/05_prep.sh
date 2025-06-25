@@ -44,20 +44,22 @@ export edgewidth_khz=${edgewidth_khz:-80} # edge width to flag on each coarse ch
 
 mkdir -p "${outdir}/${obsid}/prep"
 
-# Prep_uvfits is where we tell birli to write our preprocessed visibility files to.
+# prep_vis is where we tell birli to write our preprocessed visibility files to.
 # However, If the channels in the observation are non-contiguous, birli will output
 # multiple files add a channel suffix to the output file names.
 # So to test if the uvfits files exist, we need to look for a pattern.
-export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
-[[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
-[[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
-[[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
-export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
-echo prep_uvfits=$prep_uvfits prep_uvfits_pattern=$prep_uvfits_pattern
+export prep_vis_fmt=${prep_vis_fmt:-uvfits}
+export prep_vis="${outdir}/${obsid}/prep/birli_${obsid}"
+[[ -n "${timeres_s:-}" ]] && export prep_vis="${prep_vis}_${timeres_s}s"
+[[ -n "${freqres_khz:-}" ]] && export prep_vis="${prep_vis}_${freqres_khz}kHz"
+[[ -n "${edgewidth_khz:-}" ]] && export prep_vis="${prep_vis}_edg${edgewidth_khz}"
+export prep_vis_pattern=${prep_vis}\*.${prep_vis_fmt}
+export prep_vis=${prep_vis}.${prep_vis_fmt}
+echo prep_vis=$prep_vis prep_vis_pattern=$prep_vis_pattern
 
 # since we don't expect the uvfits files to exist the first time around,
 # >/dev/null silences the warning
-if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
+if ! eval ls -1 $prep_vis_pattern >/dev/null; then
     if ! eval ls -1 $raw_pattern >/dev/null; then
         echo "raw not present: $raw_pattern , try ${SCRIPT_BASE}/02_download.sh"
         exit 1
@@ -72,14 +74,13 @@ if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
         $([[ -n "${edgewidth_khz:-}" ]] && echo "--flag-edge-width ${edgewidth_khz}") \
         $([[ -n "${freqres_khz:-}" ]] && echo "--avg-freq-res ${freqres_khz}") \
         $([[ -n "${timeres_s:-}" ]] && echo "--avg-time-res ${timeres_s}") \
-        -u "${prep_uvfits}" \
+        $([[ "${prep_vis_fmt}" == "ms" ]] && echo "-M ${prep_vis}" || echo "-u ${prep_vis}") \
         $raw_pattern \
         $@
     export birli_return=$?
     echo return code $birli_return
-    # -M "${prep_uvfits%%.uvfits}.ms" \
 else
-    echo "prep_uvfits $prep_uvfits_pattern exists, skipping birli"
+    echo "prep_vis $prep_vis_pattern exists, skipping birli"
 fi
 
 # ####### #
@@ -88,29 +89,33 @@ fi
 # DEMO: use mwa_qa for quality analysis of preprocessed uvfits
 # details: https://github.com/d3v-null/mwa_qa (my fork of  https://github.com/Chuneeta/mwa_qa/ )
 
-# loop over all the preprocessed visibility files birli produced
-eval ls -1 $prep_uvfits_pattern | while read -r prep_uvfits; do
-    # the current uvfits file we're looking at
-    export prep_uvfits
-    # obsid plus any channel suffix that birli might add.
-    export obs_ch=${prep_uvfits##*/birli_}
-    export obs_ch=${obs_ch%%.uvfits}
+# this only works for uvfits files
+if [[ "$prep_vis_fmt" == "uvfits" ]]; then
 
-    # store prepqa relative to this uvfits
-    export prepqa="${prep_uvfits%%.uvfits}_qa.json"
-    if [[ ! -f "$prepqa" ]]; then
-        echo "running run_prepvisqa on $prep_uvfits -> $prepqa"
-        run_prepvisqa.py --split $prep_uvfits $metafits --out $prepqa
-    else
-        echo "prepqa $prepqa exists, skipping run_prepvisqa"
-    fi
+    # loop over all the preprocessed visibility files birli produced
+    eval ls -1 $prep_vis_pattern | while read -r prep_vis; do
+        # the current uvfits file we're looking at
+        export prep_vis
+        # obsid plus any channel suffix that birli might add.
+        export obs_ch=${prep_vis##*/birli_}
+        export obs_ch=${obs_ch%%.${prep_vis_fmt}}
 
-    # DEMO: extract bad antennas from prepqa json with jq
-    prep_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' $prepqa)
+        # store prepqa relative to this uvfits
+        export prepqa="${prep_vis%%.${prep_vis_fmt}}_qa.json"
+        if [[ ! -f "$prepqa" ]]; then
+            echo "running run_prepvisqa on $prep_vis -> $prepqa"
+            run_prepvisqa.py --split $prep_vis $metafits --out $prepqa
+        else
+            echo "prepqa $prepqa exists, skipping run_prepvisqa"
+        fi
 
-    # DEMO: plot the prep qa results
-    # - RMS plot: RMS of all autocorrelation values for each antenna
-    plot_prepvisqa.py $prepqa --save --out ${prep_uvfits%%.uvfits}
+        # DEMO: extract bad antennas from prepqa json with jq
+        prep_bad_ants=$(jq -r $'.BAD_ANTS|join(" ")' $prepqa)
 
-    echo $obs_ch $prep_bad_ants
-done
+        # DEMO: plot the prep qa results
+        # - RMS plot: RMS of all autocorrelation values for each antenna
+        plot_prepvisqa.py $prepqa --save --out ${prep_vis%%.uvfits}
+
+        echo $obs_ch $prep_bad_ants
+    done
+fi

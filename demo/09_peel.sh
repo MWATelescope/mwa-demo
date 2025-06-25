@@ -47,16 +47,6 @@ fi
 # ### #
 export dical_suffix=${dical_suffix:-""}
 
-# check preprocessed visibility and qa files exist from previous steps
-# - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
-# - if the files we need are missing, then run 05_prep.
-# export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}\*.uvfits
-export prep_uvfits_pattern=${outdir}/${obsid}/prep/birli_${obsid}.uvfits
-if ! eval ls -1 $prep_uvfits_pattern >/dev/null; then
-    echo "prep_uvfits $prep_uvfits_pattern does not exist. trying 05_prep.sh"
-    $SCRIPT_BASE/05_prep.sh
-fi
-
 # #### #
 # PEEL #
 # #### #
@@ -115,7 +105,7 @@ if [[ -n "$uvf_pattern" ]]; then
         export parent_parent=${parent%/*}
         echo parent_parent=$parent_parent
 
-        export ext=${uvf%.uvfits}
+        export ext=${uvf%.*}
         export ext=${ext##*/}
 
         export peel_vis="${parent}/peel/hyp_${peel_prefix}${ext}.${fmt}"
@@ -126,20 +116,29 @@ if [[ -n "$uvf_pattern" ]]; then
 else
     # check preprocessed visibility and qa files exist from previous steps
     # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
-    # - if the files we need are missing, then run 05_prep.sh
-    export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
-    [[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
-    [[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
-    [[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
-    export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
+    # - if the files we need are missing, then run 05_prep.
+    export prep_vis_fmt=${prep_vis_fmt:-vis}
+    export vis_fmt=${vis_fmt:-ms}
+    export prep_vis="${outdir}/${obsid}/prep/birli_${obsid}"
+    [[ -n "${timeres_s:-}" ]] && export prep_vis="${prep_vis}_${timeres_s}s"
+    [[ -n "${freqres_khz:-}" ]] && export prep_vis="${prep_vis}_${freqres_khz}kHz"
+    [[ -n "${edgewidth_khz:-}" ]] && export prep_vis="${prep_vis}_edg${edgewidth_khz}"
+    export prep_vis_pattern=${prep_vis}\*.${prep_vis_fmt}
+    export prep_vis=${prep_vis}.${prep_vis_fmt}
+    echo prep_vis=$prep_vis prep_vis_pattern=$prep_vis_pattern
 
-    for prep_uvfits in $prep_uvfits_pattern; do
-        fitsheader $prep_uvfits | grep -i COMMENT
+    if ! eval ls -1 $prep_vis_pattern >/dev/null; then
+        echo "prep_vis $prep_vis_pattern does not exist. trying 05_prep.sh"
+        $SCRIPT_BASE/05_prep.sh
+    fi
 
-        export parent=${prep_uvfits%/*}
+    for prep_vis in $prep_vis_pattern; do
+        fitsheader $prep_vis | grep -i COMMENT
+
+        export parent=${prep_vis%/*}
         export parent=${parent%/*}
-        export dical_name=${prep_uvfits##*/birli_}
-        export dical_name="${dical_name%.uvfits}${dical_suffix}"
+        export dical_name=${prep_vis##*/birli_}
+        export dical_name="${dical_name%.${prep_vis_fmt}}${dical_suffix}"
 
         # ### #
         # CAL #

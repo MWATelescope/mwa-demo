@@ -28,20 +28,24 @@ fi
 # check preprocessed visibility and qa files exist from previous steps
 # - birli adds a channel suffix when processing observations with non-contiguous coarse channels.
 # - if the files we need are missing, then run 05_prep.sh
-export prep_uvfits="${outdir}/${obsid}/prep/birli_${obsid}.uvfits"
-[[ -n "${timeres_s:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${timeres_s}s.uvfits"
-[[ -n "${freqres_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_${freqres_khz}kHz.uvfits"
-[[ -n "${edgewidth_khz:-}" ]] && export prep_uvfits="${prep_uvfits%%.uvfits}_edg${edgewidth_khz}.uvfits"
-export prep_uvfits_pattern=${prep_uvfits%%.uvfits}\*.uvfits
+export prep_vis_fmt=${prep_vis_fmt:-uvfits}
+export vis_fmt=${vis_fmt:-ms}
+export prep_vis="${outdir}/${obsid}/prep/birli_${obsid}"
+[[ -n "${timeres_s:-}" ]] && export prep_vis="${prep_vis}_${timeres_s}s"
+[[ -n "${freqres_khz:-}" ]] && export prep_vis="${prep_vis}_${freqres_khz}kHz"
+[[ -n "${edgewidth_khz:-}" ]] && export prep_vis="${prep_vis}_edg${edgewidth_khz}"
+export prep_vis_pattern=${prep_vis}\*.${prep_vis_fmt}
+export prep_vis=${prep_vis}.${prep_vis_fmt}
+echo prep_vis=$prep_vis prep_vis_pattern=$prep_vis_pattern
 
-for f in $(ls -1d $prep_uvfits_pattern); do
+for f in $(ls -1d $prep_vis_pattern); do
     set -x
     fitsheader $f | grep "ERROR"
     echo $?
     # TODO: detect fitsheader ERROR
 done
-if ! eval ls -1d $prep_uvfits_pattern >/dev/null; then
-    echo "prep_uvfits $prep_uvfits_pattern does not exist. trying 05_prep.sh"
+if ! eval ls -1d $prep_vis_pattern >/dev/null; then
+    echo "prep_vis $prep_vis_pattern does not exist. trying 05_prep.sh"
     $SCRIPT_BASE/05_prep.sh
 fi
 export prep_qa_pattern="${outdir}/${obsid}/prep/birli_${obsid}*_qa.json"
@@ -89,11 +93,11 @@ fi
 
 set -eu
 # loop over all the preprocessed files
-eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
-    export prep_uvfits
+eval ls -1d $prep_vis_pattern | while read -r prep_vis; do
+    export prep_vis
 
-    # find prepqa relative to this uvfits file
-    export prepqa="${prep_uvfits%%.uvfits}_qa.json"
+    # find prepqa relative to this ${prep_vis_fmt} file
+    export prepqa="${prep_vis%%.${prep_vis_fmt}}_qa.json"
     if [[ -f "$prepqa" ]]; then
         prep_bad_ants=$(jq -r '.BAD_ANTS|join(" ")' "$prepqa")
         export prep_bad_ants
@@ -102,19 +106,19 @@ eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
     fi
 
     # store calibration outputs for the prepqa file in the sibling cal/ folder
-    # e.g. for prep_uvfits=a/b/prep/birli_X_chY.uvfits, parent=a/b, obs=X_chY
-    export parent=${prep_uvfits%/*}
+    # e.g. for prep_vis=a/b/prep/birli_X_chY.${prep_vis_fmt}, parent=a/b, obs=X_chY
+    export parent=${prep_vis%/*}
     export parent=${parent%/*}
-    export dical_name=${prep_uvfits##*/birli_}
-    export dical_name="${dical_name%.uvfits}${dical_suffix}"
+    export dical_name=${prep_vis##*/birli_}
+    export dical_name="${dical_name%.${prep_vis_fmt}}${dical_suffix}"
     export hyp_soln="${parent}/cal/hyp_soln_${dical_name}.fits"
-    export cal_vis="${parent}/cal/hyp_cal_${dical_name}.ms"
-    # export model_ms="${parent}/cal/hyp_model_${dical_name}.ms"
+    export cal_vis="${parent}/cal/hyp_cal_${dical_name}.${vis_fmt}"
+    # export model_ms="${parent}/cal/hyp_model_${dical_name}.${vis_fmt}"
 
     if [[ ! -f "$hyp_soln" ]]; then
         echo "calibrating with sourcelist $topn_srclist"
         hyperdrive di-calibrate ${dical_args:-} ${srclist_args:-} \
-            --data "$metafits" "$prep_uvfits" \
+            --data "$metafits" "$prep_vis" \
             --source-list "$topn_srclist" \
             --outputs "$hyp_soln" \
             $([[ -n "${prep_bad_ants:-}" ]] && echo --tile-flags $prep_bad_ants)
@@ -182,7 +186,7 @@ eval ls -1d $prep_uvfits_pattern | while read -r prep_uvfits; do
     # details: https://mwatelescope.github.io/mwa_hyperdrive/user/solutions_apply/intro.html
     if [[ -n "$cal_vis" && ! -f "$cal_vis" && ! -d "$cal_vis" ]]; then
         hyperdrive apply ${apply_args:-} \
-            --data "$metafits" "$prep_uvfits" \
+            --data "$metafits" "$prep_vis" \
             --solutions "$hyp_soln" \
             --outputs "$cal_vis" \
             $([[ -n "${cal_bad_ants:-}" ]] && echo --tile-flags $cal_bad_ants)
