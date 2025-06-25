@@ -38,8 +38,10 @@ Did aoflagger really get all the RFI? you can inspect the raw, preprocessed and 
 
 ```bash
 export obsid=1341914000
-export metafits=${outdir:-demo/data/}${obsid}/raw/${obsid}.metafits
 export raw="$(ls -1 ${outdir:-demo/data/}${obsid}/raw/${obsid}*.fits)"
+# this downlodas the metafits and lists channels, antennas.
+demo/03_mwalib.sh
+export metafits=${outdir:-demo/data/}${obsid}/raw/${obsid}.metafits
 python demo/04_ssins.py $metafits $raw
 # examine AOFlagger flags from preprocessed uvfits: autocorrelations and cross correlations
 export prep_vis_fmt="uvfits"
@@ -51,10 +53,10 @@ export prep_vis="${outdir:-demo/data/}${obsid}/prep/birli_${obsid}*.${prep_vis_f
 python demo/04_ssins.py --flags --autos --no-diff $prep_vis
 python demo/04_ssins.py --flags --crosses --no-diff $prep_vis
 # examine calibrated visibilities
-export vis_fmt="ms"
+export vis_fmt="uvfits"
 demo/06_cal.sh
-export cal_vis="${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.${vis_fmt}"
-python demo/04_ssins.py $cal_vis
+export cal_vis="${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}*.${vis_fmt}"
+python demo/04_ssins.py $metafits $cal_vis
 ```
 
 ![flag auto occupancy](demo/data/1341914000/prep/birli_1341914000.auto.flags.png)
