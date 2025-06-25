@@ -18,6 +18,20 @@ mkdir -p ${outdir:-demo/data/}1060550888/raw
 curl -L -o ${outdir:-demo/data/}1060550888/raw/1060550888_20130814212851_gpubox12_01.fits 'https://projects.pawsey.org.au/birli-test/1060550888_20130814212851_gpubox12_01.fits'
 ```
 
+### Quickstart
+
+The quickest way to get started is to run this workshop in a docker container
+(or Singularity if you're on HPC).
+
+```bash
+# quickstart, Docker
+docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} -v${outdir}:${outdir} mwatelescope/mwa-demo:latest
+# or, on singularity
+singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
+```
+
+There are other setup options available in [SETUP.md](SETUP.md)
+
 ## 1341914000 - AOFlagger vs SSINS
 
 Did aoflagger really get all the RFI? you can inspect the raw, preprocessed and calibrated files using ssins.py.
