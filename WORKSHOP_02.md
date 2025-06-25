@@ -26,15 +26,21 @@ Did aoflagger really get all the RFI? you can inspect the raw, preprocessed and 
 export obsid=1341914000
 export metafits=${outdir:-demo/data/}${obsid}/raw/${obsid}.metafits
 export raw="$(ls -1 ${outdir:-demo/data/}${obsid}/raw/${obsid}*.fits)"
-export cal_ms="${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms"
 python demo/04_ssins.py $metafits $raw
 # examine AOFlagger flags from preprocessed uvfits: autocorrelations and cross correlations
+export prep_vis_fmt="uvfits"
+# this is an option too:
+# export prep_vis_fmt="ms"
+# export birli_args="--no-rfi"
 demo/05_prep.sh
-python demo/04_ssins.py --flags --autos --no-diff ${outdir:-demo/data/}${obsid}/prep/birli_${obsid}*.uvfits
-python demo/04_ssins.py --flags --crosses --no-diff ${outdir:-demo/data/}${obsid}/prep/birli_${obsid}*.uvfits
-# examine flagged measurement set
+export prep_vis="${outdir:-demo/data/}${obsid}/prep/birli_${obsid}*.${prep_vis_fmt}"
+python demo/04_ssins.py --flags --autos --no-diff $prep_vis
+python demo/04_ssins.py --flags --crosses --no-diff $prep_vis
+# examine calibrated visibilities
+export vis_fmt="ms"
 demo/06_cal.sh
-python demo/04_ssins.py $cal_ms
+export cal_vis="${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.${vis_fmt}"
+python demo/04_ssins.py $cal_vis
 ```
 
 ![flag auto occupancy](demo/data/1341914000/prep/birli_1341914000.auto.flags.png)
@@ -118,10 +124,23 @@ python demo/04_ssins.py ${outdir:-demo/data/}1087596040/raw/1087596040{.metafits
 
 ![ch134 Snake](demo/data/1087596040/raw/1087596040.cross.ch134.yy.spectrum.png)
 
+mask crosses, autos with, without diff.
+
+```bash
+for args in "--no-diff --crosses" "--no-diff --autos"; do
+  python demo/04_ssins.py ${outdir:-demo/data/}1087596040/raw/1087596040{.metafits,_20140623220027_gpubox21_00.fits} $args --suffix '.ch134-mask' --sel-pols yy --streak 0 --narrow 6 --threshold 5 --tb-aggro 0.3
+done
+```
+
+![ch134 Snake nodiff cross mask](demo/data/1087596040/raw/1087596040.cross.ch134-mask.yy.spectrum.png)
+![ch134 Snake nodiff auto mask](demo/data/1087596040/raw/1087596040.auto.ch134-mask.yy.spectrum.png)
+![ch134 Snake diff cross mask](demo/data/1087596040/raw/1087596040.diff.cross.ch134-mask.yy.spectrum.png)
+![ch134 Snake diff auto mask](demo/data/1087596040/raw/1087596040.diff.auto.ch134-mask.yy.spectrum.png)
+
 ```bash
 export obsid=1087596040
 demo/06_cal.sh
-demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.171MHz' --sel-pols yy --combine-freq --freq-range 171.0e6 171.9e6
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.uvfits --no-diff --crosses --suffix '.171MHz' --sel-pols yy --combine-freq --freq-range 171.0e6 171.9e6
 ```
 
 ### `1087596040` channel 143 - Tile108 Swoosh
@@ -143,7 +162,7 @@ python demo/04_ssins.py ${outdir:-demo/data/}1088806248/raw/1088806248{.metafits
 ```bash
 export obsid=1088806248
 demo/06_cal.sh
-demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.170MHz' --sel-pols yy --combine-freq --freq-range 169.6e6 170.8e6
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.uvfits --no-diff --crosses --suffix '.170MHz' --sel-pols yy --combine-freq --freq-range 169.6e6 170.8e6
 ```
 
 ### `1088806248` channel 145 - Tile055 Discontinuity
@@ -181,7 +200,7 @@ todo: all-sky images
 ```bash
 export obsid=1090871744
 demo/06_cal.sh
-demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.170MHz' --sel-pols yy --combine-freq
+demo/11_allsky.py ${outdir:-demo/data/}${obsid}/cal/hyp_cal_${obsid}.ms --no-diff --crosses --suffix '.ch137' --sel-pols yy --combine-freq
 ```
 
 ### `1094319712` channel 142 - Tile108 Swoosh
