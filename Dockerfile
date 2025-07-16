@@ -139,17 +139,19 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     'numpy>=1.23,<2' \
     'pyerfa>=2.0.1.1' \
     'pyyaml>=5.4.1' \
-    'scipy>=1.8' \
+    'scipy>=1.8,<1.12' \
     'pandas>=2.2.3' \
     'matplotlib==3.9.0' \
     'python-casacore>=3.5.2,<3.7' \
+    'aoquality' \
     && python -m pip install --no-build-isolation \
     'pyuvdata[casa]==3.1.3' \
     && python -m pip install \
     git+https://github.com/d3v-null/SSINS.git@eavils-copilot \
     git+https://github.com/d3v-null/mwa_qa.git@dev \
     git+https://github.com/PaulHancock/Aegean.git \
-    git+https://github.com/tjgalvin/fits_warp.git
+    git+https://github.com/tjgalvin/fits_warp.git \
+    git+https://github.com/Chuneeta/mwa_cal.git
 
 # # download latest Leap_Second.dat, IERS finals2000A.all
 RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
