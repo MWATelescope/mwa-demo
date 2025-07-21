@@ -2,8 +2,11 @@
 # cross-platform, cpu-only dockerfile for demoing MWA software stack
 # on amd64, arm64
 # ref: https://docs.docker.com/build/building/multi-platform/
-ARG BASE_IMAGE=mwatelescope/hyperdrive:main
-FROM $BASE_IMAGE AS base
+# ARG BASE_IMAGE=mwatelescope/hyperdrive:main
+# FROM $BASE_IMAGE AS base
+
+FROM quay.io/jupyter/minimal-notebook:notebook-7.2.2 AS base
+USER root
 
 # Suppress perl locale errors
 ENV LC_ALL=C
@@ -34,6 +37,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     libboost-python-dev \
     libboost-system-dev \
     libboost-test-dev \
+    libcfitsio-dev \
     liberfa-dev \
     libexpat1-dev \
     libfftw3-dev \
@@ -70,12 +74,75 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # if the python command does not exist, use python3 as the default
 RUN command -v python || update-alternatives --install /usr/bin/python python /usr/bin/python3 1
 
+# Get Rust if it doesn't exist
+ARG RUST_VERSION=stable
+ENV RUSTUP_HOME=/opt/rust CARGO_HOME=/opt/cargo
+ENV PATH="${CARGO_HOME}/bin:${PATH}"
+RUN if [ ! -f $RUSTUP_HOME/settings.toml ]; then \
+        mkdir -pm755 $RUSTUP_HOME $CARGO_HOME $RUSTUP_HOME/tmp && ( \
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | env RUSTUP_HOME=$RUSTUP_HOME CARGO_HOME=$CARGO_HOME TMPDIR=$RUSTUP_HOME/tmp \
+        sh -s -- -y \
+        --profile=minimal \
+        --default-toolchain=${RUST_VERSION} \
+        ) \
+    fi
+
 # install giant-squid
-RUN --mount=type=cache,target=/app/target/ \
-    --mount=type=cache,target=${CARGO_HOME}/git/db \
+RUN --mount=type=cache,target=${CARGO_HOME}/git/db \
     --mount=type=cache,target=${CARGO_HOME}/registry/ \
-    cargo install mwa_giant_squid --locked && \
-    cargo clean
+    cargo install mwa_giant_squid --locked
+
+# -j`nproc` breaks arm64
+ARG AOFLAGGER_BRANCH=v3.4.0
+RUN git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
+    cd /aoflagger && \
+    # Temporarily move conda SSL libraries to avoid conflicts
+    mv /opt/conda/lib/libssl.so* /tmp/ 2>/dev/null || true && \
+    mv /opt/conda/lib/libcrypto.so* /tmp/ 2>/dev/null || true && \
+    mkdir build && \
+    cd build && \
+    cmake $CMAKE_ARGS \
+    -DENABLE_GUI=OFF \
+    -DPORTABLE=True \
+    .. && \
+    make install -j && \
+    ldconfig && \
+    # Restore conda SSL libraries
+    mv /tmp/libssl.so* /opt/conda/lib/ 2>/dev/null || true && \
+    mv /tmp/libcrypto.so* /opt/conda/lib/ 2>/dev/null || true && \
+    cd / && \
+    rm -rf /aoflagger
+
+# install birli if it doesn't exist
+RUN --mount=type=cache,target=${CARGO_HOME}/git/db \
+    --mount=type=cache,target=${CARGO_HOME}/registry/ \
+    if ! command -v birli; then \
+        apt-get update && \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y libaoflagger0 automake libcfitsio-dev && \
+        git clone https://github.com/mwatelescope/birli.git --branch=eavil_ssins /birli && \
+        cd /birli && \
+        wget https://gitlab.com/aroffringa/aoflagger/-/raw/master/interface/aoflagger.h && \
+        CXXFLAGS=-I. cargo install --path . --locked --features=aoflagger && \
+        cargo clean && \
+        cd / && \
+        rm -rf /birli && \
+        apt-get clean all && \
+        rm -rf /tmp/* /var/tmp/* && \
+        apt-get -y autoremove; \
+    fi
+
+# install hyperdrive if it doesn't exist
+RUN --mount=type=cache,target=${CARGO_HOME}/git/db \
+    --mount=type=cache,target=${CARGO_HOME}/registry/ \
+    if ! command -v hyperdrive; then \
+        git clone https://github.com/mwatelescope/mwa_hyperdrive.git --branch=autos-dev /hyperdrive && \
+        cd /hyperdrive && \
+        cargo install --path . --locked && \
+        cargo clean && \
+        cd / && \
+        rm -rf /hyperdrive; \
+    fi
 
 # for example, CMAKE_ARGS="-D CMAKE_CXX_FLAGS='-march=native -mtune=native -O3 -fomit-frame-pointer'"
 ARG CMAKE_ARGS="-DPORTABLE=True"
@@ -227,7 +294,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Copy the demo files
 COPY ./demo /demo
 ENV PATH="/demo:${PATH}"
-WORKDIR /demo
+RUN fix-permissions /demo
+# WORKDIR /demo
 
 # Ensure 00_env.sh is sourced in every bash shell unless already sourced
 RUN echo 'if [[ -z "$_ENV_SOURCED" ]]; then source /demo/00_env.sh; fi' >> /etc/bash.bashrc
@@ -241,4 +309,4 @@ RUN echo '#!/bin/bash' > /entrypoint.sh && \
 ARG TEST_SHIM=""
 RUN ${TEST_SHIM}
 
-ENTRYPOINT ["/entrypoint.sh", "/bin/bash"]
+# ENTRYPOINT ["/entrypoint.sh", "/bin/bash"]
