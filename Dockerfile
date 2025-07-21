@@ -122,9 +122,44 @@ RUN git clone --depth 1 https://github.com/d3v-null/chips2024.git /chips && \
     cd / && \
     rm -rf /chips
 
+ARG AOFLAGGER_BRANCH=v3.4.0
+RUN if ! command -v aoflagger; then \
+        git clone --depth 1 --branch=${AOFLAGGER_BRANCH} --recurse-submodules https://gitlab.com/aroffringa/aoflagger.git /aoflagger && \
+        cd /aoflagger && \
+        mkdir build && \
+        cd build && \
+        cmake $CMAKE_ARGS \
+        -DENABLE_GUI=OFF \
+        -DPORTABLE=True \
+        .. && \
+        make install -j && \
+        ldconfig && \
+        cd / && \
+        rm -rf /aoflagger; \
+    fi
+
+# install birli if it doesn't exist
+RUN --mount=type=cache,target=${CARGO_HOME}/git/db \
+    --mount=type=cache,target=${CARGO_HOME}/registry/ \
+    if ! command -v birli; then \
+        apt-get update && \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y libaoflagger0 automake libcfitsio-dev && \
+        git clone https://github.com/mwatelescope/birli.git --branch=eavil_ssins /birli && \
+        cd /birli && \
+        wget https://gitlab.com/aroffringa/aoflagger/-/raw/master/interface/aoflagger.h && \
+        CXXFLAGS=-I. cargo install --path . --locked --features=aoflagger && \
+        cargo clean && \
+        cd / && \
+        rm -rf /birli && \
+        apt-get clean all && \
+        rm -rf /tmp/* /var/tmp/* && \
+        apt-get -y autoremove; \
+    fi
+
 # install python prerequisites
 # - install Cython first to fix pyuvdata compilation issues
 RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip config set global.break-system-packages true && \
     python -m pip install \
     'cython<3.0' \
     'scikit_build_core' \
