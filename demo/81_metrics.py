@@ -133,6 +133,9 @@ def load_metrics_data(metrics_files, metafits_path=None):
     all_data_2d = {}
     all_times_2d = {}
 
+    # Store WCS info from first valid file
+    wcs_info = {}
+
     files_processed = 0
     for filename in metrics_files:
         stem_tokens = Path(filename).stem.split("_")
@@ -197,6 +200,17 @@ def load_metrics_data(metrics_files, metafits_path=None):
                 crval1 = header.get("CRVAL1", 167040000.0)
                 cdelt1 = header.get("CDELT1", 20000.0)
                 crpix1 = header.get("CRPIX1", 1.0)
+
+                # Store WCS info from first file
+                if not wcs_info:
+                    wcs_info = {
+                        "crval1": crval1,  # Frequency reference value (Hz)
+                        "cdelt1": cdelt1,  # Frequency step (Hz)
+                        "crpix1": crpix1,  # Frequency reference pixel
+                        "crval2": crval2,  # Time reference value (GPS seconds)
+                        "cdelt2": cdelt2,  # Time step (seconds)
+                        "crpix2": crpix2,  # Time reference pixel
+                    }
 
                 # Extract required HDU data
                 ao_flag = hdul["AO_FLAG_METRICS"].data
@@ -460,6 +474,7 @@ def load_metrics_data(metrics_files, metafits_path=None):
         "auto_delay_pol_times": auto_delay_pol_times,
         "metafits_receiver_mapping": metafits_receiver_mapping,
         "files_processed": files_processed,
+        "wcs_info": wcs_info,
     }
 
 
@@ -732,8 +747,9 @@ def plot_auto_pol(data, name, show=False, save=True):
     first_auto_data = additional_data_2d["AUTO_POL=XX"][0]
     n_antennas, n_freq_auto = first_auto_data.shape
 
-    # Frequency info (reuse from main data)
-    crval1, cdelt1, crpix1 = 167040000.0, 20000.0, 1.0
+    # Frequency info from stored WCS
+    wcs_info = data["wcs_info"]
+    crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz_auto = crval1 + (np.arange(1, n_freq_auto + 1) - crpix1) * cdelt1
     freq_mhz_auto = freq_hz_auto / 1e6
 
@@ -859,6 +875,124 @@ def plot_auto_pol(data, name, show=False, save=True):
     return filenames
 
 
+def plot_auto_pol_lines(data, name, show=False, save=True):
+    """Plot AUTO_POL data as line plots with each timestep overlaid.
+
+    Args:
+        data: Data dict from load_metrics_data()
+        name: Plot name/title
+        show: Whether to show plot interactively
+        save: Whether to save plot to file
+
+    Returns:
+        list: Paths to saved plot files (if save=True)
+    """
+    additional_data_2d = data["additional_data_2d"]
+    additional_times_2d = data["additional_times_2d"]
+    antenna_table = data["antenna_table"]
+    metafits_receiver_mapping = data["metafits_receiver_mapping"]
+
+    filenames = []
+
+    if not additional_data_2d["AUTO_POL=XX"]:
+        print("No AUTO_POL data found")
+        return filenames
+
+    first_auto_data = additional_data_2d["AUTO_POL=XX"][0]
+    n_antennas, n_freq_auto = first_auto_data.shape
+
+    # Frequency info from stored WCS
+    wcs_info = data["wcs_info"]
+    crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
+    freq_hz_auto = crval1 + (np.arange(1, n_freq_auto + 1) - crpix1) * cdelt1
+    freq_mhz_auto = freq_hz_auto / 1e6
+
+    # Group antennas by receiver
+    receivers = {}
+    for ant_id, info in antenna_table.items():
+        if metafits_receiver_mapping:
+            ant_name = info.get("ANTNAME", "")
+            rx_num = metafits_receiver_mapping.get(ant_name, "Unknown")
+            if rx_num == "Unknown":
+                continue
+        else:
+            rx_num = info.get("RX_NUMBER", "Unknown")
+
+        if rx_num not in receivers:
+            receivers[rx_num] = []
+        receivers[rx_num].append(ant_id)
+
+    for rx_num in sorted(receivers.keys()):
+        if rx_num == "Unknown":
+            continue
+
+        ant_ids_in_rx = sorted(receivers[rx_num])[:8]
+
+        for pol_name in ["XX", "YY", "XY"]:
+            hdu_name = f"AUTO_POL={pol_name}"
+            if hdu_name in additional_data_2d and additional_data_2d[hdu_name]:
+
+                file_times = np.array(additional_times_2d[hdu_name])
+                all_files_data = np.array(additional_data_2d[hdu_name])  # (n_files, n_antennas, n_freq)
+
+                fig, axes = plt.subplots(2, 4, figsize=(20, 10), sharex=True, sharey=True)
+                fig.suptitle(
+                    f"{name} - AUTO_POL {pol_name} Lines - Receiver {rx_num}",
+                    fontsize=12,
+                    fontweight="bold",
+                )
+                axes = axes.flatten()
+
+                # Colors for different timesteps
+                colors = plt.cm.viridis(np.linspace(0, 1, len(all_files_data)))
+
+                for plot_idx, ant_id in enumerate(ant_ids_in_rx):
+                    if plot_idx < 8 and ant_id < n_antennas:
+                        # Plot each timestep as a separate line for this antenna
+                        for file_idx in range(len(all_files_data)):
+                            antenna_spectrum = all_files_data[file_idx, ant_id, :]  # (n_freq,)
+
+                            axes[plot_idx].plot(
+                                freq_mhz_auto,
+                                antenna_spectrum,
+                                color=colors[file_idx],
+                                alpha=0.7,
+                                linewidth=1.0,
+                                label=f"T{file_idx}" if file_idx < 5 else ""  # Only label first few
+                            )
+
+                        ant_name = get_antenna_display_name(ant_id, antenna_table)
+                        axes[plot_idx].set_title(f"{ant_name}", fontsize=9)
+                        axes[plot_idx].grid(True, alpha=0.3)
+
+                        # Add legend only for first subplot if there are multiple timesteps
+                        if plot_idx == 0 and len(all_files_data) > 1:
+                            axes[plot_idx].legend(fontsize=6)
+
+                        if plot_idx >= 4:
+                            axes[plot_idx].set_xlabel("Frequency (MHz)", fontsize=8)
+                        if plot_idx % 4 == 0:
+                            axes[plot_idx].set_ylabel(f"{pol_name} Amplitude", fontsize=8)
+                    else:
+                        axes[plot_idx].set_visible(False)
+
+                plt.tight_layout()
+
+                filename = None
+                if save:
+                    filename = f"auto_pol_lines_RX{rx_num}_{pol_name}_{name}.png"
+                    plt.savefig(filename, dpi=150, bbox_inches="tight")
+                    filenames.append(filename)
+                    print(realpath(filename))
+
+                if show:
+                    plt.show()
+                else:
+                    plt.close()
+
+    return filenames
+
+
 def plot_amp_fp_grid(data, name, show=False, save=True):
     """Plot AMP_FP metrics in a grid format.
 
@@ -895,9 +1029,10 @@ def plot_amp_fp_grid(data, name, show=False, save=True):
         print("No AMP_FP polarization data found")
         return None
 
-    # Frequency info
-    n_freq = 768
-    crval1, cdelt1, crpix1 = 167040000.0, 20000.0, 1.0
+    # Frequency info from stored WCS
+    wcs_info = data["wcs_info"]
+    n_freq = 768  # This should match the data shape
+    crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6
 
@@ -1021,9 +1156,10 @@ def plot_auto_power_ant(data, name, show=False, save=True):
 
     print(f"Found AUTO_POWER_ANT data for {len(auto_power_ant_data)} antennas")
 
-    # Frequency info
-    n_freq = 768
-    crval1, cdelt1, crpix1 = 167040000.0, 20000.0, 1.0
+    # Frequency info from stored WCS
+    wcs_info = data["wcs_info"]
+    n_freq = 768  # This should match the data shape
+    crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6
 
@@ -1133,6 +1269,119 @@ def plot_auto_power_ant(data, name, show=False, save=True):
     return filenames
 
 
+def plot_auto_power_ant_lines(data, name, show=False, save=True):
+    """Plot AUTO_POWER_ANT data as line plots with each timestep overlaid.
+
+    Args:
+        data: Data dict from load_metrics_data()
+        name: Plot name/title
+        show: Whether to show plot interactively
+        save: Whether to save plot to file
+
+    Returns:
+        list: Paths to saved plot files (if save=True)
+    """
+    auto_power_ant_data = data["auto_power_ant_data"]
+    auto_power_ant_times = data["auto_power_ant_times"]
+
+    filenames = []
+
+    if not auto_power_ant_data:
+        print("No AUTO_POWER_ANT data found")
+        return filenames
+
+    print(f"Found AUTO_POWER_ANT data for {len(auto_power_ant_data)} antennas")
+
+    # Frequency info from stored WCS
+    wcs_info = data["wcs_info"]
+    n_freq = 768  # This should match the data shape
+    crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
+    freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
+    freq_mhz = freq_hz / 1e6
+
+    antenna_names = sorted(list(auto_power_ant_data.keys()))[:12]
+    pol_names = ["XX", "YY", "XY"]
+
+    for pol_idx, pol_name in enumerate(pol_names):
+        fig5, axes5 = plt.subplots(3, 4, figsize=(20, 12), sharex=True, sharey=True)
+        fig5.suptitle(
+            f"{name} - AUTO_POWER_ANT {pol_name} (Frequency Lines)",
+            fontsize=10,
+            fontweight="bold",
+        )
+        axes5 = axes5.flatten()
+
+        for ant_idx, antenna_name in enumerate(antenna_names):
+            if ant_idx < len(antenna_names):
+                ant_file_data = auto_power_ant_data[antenna_name]
+                ant_times = auto_power_ant_times[antenna_name]
+
+                if ant_file_data and ant_times:
+                    # Plot each timestep as a separate line
+                    colors = plt.cm.viridis(np.linspace(0, 1, len(ant_file_data)))
+
+                    for file_idx, (file_data, file_times) in enumerate(
+                        zip(ant_file_data, ant_times)
+                    ):
+                        if pol_idx < file_data.shape[0]:
+                            # Extract polarization data: file_data[pol_idx, :, :] = (time, freq)
+                            pol_data = file_data[pol_idx, :, :]  # (time_samples, freq)
+
+                            # Average over time within this file to get one spectrum
+                            file_spectrum = np.nanmean(pol_data, axis=0)  # (freq,)
+
+                            # Plot this timestep as a line
+                            axes5[ant_idx].plot(
+                                freq_mhz,
+                                file_spectrum,
+                                color=colors[file_idx],
+                                alpha=0.7,
+                                linewidth=1.0,
+                                label=f"T{file_idx}" if file_idx < 5 else ""  # Only label first few
+                            )
+
+                    axes5[ant_idx].set_title(f"{antenna_name}", fontsize=8)
+                    axes5[ant_idx].grid(True, alpha=0.3)
+
+                    # Add legend only for first subplot if there are multiple timesteps
+                    if ant_idx == 0 and len(ant_file_data) > 1:
+                        axes5[ant_idx].legend(fontsize=6)
+
+                else:
+                    axes5[ant_idx].text(
+                        0.5,
+                        0.5,
+                        f"No data for\n{antenna_name}",
+                        transform=axes5[ant_idx].transAxes,
+                        ha="center",
+                        va="center",
+                        fontsize=8,
+                    )
+
+                if ant_idx >= 8:  # Bottom row
+                    axes5[ant_idx].set_xlabel("Frequency (MHz)", fontsize=8)
+                if ant_idx % 4 == 0:  # Left column
+                    axes5[ant_idx].set_ylabel(f"{pol_name} Amplitude", fontsize=8)
+            else:
+                axes5[ant_idx].set_visible(False)
+
+        plt.tight_layout()
+
+        filename = None
+        if save:
+            filename = f"auto_power_ant_lines_{pol_name}_{name}.png"
+            plt.savefig(filename, dpi=150, bbox_inches="tight")
+            filenames.append(filename)
+            print(realpath(filename))
+
+        if show:
+            plt.show()
+        else:
+            plt.close()
+
+    return filenames
+
+
 def plot_auto_sub_ant(data, name, show=False, save=True):
     """Plot AUTO_SUB_ANT data with 4-quadrant plots per antenna.
 
@@ -1158,9 +1407,10 @@ def plot_auto_sub_ant(data, name, show=False, save=True):
 
     print(f"Found AUTO_SUB_ANT data for {len(auto_sub_ant_data)} antennas")
 
-    # Frequency info
-    n_freq = 768
-    crval1, cdelt1, crpix1 = 167040000.0, 20000.0, 1.0
+    # Frequency info from stored WCS
+    wcs_info = data["wcs_info"]
+    n_freq = 768  # This should match the data shape
+    crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6
 
@@ -1489,11 +1739,17 @@ def plot_all_metrics(data, name, show=False, save=True):
     print("Generating AUTO_POL plots...")
     results["auto_pol"] = plot_auto_pol(data, name, show, save)
 
+    print("Generating AUTO_POL line plots...")
+    results["auto_pol_lines"] = plot_auto_pol_lines(data, name, show, save)
+
     print("Generating AMP_FP grid plot...")
     results["amp_fp"] = plot_amp_fp_grid(data, name, show, save)
 
     print("Generating AUTO_POWER_ANT plots...")
     results["auto_power_ant"] = plot_auto_power_ant(data, name, show, save)
+
+    print("Generating AUTO_POWER_ANT line plots...")
+    results["auto_power_ant_lines"] = plot_auto_power_ant_lines(data, name, show, save)
 
     print("Generating AUTO_SUB_ANT plots...")
     results["auto_sub_ant"] = plot_auto_sub_ant(data, name, show, save)
