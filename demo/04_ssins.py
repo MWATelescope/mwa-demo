@@ -565,7 +565,10 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         ax_signal: Axis = subplots[0, i]
         ax_signal.set_title(f"{obsname} zscore{suffix} {pol if len(pols) > 1 else ''}")
         if i == 0:
-            ax_signal.yaxis.set_label("Antenna")
+            try:
+                ax_signal.yaxis.set_label("Antenna")
+            except RuntimeError:
+                print(f"WARN: matplotlib breaking api change")
 
         signal_pscore = slice_(scores[..., i], axis=-1)
         signal_pscore[signal_pscore == 0] = np.nan
@@ -578,17 +581,23 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             extent=[np.min(gps_times), np.max(gps_times), len(ant_labels) - 0.5, -0.5],
         )
 
-        ax_signal.yaxis.set_ticks(np.arange(len(unflagged_ants)))
-        ax_signal.yaxis.set_tick_params(pad=True)
-        ax_signal.yaxis.set_ticklabels(
-            ant_labels, fontsize=args.fontsize, fontfamily="monospace"
-        )
+        try:
+            ax_signal.yaxis.set_ticks(np.arange(len(unflagged_ants)))
+            ax_signal.yaxis.set_tick_params(pad=True)
+            ax_signal.yaxis.set_ticklabels(
+                ant_labels, fontsize=args.fontsize, fontfamily="monospace"
+            )
+        except RuntimeError:
+            print(f"WARN: matplotlib breaking api change")
 
         # by spectrum: [freq, time]
         ax_spectrum: Axis = subplots[1, i]
-        ax_spectrum.xaxis.set_label("GPS Time [s]")
-        if i == 0:
-            ax_spectrum.yaxis.set_label("Frequency channel [MHz]")
+        try:
+            ax_spectrum.xaxis.set_label("GPS Time [s]")
+            if i == 0:
+                ax_spectrum.yaxis.set_label("Frequency channel [MHz]")
+        except RuntimeError:
+            print(f"WARN: matplotlib breaking api change")
 
         spectrum_pscore = slice_(scores[..., i].transpose(2, 1, 0), axis=-1)
         spectrum_pscore[spectrum_pscore == 0] = np.nan
@@ -607,7 +616,10 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         )
 
     plt.gcf().set_size_inches(
-        8 * len(pols), (len(unflagged_ants) + ss.Nfreqs) * args.fontsize / 72
+        8 * len(pols), (np.min([
+            ((len(unflagged_ants) + ss.Nfreqs) * args.fontsize / 72),
+            ((2 ** 15) / 300),
+        ]))
     )
 
 
