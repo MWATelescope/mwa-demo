@@ -10,15 +10,14 @@ and then modified to work with multi-timestep solutions.
 import os
 import shlex
 import sys
-from argparse import ArgumentParser, FileType
-from enum import Enum
 import traceback
-from typing import List, NamedTuple, Optional, Tuple  # noqa: F401
+from argparse import ArgumentParser
+from enum import Enum
+from typing import NamedTuple, Optional
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt  # noqa: F401
 import pandas as pd
 import seaborn as sns
 from astropy import units as u
@@ -26,21 +25,20 @@ from astropy.constants import c
 from astropy.io import fits
 from matplotlib.colors import LinearSegmentedColormap
 from numpy.typing import ArrayLike, NDArray
-from pandas import DataFrame
 from scipy.optimize import minimize
 
 V_LIGHT_M_S = 299792458.0
 
 
 class CalvinJobType(Enum):
-    """Calvin Job Type"""
+    """Calvin job type."""
 
     realtime = "realtime"
     mwa_asvo = "mwa_asvo"
 
 
 class Tile(NamedTuple):
-    """Info about an MWA tile"""
+    """Info about an MWA tile."""
 
     name: str
     id: int
@@ -52,7 +50,7 @@ class Tile(NamedTuple):
 
 
 class Input(NamedTuple):
-    """Info about an MWA tile"""
+    """Info about an MWA tile input."""
 
     name: str
     id: int
@@ -66,35 +64,34 @@ class Input(NamedTuple):
 
 
 class ChanInfo(NamedTuple):
-    """channel selection info"""
+    """Channel selection info."""
 
-    coarse_chan_ranges: List[NDArray[np.int_]]  # List[Tuple(int, int)]
+    coarse_chan_ranges: list[NDArray[np.int_]]  # list[tuple(int, int)]
     fine_chans_per_coarse: int
     fine_chan_width_hz: float
 
 
 class TimeInfo(NamedTuple):
-    """timestep info"""
+    """Timestep info."""
 
     num_times: int
     int_time_s: float
 
 
 class Metafits:
-    """MWA Metadata file in FITS format"""
+    """MWA metadata file in FITS format."""
 
     def __init__(self, filename: str):
         self.filename = filename
 
     @property
-    def tiles(self) -> List[Tile]:
-        """Get tile info from metafits, sorted by index"""
-
+    def tiles(self) -> list[Tile]:
+        """Get tile info from metafits, sorted by index."""
         with fits.open(self.filename) as hdus:
             metafits_inputs = hdus["TILEDATA"].data  # type: ignore
 
         # using a set here to avoid duplicates (pol=X,Y)
-        tiles = set(
+        tiles = {
             Tile(
                 name=metafits_input["TileName"],
                 id=metafits_input["Tile"],
@@ -105,18 +102,17 @@ class Metafits:
                 flavor=metafits_input["Receiver_Types"],
             )
             for metafits_input in metafits_inputs
-        )
+        }
 
-        return sorted([*tiles], key=lambda tile: tile.id)
+        return sorted(tiles, key=lambda tile: tile.id)
 
     @property
-    def inputs(self) -> List[Input]:
-        """Get tile info from metafits, sorted by index"""
-
+    def inputs(self) -> list[Input]:
+        """Get tile info from metafits, sorted by index."""
         with fits.open(self.filename) as hdus:
             metafits_inputs = hdus["TILEDATA"].data  # type: ignore
 
-        inputs = set(
+        inputs = {
             Input(
                 id=metafits_input["Input"],
                 name=metafits_input["TileName"] + metafits_input["Pol"],
@@ -130,13 +126,13 @@ class Metafits:
                 length=float(metafits_input["Length"][3:]),
             )
             for metafits_input in metafits_inputs
-        )
+        }
 
-        return sorted([*inputs], key=lambda inp: inp.id)
+        return sorted(inputs, key=lambda inp: inp.id)
 
     @property
     def tiles_df(self) -> pd.DataFrame:
-        """Get reference antenna (unflagged tile with lowest id) and tiles as df"""
+        """Get reference antenna (unflagged tile with lowest id) and tiles as df."""
         # determine array configuration (compact or extended)
         # config = Config.from_tiles(tiles)
         tiles = self.tiles
@@ -149,12 +145,12 @@ class Metafits:
 
     @property
     def inputs_df(self) -> pd.DataFrame:
+        """Return inputs as a dataframe."""
         return pd.DataFrame(self.inputs, columns=Input._fields)
 
     @property
     def chan_info(self) -> ChanInfo:
-        """
-        Get coarse channels from metafits, sorted
+        """Get coarse channels from metafits, sorted.
 
         Assumptions:
         - fine_chan_width is a multiple of 200Hz (or 10kHz), so is an integer
@@ -210,9 +206,7 @@ class Metafits:
 
     @property
     def time_info(self) -> TimeInfo:
-        """
-        Get time info from metafits
-        """
+        """Get time info from metafits."""
         with fits.open(self.filename) as hdus:
             hdu = hdus["PRIMARY"]
             header = hdu.header
@@ -224,6 +218,7 @@ class Metafits:
 
     @property
     def calibrator(self):
+        """Return calibrator name if present in header."""
         with fits.open(self.filename) as hdus:
             hdu = hdus["PRIMARY"]
             header = hdu.header  # type: ignore
@@ -232,6 +227,7 @@ class Metafits:
 
     @property
     def obsid(self):
+        """Return GPSTIME (obsid) if present in header."""
         with fits.open(self.filename) as hdus:
             hdu = hdus["PRIMARY"]
             header = hdu.header  # type: ignore
@@ -240,15 +236,14 @@ class Metafits:
 
 
 class HyperfitsSolution:
-    """A single calibration solution in hyperdrive FITS format"""
+    """A single calibration solution in hyperdrive FITS format."""
 
     def __init__(self, filename) -> None:
         self.filename = filename
 
     @property
     def chanblocks_hz(self) -> NDArray[np.int_]:
-        """
-        Get channels from solution file
+        """Get channels from solution file.
 
         Validate:
         - channels are contiguous
@@ -256,7 +251,6 @@ class HyperfitsSolution:
 
         Assumptions:
         - channel frequencies are multiples of 200Hz, so are integer Hz values
-
         """
         with fits.open(self.filename) as hdus:
             freq_data = hdus["CHANBLOCKS"].data["Freq"].astype(np.int_)
@@ -283,23 +277,23 @@ class HyperfitsSolution:
     #     ]
 
     @property
-    def tile_flags(self) -> List[bool]:
-        """Get the tile flags ordered by Antenna index"""
+    def tile_flags(self) -> list[bool]:
+        """Get the tile flags ordered by Antenna index."""
         with fits.open(self.filename) as hdus:
             tile_data = hdus["TILES"].data  # type: ignore
         return tile_data["Flag"]
 
-    def get_average_times(self) -> List[float]:
-        """Get the average time for each timeblock
+    def get_average_times(self) -> list[float]:
+        """Get the average time for each timeblock.
 
-        Raises KeyError if TIMEBLOCKS not present
+        Raises KeyError if TIMEBLOCKS not present.
         """
         with fits.open(self.filename) as hdus:
             time_data = hdus["TIMEBLOCKS"].data  # type: ignore
             return [time["Average"] for time in time_data]
 
-    def get_solutions(self) -> List[NDArray[np.complex128]]:
-        """Get solutions as a complex array for each pol: [time, tile, chan]"""
+    def get_solutions(self) -> list[NDArray[np.complex128]]:
+        """Get solutions as a complex array for each pol: [time, tile, chan]."""
         with fits.open(self.filename) as hdus:
             solutions = hdus["SOLUTIONS"].data  # type: ignore
         return [
@@ -309,14 +303,17 @@ class HyperfitsSolution:
             solutions[:, :, :, 6] + 1j * solutions[:, :, :, 7],
         ]
 
-    def get_ref_solutions(self, ref_tile_idx=None) -> List[NDArray[np.complex128]]:
-        """Get solutions divided by reference tile as a complex array for each pol: [time, tile, chan]"""
+    def get_ref_solutions(self, ref_tile_idx=None) -> list[NDArray[np.complex128]]:
+        """Return solutions divided by reference tile.
+
+        Output is a complex array for each pol with shape [time, tile, chan].
+        """
         solutions = self.get_solutions()
         if ref_tile_idx is None:
             return solutions
         # divide solutions by reference
         ref_solutions = [solution[:, ref_tile_idx, :] for solution in solutions]  # type: ignore
-        # divide solutions jones matrix by reference jones matrix, via inverse determinant
+        # divide jones matrix by reference via inverse determinant
         ref_inv_det = np.divide(
             1 + 0j,
             ref_solutions[0] * ref_solutions[3] - ref_solutions[1] * ref_solutions[2],  # type: ignore
@@ -334,7 +331,7 @@ class HyperfitsSolution:
 
     @property
     def results(self) -> NDArray[np.float64]:
-        """Code adapted from Chris Jordan's scripts"""
+        """Code adapted from Chris Jordan's scripts."""
         with fits.open(self.filename) as hdus:
             return hdus["RESULTS"].data.flatten()  # type: ignore
 
@@ -342,11 +339,9 @@ class HyperfitsSolution:
 
 
 class HyperfitsSolutionGroup:
-    """
-    A group of Hyperdrive .fits calibration solutions and corresponding metafits files
-    """
+    """Group of Hyperdrive .fits solutions and corresponding metafits files."""
 
-    def __init__(self, metafits: List[Metafits], solns: List[HyperfitsSolution]):
+    def __init__(self, metafits: list[Metafits], solns: list[HyperfitsSolution]):
         if not len(metafits):
             raise RuntimeError("no metafits files provided")
         self.metafits = metafits
@@ -366,11 +361,10 @@ class HyperfitsSolutionGroup:
         )
 
     @classmethod
-    def get_metafits_chan_info(cls, metafits: List[Metafits]) -> ChanInfo:
-        """
-        Get the combined ChanInfo, chanblocks_per_coarse and chanblocks_hz array for all provided metafits
+    def get_metafits_chan_info(cls, metafits: list[Metafits]) -> ChanInfo:
+        """Combine channel info across metafits.
 
-        Validate that chan ranges do not overlap, and that channel info is consistent
+        Returns a `ChanInfo` and validates ranges do not overlap and are consistent.
         """
         first_chan_info = metafits[0].chan_info
         all_ranges = [*first_chan_info.coarse_chan_ranges]
@@ -379,15 +373,15 @@ class HyperfitsSolutionGroup:
             chan_info = metafits_.chan_info
             if chan_info.fine_chans_per_coarse != first_chan_info.fine_chans_per_coarse:
                 raise RuntimeError(
-                    f"fine channels per coarse mismatch between metafits files. "
-                    f"{metafits[0].filename} ({first_chan_info.fine_chans_per_coarse}) != "
-                    f"{metafits_.filename} ({chan_info.fine_chans_per_coarse})"
+                    "fine channels per coarse mismatch between metafits files. "
+                    f"{metafits[0].filename} ({first_chan_info.fine_chans_per_coarse}) "
+                    f"!= {metafits_.filename} ({chan_info.fine_chans_per_coarse})"
                 )
             if chan_info.fine_chan_width_hz != first_chan_info.fine_chan_width_hz:
                 raise RuntimeError(
-                    f"fine channel width mismatch between metafits files. "
-                    f"{metafits[0].filename} ({first_chan_info.fine_chan_width_hz}) != "
-                    f"{metafits_.filename} ({chan_info.fine_chan_width_hz})"
+                    "fine channel width mismatch between metafits files. "
+                    f"{metafits[0].filename} ({first_chan_info.fine_chan_width_hz}) "
+                    f"!= {metafits_.filename} ({chan_info.fine_chan_width_hz})"
                 )
             all_ranges.extend(chan_info.coarse_chan_ranges)
 
@@ -408,15 +402,13 @@ class HyperfitsSolutionGroup:
 
     @classmethod
     def get_soln_chan_info(
-        cls, metafits_chan_info: ChanInfo, solns: List[HyperfitsSolution]
-    ) -> Tuple[int, List[NDArray[np.int_]]]:
-        """
-        Get the chanblocks_per_coarse and chanblocks_hz array for provided solutions
+        cls, metafits_chan_info: ChanInfo, solns: list[HyperfitsSolution]
+    ) -> tuple[int, list[NDArray[np.int_]]]:
+        """Get chanblocks_per_coarse and chanblocks_hz for provided solutions.
 
         Validate that channel info from metafits is consistent with solutions:
-            - should all have the same chanblocks_per_coarse
+        should all have the same chanblocks_per_coarse.
         """
-
         chanblocks_per_coarse = None
         all_chanblocks_hz = []
         metafits_coarse_chans = np.concatenate(metafits_chan_info.coarse_chan_ranges)
@@ -437,8 +429,9 @@ class HyperfitsSolutionGroup:
             chanblock_width_hz = chanblocks_hz[1] - chanblocks_hz[0]  # type: ignore
             if chanblock_width_hz % metafits_fine_chan_width_hz != 0:
                 raise RuntimeError(
-                    f"{soln.filename} - chanblock width in solution file ({chanblock_width_hz})"
-                    f" is not a multiple of fine channel width in metafits ({metafits_fine_chan_width_hz})"
+                    f"{soln.filename} - chanblock width in solution file "
+                    f"({chanblock_width_hz}) is not a multiple of fine channel width "
+                    f"in metafits ({metafits_fine_chan_width_hz})"
                 )
 
             chans_per_block = int(chanblock_width_hz // metafits_fine_chan_width_hz)
@@ -450,8 +443,9 @@ class HyperfitsSolutionGroup:
             else:
                 if chanblocks_per_coarse != chanblocks_per_coarse_:
                     raise RuntimeError(
-                        f"{soln.filename} - chanblocks_per_coarse {chanblocks_per_coarse_}"
-                        f" does not match previous value {chanblocks_per_coarse}"
+                        f"{soln.filename} - chanblocks_per_coarse "
+                        f"{chanblocks_per_coarse_} does not match previous value "
+                        f"{chanblocks_per_coarse}"
                     )
 
             # break chanblocks into coarse channels
@@ -476,12 +470,14 @@ class HyperfitsSolutionGroup:
                 )
                 if coarse_chan_idx not in metafits_coarse_chans:
                     raise RuntimeError(
-                        f"{soln.filename} - solution coarse centroid {coarse_centroid_hz}Hz ({coarse_chan_idx=}) "
+                        f"{soln.filename} - solution coarse centroid "
+                        f"{coarse_centroid_hz}Hz ({coarse_chan_idx=}) "
                         "not found in metafits coarse channels"
                     )
                 if coarse_chan_idx in soln_coarse_chans:
                     raise RuntimeError(
-                        f"{soln.filename} - solution coarse centroid {coarse_centroid_hz}Hz ({coarse_chan_idx=}) "
+                        f"{soln.filename} - solution coarse centroid "
+                        f"{coarse_centroid_hz}Hz ({coarse_chan_idx=}) "
                         "already found in solution coarse channels"
                     )
                 soln_coarse_chans.append(coarse_chan_idx)
@@ -490,9 +486,10 @@ class HyperfitsSolutionGroup:
             soln_ncoarse = len(chanblocks_hz) // chanblocks_per_coarse
             if range_ncoarse != soln_ncoarse:
                 print(
-                    f"{soln.filename} - warning: number of coarse channels in solution file ({soln_ncoarse=})"
-                    f" does not match number of coarse channels in metafits for this range ({range_ncoarse=})"
-                    f" given {chanblocks_per_coarse=}, {chans_per_block=}"
+                    f"{soln.filename} - warning: number of coarse channels in solution "
+                    f"file ({soln_ncoarse=}) does not match metafits for this range "
+                    f"({range_ncoarse=}) given {chanblocks_per_coarse=}, "
+                    f"{chans_per_block=}"
                 )
 
             all_chanblocks_hz.append(chanblocks_hz)
@@ -503,16 +500,14 @@ class HyperfitsSolutionGroup:
 
     @classmethod
     def get_metafits_tiles_df(cls, metafits) -> pd.DataFrame:
-        """
-        Get tiles dataframe, assert that all metafits have the same tiles
-        """
-        columns = list(set(Tile._fields) - set(["flag"]))
+        """Get tiles dataframe and assert all metafits have the same tiles."""
+        columns = list(set(Tile._fields) - {"flag"})
         tiles_df = metafits[0].tiles_df
         for metafits_ in metafits[1:]:
             for column in columns:
                 if not tiles_df[column].equals(metafits_.tiles_df[column]):
                     raise RuntimeError(
-                        f"tiles dataframes from metafits files do not match on {column=}. "
+                        f"tiles dataframes from metafits do not match on {column=}. "
                         f"{metafits[0].filename} != {metafits_.filename}\n"
                         f"{tiles_df[column].tolist()}\n\n"
                         f"{metafits_.tiles_df[column].tolist()}\n"
@@ -522,9 +517,7 @@ class HyperfitsSolutionGroup:
 
     @property
     def refant(self) -> pd.Series:
-        """
-        Get reference antenna (unflagged tile with lowest id) which is not flagged in solutions
-        """
+        """Get reference antenna not flagged in solutions."""
         tiles_df = self.metafits_tiles_df.copy()
         # flag tiles_df with solution flags
         for soln in self.solns:
@@ -542,20 +535,21 @@ class HyperfitsSolutionGroup:
 
     @property
     def calibrator(self):
+        """Return calibrator(s) for the group, if any."""
         calibrators = set(filter(None, [meta.calibrator for meta in self.metafits]))
         return " ".join(calibrators)  # type: ignore
 
     @property
     def obsids(self):
+        """Return list of obsids for the group."""
         obsids = set(filter(None, [meta.obsid for meta in self.metafits]))
         return [*obsids]  # type: ignore
 
     @property
     def results(self) -> NDArray[np.float64]:
-        """
-        Get the combined results array for all solutions
+        """Get the combined results array for all solutions.
 
-        Pad results if edge channels have been removed
+        Pad results if edge channels have been removed.
         """
         for soln, chanblocks_hz in zip(self.solns, self.all_chanblocks_hz):
             if len(chanblocks_hz) != len(soln.results):
@@ -571,9 +565,7 @@ class HyperfitsSolutionGroup:
 
     @property
     def weights(self) -> NDArray[np.float64]:
-        """
-        Generate an array of weights for each solution, based on results
-        """
+        """Generate weights for each solution, based on results."""
         try:
             results = self.results
             results[results < 0] = np.nan
@@ -588,10 +580,10 @@ class HyperfitsSolutionGroup:
 
     def get_solns(
         self, refant_name=None
-    ) -> Tuple[NDArray[np.int_], NDArray[np.complex128], NDArray[np.complex128]]:
-        """
-        Get the tile ids in the order they appear in the solutions, as well as xx and yy solutions
-        for the reference antenna
+    ) -> tuple[NDArray[np.int_], NDArray[np.complex128], NDArray[np.complex128]]:
+        """Return tile ids, and xx/yy solutions for the reference antenna.
+
+        The tile ids are in the order they appear in the solutions.
         """
         soln_tile_ids = None
         ref_tile_idx = None
@@ -612,7 +604,6 @@ class HyperfitsSolutionGroup:
                 soln_tiles["flag_soln"], soln_tiles["flag_metafits"]
             )
             soln_tiles.drop(columns=["flag_metafits", "flag_soln"], inplace=True)
-            # self.logger.debug(f"{soln.filename} - tiles:\n{soln_tiles.to_string(max_rows=999)}")
             if refant_name is not None:
                 _ref_tiles = soln_tiles[soln_tiles["name"] == refant_name]
                 if not len(_ref_tiles):
@@ -635,7 +626,6 @@ class HyperfitsSolutionGroup:
 
                 if not ref_tile_idx:
                     ref_tile_idx = _ref_tile_idx
-                    # self.logger.debug(f"{soln.filename} - ref tile found at index {ref_tile_idx}")
                 elif ref_tile_idx != _ref_tile_idx:
                     raise RuntimeError(
                         f"{soln.filename} - reference tile in solution file"
@@ -646,7 +636,6 @@ class HyperfitsSolutionGroup:
             # _tile_ids, _ref_tile_idx = soln.validate_tiles(tiles_by_name, refant)
             if soln_tile_ids is None or not len(soln_tile_ids):
                 soln_tile_ids = soln_tiles["id"].to_numpy()
-                # self.logger.debug(f"{soln.filename} - found {len(soln_tile_ids)} matching tiles")  # type: ignore
             elif not np.array_equal(soln_tile_ids, _tile_ids):
                 raise RuntimeError(
                     f"{soln.filename} - tile selection in solution file"
@@ -667,7 +656,8 @@ class HyperfitsSolutionGroup:
             # TODO: support multiple timeblocks
             if len(avg_times) != 1:
                 raise RuntimeError(
-                    f"{soln.filename} - exactly 1 timeblock must be provided: ({len(avg_times)})"
+                    f"{soln.filename} - exactly 1 timeblock must be provided: "
+                    f"({len(avg_times)})"
                 )
             # TODO: compare with metafits times
 
@@ -676,18 +666,20 @@ class HyperfitsSolutionGroup:
             for solution in solutions:
                 if (ntimes := solution.shape[0]) != 1:
                     raise RuntimeError(
-                        f"{soln.filename} - number of timeblocks in SOLUTIONS HDU ({ntimes})"
-                        f" does not match number of timeblocks in TIMEBLOCKS HDU ({len(avg_times)})"
+                        f"{soln.filename} - number of timeblocks in SOLUTIONS HDU "
+                        f"({ntimes}) does not match TIMEBLOCKS HDU "
+                        f"({len(avg_times)})"
                     )
                 if (ntiles := solution.shape[1]) != len(soln_tile_ids):
                     raise RuntimeError(
-                        f"{soln.filename} - number of tiles in SOLUTIONS HDU ({ntiles})"
-                        f" does not match number of tiles in TILES HDU ({len(soln_tile_ids)})"
+                        f"{soln.filename} - number of tiles in SOLUTIONS HDU "
+                        f"({ntiles}) does not match TILES HDU ({len(soln_tile_ids)})"
                     )
                 if (nchans := solution.shape[2]) != len(chanblocks_hz):
                     raise RuntimeError(
-                        f"{soln.filename} - number of channels in SOLUTIONS HDU ({nchans})"
-                        f" does not match number of channels in CHANBLOCKS HDU ({len(chanblocks_hz)})"
+                        f"{soln.filename} - number of channels in SOLUTIONS HDU "
+                        f"({nchans}) does not match CHANBLOCKS HDU "
+                        f"({len(chanblocks_hz)})"
                     )
 
             # TODO: sanity check, ref_solutions should be identity matrix or NaN
@@ -708,6 +700,8 @@ class HyperfitsSolutionGroup:
 
 
 class PhaseFitInfo(NamedTuple):
+    """Phase fit summary for a single tile/pol."""
+
     length: float
     intercept: float
     sigma_resid: float
@@ -722,6 +716,7 @@ class PhaseFitInfo(NamedTuple):
 
     @staticmethod
     def nan():
+        """Return a NaN-filled `PhaseFitInfo`."""
         return PhaseFitInfo(
             length=np.nan,
             intercept=np.nan,
@@ -734,14 +729,17 @@ class PhaseFitInfo(NamedTuple):
 
 
 class GainFitInfo(NamedTuple):
+    """Gain fit summary per coarse channel."""
+
     quality: float
-    gains: List[float]
-    pol0: List[float]
-    pol1: List[float]
-    sigma_resid: List[float]
+    gains: list[float]
+    pol0: list[float]
+    pol1: list[float]
+    sigma_resid: list[float]
 
     @staticmethod
     def default():
+        """Return a default `GainFitInfo`."""
         return GainFitInfo(
             quality=1.0,
             gains=[1.0] * 24,
@@ -752,6 +750,7 @@ class GainFitInfo(NamedTuple):
 
     @staticmethod
     def nan():
+        """Return a NaN-filled `GainFitInfo`."""
         return GainFitInfo(
             quality=np.nan,
             gains=[np.nan] * 24,
@@ -762,6 +761,7 @@ class GainFitInfo(NamedTuple):
 
 
 def ensure_system_byte_order(arr):
+    """Ensure array byte order matches the system's byte order."""
     system_byte_order = ">" if sys.byteorder == "big" else "<"
     if arr.dtype.byteorder not in f"{system_byte_order}|=":
         return arr.newbyteorder(system_byte_order)
@@ -769,13 +769,12 @@ def ensure_system_byte_order(arr):
 
 
 def parse_csv_header(value: str, dtype: type) -> ArrayLike:
-    """
-    parse comma separated values (in metafits header)
-    """
+    """Parse comma-separated values (from a metafits header)."""
     return np.array(value.split(","), dtype=dtype)
 
 
 def wrap_angle(angle):
+    """Wrap angle to the range [-pi, pi)."""
     return np.mod(angle + np.pi, 2 * np.pi) - np.pi
 
 
@@ -789,15 +788,14 @@ def fit_phase_line(
     # bin_size: int = 10,
     # typical_thickness: float = 3.9,
 ) -> PhaseFitInfo:
-    """
-    Linear fit phases
-        - freqs: array of frequencies in Hz
-        - solution: complex array of solutions
-        - niter: number of iterations to perform
+    """Linear-fit phases.
+
+    - freqs: array of frequencies in Hz
+    - solution: complex array of solutions
+    - niter: number of iterations to perform
 
     Credit: Dr. Sammy McSweeny
     """
-
     # original number of frequencies
     nfreqs = len(freqs_hz)
 
@@ -808,9 +806,9 @@ def fit_phase_line(
     weights = weights[ind]
 
     # Choose a suitable frequency bin width:
-    # - Assume the frequencies are "quantised" (i.e. all integer multiples of some constant)
-    # - Assume there is at least one example of a pair of consecutive bins present
-    # - Do not assume the arrays are ordered in increasing frequency
+    # - Assume the freqs are integer multiples of a constant
+    # - Assume there is at least one example of consecutive bins
+    # - Do not assume arrays are ordered in increasing frequency
 
     # Get the minimum difference between two (now-ordered) consecutive bins, and
     # declare this to be the bin width
@@ -848,14 +846,12 @@ def fit_phase_line(
     νmax = 0.5 / dt  # The Nyquist rate
     N = 2 * int(np.round(νmax / dν))  # The number of bins to use during the FFTs
 
-    shifted_bins[shifted_bins < 0] += (
-        N  # Now the "negative" frequencies are put at the end, which is where FFT wants them
-    )
+    # Put negative frequencies at the end (as FFT expects).
+    shifted_bins[shifted_bins < 0] += N
 
-    # Create a zero-padded, shifted version of the spectrum, which I'll call sol0
-    # sol0: This shifts the non-zero data down to a set of frequencies straddling the DC bin.
-    #       This makes the peak in delay space broad, and lets us hone in near the optimal solution by
-    #       finding the peak in delay space
+    # Create a zero-padded, shifted version of the spectrum (sol0) so that
+    # non-zero data straddles the DC bin. This broadens the peak in delay space
+    # and lets us hone in near the optimal solution by finding that peak.
     sol0 = np.zeros((N,)).astype(complex)
     sol0[shifted_bins] = solution
 
@@ -874,12 +870,13 @@ def fit_phase_line(
     slope = (2 * np.pi * u.rad * dmax / c).to(u.rad / u.Hz)
     # print(f"{slope=:.10f}")
 
-    # Now that we're near a local minimum, get a better one by doing a standard minimisation
+    # Now that we're near a local minimum, refine via a standard minimisation.
     # To get the y-intercept, divide the original data by the constructed data
     # and find the average phase of the result
     # if fit_iono:
     #     model = lambda ν, m, c, α: np.exp(1j * (m * ν + c + α / ν**2))
-    #     y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value, slope.value, 0, 0)))
+    #     y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value,
+    #                                               slope.value, 0, 0)))
     #     params = (slope.value, y_int, 0)
 
     def model(ν, m, c):
@@ -938,9 +935,7 @@ def fit_phase_line(
 
 
 def fit_gain(chanblocks_hz, solns, weights, chanblocks_per_coarse) -> GainFitInfo:
-    """
-    Fit gain solutions
-    """
+    """Fit gain solutions."""
     # length check
     assert len(chanblocks_hz) == len(solns) == len(weights)
     n_coarse = len(chanblocks_hz) // chanblocks_per_coarse
@@ -991,15 +986,7 @@ def fit_gain(chanblocks_hz, solns, weights, chanblocks_per_coarse) -> GainFitInf
 
 
 def poly_str(coeffs, independent_var="x"):
-    """
-    Given a dataframe of [tile, pol, fit...]:
-    - plot intercepts
-    - save fits to tsv
-    - plot fits
-    - save residuals to tsv
-    - plot residuals
-    - return pivoted dataframe
-    """
+    """Return a unicode polynomial string for the given coefficients."""
 
     def xpow(i):
         if i == 0:
@@ -1017,6 +1004,7 @@ def poly_str(coeffs, independent_var="x"):
 
 
 def textwrap(s, width=70):
+    """Wrap a string to a maximum line width."""
     words = s.split()
     lines = []
     current_line = []
@@ -1048,7 +1036,8 @@ def debug_phase_fits(
     plot_residual: bool = False,
     residual_vmax=None,
 ) -> Optional[pd.DataFrame]:
-    """
+    """Plot and save diagnostics for phase fits.
+
     Given a dataframe of [tile, pol, fit...]:
     - plot intercepts
     - save fits to tsv
@@ -1080,8 +1069,7 @@ def debug_phase_fits(
     )
 
     if len(flavor_fits):
-        rx_means = plot_rx_lengths(flavor_fits, prefix, show, title)
-        # print(f"{rx_means=}")
+        plot_rx_lengths(flavor_fits, prefix, show, title)
 
     def ensure_system_byte_order(arr):
         system_byte_order = ">" if sys.byteorder == "big" else "<"
@@ -1132,6 +1120,10 @@ def debug_phase_fits(
 
 
 def reject_outliers(data, quality_key, nstd=3.0):
+    """Flag outliers in `data` based on a quality metric.
+
+    Marks rows where `quality_key` deviates by `nstd` standard deviations.
+    """
     if nstd == 0:
         return data
     if "outlier" not in data.columns:
@@ -1151,6 +1143,7 @@ def reject_outliers(data, quality_key, nstd=3.0):
 
 
 def plot_rx_lengths(flavor_fits, prefix, show, title):
+    """Plot distribution of fitted lengths grouped by receiver (rx)."""
     good_fits = flavor_fits[~flavor_fits["outlier"]]
     rxs = sorted(good_fits["rx"].unique())
     means = good_fits.groupby(["rx"])["length"].mean()
@@ -1196,6 +1189,7 @@ def plot_rx_lengths(flavor_fits, prefix, show, title):
 def plot_phase_fits(
     freqs, soln_xx, soln_yy, prefix, show, title, cmap, phase_fits_pivot, weights2
 ):
+    """Plot phase fits per tile grouped by rx and slot."""
     rxs = np.sort(np.unique(phase_fits_pivot["rx"]))
     slots = np.sort(np.unique(phase_fits_pivot["slot"]))
     figsize = (np.clip(len(slots) * 2.5, 5, 20), np.clip(len(rxs) * 3, 5, 30))
@@ -1283,13 +1277,14 @@ def plot_phase_fits(
 
 
 def plot_phase_intercepts(prefix, show, title, flavor_fits):
+    """Plot polar histogram of phase intercepts by flavor and pol."""
     plt.clf()
     g = sns.FacetGrid(
         flavor_fits,
         row="flavor",
         col="pol",
         hue="flavor",
-        subplot_kws=dict(projection="polar"),
+        subplot_kws={"projection": "polar"},
         sharex=False,
         sharey=False,
         despine=False,
@@ -1326,9 +1321,15 @@ def plot_phase_residual(
     residual_vmax,
     flavor_fits,
 ):
+    """Plot residual phase after removing linear model, per flavor/pol."""
     plt.clf()
     g = sns.FacetGrid(
-        flavor_fits, row="flavor", col="pol", hue="flavor", sharex=True, sharey=False
+        flavor_fits,
+        row="flavor",
+        col="pol",
+        hue="flavor",
+        sharex=True,
+        sharey=False,
     )
 
     if len(freqs) != len(weights):
@@ -1421,11 +1422,12 @@ def plot_phase_residual(
 
 
 def pivot_phase_fits(phase_fits: pd.DataFrame, tiles: pd.DataFrame) -> pd.DataFrame:
-    """
+    """Pivot per-pol phase fits and merge with tile metadata.
+
     Given two dataframes:
-    - per-pol phase fits - [tile, pol, fit...]:
+    - per-pol phase fits - [tile, pol, fit...]
     - tile metadata - [soln_idx, name, tile_id, rx, slot, flavor]
-    pivot the dataframe to [tile, fit_xx, fit_yy, ...]
+    Return a pivoted dataframe: [tile, fit_xx, fit_yy, ...].
     """
     phase_fits = pd.merge(
         phase_fits[phase_fits["pol"] == "XX"].drop(columns=["pol"]),
@@ -1436,7 +1438,7 @@ def pivot_phase_fits(phase_fits: pd.DataFrame, tiles: pd.DataFrame) -> pd.DataFr
     phase_fits = pd.merge(phase_fits, tiles, left_on="tile_id", right_on="id")
     phase_fits.drop("id", axis=1, inplace=True)
     tile_columns = ["soln_idx", "name", "tile_id", "rx", "slot", "flavor"]
-    tile_columns += [*(set(tiles.columns) - set(tile_columns) - set(["id"]))]
+    tile_columns += [*(set(tiles.columns) - set(tile_columns) - {"id"})]
     fit_columns = [
         column for column in phase_fits.columns if column not in tile_columns
     ]
@@ -1446,8 +1448,7 @@ def pivot_phase_fits(phase_fits: pd.DataFrame, tiles: pd.DataFrame) -> pd.DataFr
 
 
 def get_convergence_summary(solutions_fits_file: str):
-    """Returns a list of tuples which represent a summary
-    of the convergence of the solutions"""
+    """Return a summary of the convergence of the solutions."""
     soln = HyperfitsSolution(solutions_fits_file)
     results = soln.results
     converged_channel_indices = np.where(~np.isnan(results))
@@ -1473,6 +1474,7 @@ def get_convergence_summary(solutions_fits_file: str):
 
 
 def parse_args(argv=None):
+    """Parse CLI arguments for calibration analysis."""
     parser = ArgumentParser(description="Analyse calibration solutions")
 
     parser.add_argument("--metafits", type=str, nargs="+")
@@ -1486,6 +1488,7 @@ def parse_args(argv=None):
 
 
 def main():
+    """Entry point for calibration solution analysis CLI."""
     show = False
     if len(sys.argv) > 1:
         args = parse_args()
@@ -1525,7 +1528,7 @@ def main():
     # by default we don't want to apply any phase rotation.
     phase_diff = np.full((len(chanblocks_hz),), 1.0, dtype=np.complex128)
     if args.phase_diff_path is not None and os.path.exists(args.phase_diff_path):
-        # phase_diff_raw is an array, first column is frequency, second column is phase difference
+        # phase_diff_raw columns: [frequency, phase_difference]
         phase_diff_raw = np.loadtxt(args.phase_diff_path)
         for i, chanblock_hz in enumerate(chanblocks_hz):
             # find the closest frequency in phase_diff_raw
