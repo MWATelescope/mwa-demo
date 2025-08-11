@@ -313,20 +313,18 @@ class HyperfitsSolution:
             return solutions
         # divide solutions by reference
         ref_solutions = [solution[:, ref_tile_idx, :] for solution in solutions]  # type: ignore
+        # expand ref arrays to broadcast across tile axis
+        r00 = ref_solutions[0][:, np.newaxis, :]
+        r01 = ref_solutions[1][:, np.newaxis, :]
+        r10 = ref_solutions[2][:, np.newaxis, :]
+        r11 = ref_solutions[3][:, np.newaxis, :]
         # divide jones matrix by reference via inverse determinant
-        ref_inv_det = np.divide(
-            1 + 0j,
-            ref_solutions[0] * ref_solutions[3] - ref_solutions[1] * ref_solutions[2],  # type: ignore
-        )
+        ref_inv_det = np.divide(1 + 0j, r00 * r11 - r01 * r10)
         return [  # type: ignore
-            (solutions[0] * ref_solutions[3] - solutions[1] * ref_solutions[2]) *
-            ref_inv_det,
-            (solutions[1] * ref_solutions[0] - solutions[0] * ref_solutions[1]) *
-            ref_inv_det,
-            (solutions[2] * ref_solutions[3] - solutions[3] * ref_solutions[2]) *
-            ref_inv_det,
-            (solutions[3] * ref_solutions[0] - solutions[2] * ref_solutions[1]) *
-            ref_inv_det,
+            (solutions[0] * r11 - solutions[1] * r10) * ref_inv_det,
+            (solutions[1] * r00 - solutions[0] * r01) * ref_inv_det,
+            (solutions[2] * r11 - solutions[3] * r10) * ref_inv_det,
+            (solutions[3] * r00 - solutions[2] * r01) * ref_inv_det,
         ]
 
     @property
@@ -336,6 +334,36 @@ class HyperfitsSolution:
             return hdus["RESULTS"].data.flatten()  # type: ignore
 
         # Not sure why I need flatten!
+
+    def results_per_time(self) -> NDArray[np.float64]:
+        """Return results reshaped as [time, chan].
+
+        Falls back to a single time if TIMEBLOCKS is absent.
+        """
+        results_flat = self.results
+        nchan = len(self.chanblocks_hz)
+        if nchan == 0:
+            raise RuntimeError(
+                f"{self.filename} - no channels found for RESULTS reshape"
+            )
+        if len(results_flat) == nchan:
+            return results_flat.reshape(1, nchan)
+        if len(results_flat) % nchan == 0:
+            ntimes = len(results_flat) // nchan
+            try:
+                avg_times = self.get_average_times()
+                if len(avg_times) != ntimes:
+                    raise RuntimeError(
+                        f"{self.filename} - TIMEBLOCKS ({len(avg_times)}) != "
+                        f"RESULTS blocks ({ntimes})"
+                    )
+            except KeyError:
+                pass
+            return results_flat.reshape(ntimes, nchan)
+        raise RuntimeError(
+            f"{self.filename} - RESULTS length ({len(results_flat)}) not compatible "
+            f"with channels ({nchan})"
+        )
 
 
 class HyperfitsSolutionGroup:
@@ -551,14 +579,22 @@ class HyperfitsSolutionGroup:
 
         Pad results if edge channels have been removed.
         """
+        # concatenate per-time results across all solutions
+        results_blocks = []
         for soln, chanblocks_hz in zip(self.solns, self.all_chanblocks_hz):
-            if len(chanblocks_hz) != len(soln.results):
+            per_time = soln.results_per_time()
+            if per_time.shape[1] != len(chanblocks_hz):
                 raise RuntimeError(
                     f"{soln.filename} - number of chanblocks ({len(chanblocks_hz)})"
-                    f" does not match number of results ({len(soln.results)})"
+                    f" does not match results width ({per_time.shape[1]})"
                 )
-
-        results = np.concatenate([soln.results for soln in self.solns])
+            results_blocks.append(per_time)
+        # validate time axis consistent across solutions
+        ntime = results_blocks[0].shape[0]
+        if any(block.shape[0] != ntime for block in results_blocks):
+            raise RuntimeError("Results time dimension mismatch across solutions")
+        # flatten per time by concatenating channels of all solutions
+        results = np.concatenate(results_blocks, axis=1).flatten()
         if results.size == 0:
             raise RuntimeError("No valid results found")
         return results
@@ -580,15 +616,23 @@ class HyperfitsSolutionGroup:
 
     def get_solns(
         self, refant_name=None
-    ) -> tuple[NDArray[np.int_], NDArray[np.complex128], NDArray[np.complex128]]:
-        """Return tile ids, and xx/yy solutions for the reference antenna.
+    ) -> tuple[
+        NDArray[np.int_],
+        NDArray[np.complex128],
+        NDArray[np.complex128],
+        list[float],
+    ]:
+        """Return tile ids, xx/yy solutions, and average times.
 
-        The tile ids are in the order they appear in the solutions.
+        Solutions are referenced to the chosen reference antenna (if provided).
+        The tile ids are in the order they appear in the solutions. Average times
+        correspond to the time axis of the returned solutions.
         """
         soln_tile_ids = None
         ref_tile_idx = None
         all_xx_solns = None
         all_yy_solns = None
+        all_avg_times: Optional[list[float]] = None
 
         for chanblocks_hz, soln in zip(self.all_chanblocks_hz, self.solns):
             # TODO: ch_flags = hdus['CHANBLOCKS'].data['Flag']
@@ -644,31 +688,31 @@ class HyperfitsSolutionGroup:
                     f" this:\n{soln_tile_ids}"
                 )
 
-            # validate timeblocks
+            # validate and collect timeblocks
             try:
                 avg_times = soln.get_average_times()
             except KeyError:
-                # actual time values are not actually used anyway, just length.
                 solutions = soln.get_solutions()
                 n_times = solutions[0].shape[0]
                 avg_times = [float("nan")] * n_times
 
-            # TODO: support multiple timeblocks
-            if len(avg_times) != 1:
-                raise RuntimeError(
-                    f"{soln.filename} - exactly 1 timeblock must be provided: "
-                    f"({len(avg_times)})"
-                )
-            # TODO: compare with metafits times
+            if all_avg_times is None:
+                all_avg_times = avg_times
+            else:
+                if len(all_avg_times) != len(avg_times):
+                    raise RuntimeError(
+                        f"{soln.filename} - number of timeblocks ({len(avg_times)}) "
+                        f"does not match previous ({len(all_avg_times)})"
+                    )
 
             # validate solutions
             solutions = soln.get_ref_solutions(ref_tile_idx)
             for solution in solutions:
-                if (ntimes := solution.shape[0]) != 1:
+                ntimes = solution.shape[0]
+                if ntimes != len(avg_times):
                     raise RuntimeError(
-                        f"{soln.filename} - number of timeblocks in SOLUTIONS HDU "
-                        f"({ntimes}) does not match TIMEBLOCKS HDU "
-                        f"({len(avg_times)})"
+                        f"{soln.filename} - SOLUTIONS timeblocks ({ntimes}) do not "
+                        f"match TIMEBLOCKS ({len(avg_times)})"
                     )
                 if (ntiles := solution.shape[1]) != len(soln_tile_ids):
                     raise RuntimeError(
@@ -687,16 +731,22 @@ class HyperfitsSolutionGroup:
             if all_xx_solns is None:
                 all_xx_solns = solutions[0]
             else:
+                # concatenate across channels
                 all_xx_solns = np.concatenate((all_xx_solns, solutions[0]), axis=2)
             if all_yy_solns is None:
                 all_yy_solns = solutions[3]
             else:
                 all_yy_solns = np.concatenate((all_yy_solns, solutions[3]), axis=2)
 
-        if soln_tile_ids is None or all_xx_solns is None or all_yy_solns is None:
+        if (
+            soln_tile_ids is None or
+            all_xx_solns is None or
+            all_yy_solns is None or
+            all_avg_times is None
+        ):
             raise RuntimeError("No valid solutions found")
 
-        return soln_tile_ids, all_xx_solns, all_yy_solns
+        return soln_tile_ids, all_xx_solns, all_yy_solns, all_avg_times
 
 
 class PhaseFitInfo(NamedTuple):
@@ -1518,63 +1568,97 @@ def main():
     # print(f"{refant=}")
     chanblocks_hz = np.concatenate(soln_group.all_chanblocks_hz)
     # print(f"{len(chanblocks_hz)=}")
-    soln_tile_ids, all_xx_solns, all_yy_solns = soln_group.get_solns(refant_name)
-    # matrix plot of phase angle vs frequency
-    weights = soln_group.weights
-
+    soln_tile_ids, all_xx_solns, all_yy_solns, avg_times = soln_group.get_solns(
+        refant_name
+    )
     phase_fit_niter = 1
 
-    phase_fits = []
-    # by default we don't want to apply any phase rotation.
-    phase_diff = np.full((len(chanblocks_hz),), 1.0, dtype=np.complex128)
-    if args.phase_diff_path is not None and os.path.exists(args.phase_diff_path):
-        # phase_diff_raw columns: [frequency, phase_difference]
-        phase_diff_raw = np.loadtxt(args.phase_diff_path)
-        for i, chanblock_hz in enumerate(chanblocks_hz):
-            # find the closest frequency in phase_diff_raw
-            idx = np.abs(phase_diff_raw[:, 0] - chanblock_hz).argmin()
-            diff = phase_diff_raw[idx, 1]
-            phase_diff[i] = np.exp(-1j * diff)
-    else:
-        print("not applying phase correction")
+    # iterate per timeblock and produce outputs per block
+    for time_index, avg_time in enumerate(avg_times):
+        phase_fits_rows = []
+        # compute per-time weights matching concatenated channels
+        weights_blocks: list[NDArray[np.float64]] = []
+        for soln, chanblocks_hz_soln in zip(
+            soln_group.solns, soln_group.all_chanblocks_hz
+        ):
+            per_time_results = soln.results_per_time()
+            if time_index >= per_time_results.shape[0]:
+                raise RuntimeError(
+                    f"{soln.filename} - missing results for time index {time_index}"
+                )
+            r = per_time_results[time_index].copy()
+            r[r < 0] = np.nan
+            r[r > 1e-4] = np.nan
+            exp_r = np.exp(-r)
+            denom = np.nanmax(exp_r) - np.nanmin(exp_r)
+            if denom == 0 or not np.isfinite(denom):
+                w = np.nan_to_num(exp_r)
+            else:
+                w = np.nan_to_num((exp_r - np.nanmin(exp_r)) / denom)
+            if len(w) != len(chanblocks_hz_soln):
+                raise RuntimeError(
+                    f"{soln.filename} - weights length ({len(w)}) "
+                    f"!= channels ({len(chanblocks_hz_soln)})"
+                )
+            weights_blocks.append(w)
+        weights_1d = np.concatenate(weights_blocks)
+        # by default we don't want to apply any phase rotation.
+        phase_diff = np.full((len(chanblocks_hz),), 1.0, dtype=np.complex128)
+        if args.phase_diff_path is not None and os.path.exists(args.phase_diff_path):
+            # phase_diff_raw columns: [frequency, phase_difference]
+            phase_diff_raw = np.loadtxt(args.phase_diff_path)
+            for i, chanblock_hz in enumerate(chanblocks_hz):
+                # find the closest frequency in phase_diff_raw
+                idx = np.abs(phase_diff_raw[:, 0] - chanblock_hz).argmin()
+                diff = phase_diff_raw[idx, 1]
+                phase_diff[i] = np.exp(-1j * diff)
+        else:
+            if time_index == 0:
+                print("not applying phase correction")
 
-    for soln_idx, (tile_id, xx_solns, yy_solns) in enumerate(
-        zip(soln_tile_ids, all_xx_solns[0], all_yy_solns[0])
-    ):
-        tile: Tile = tiles[tiles.id == tile_id].iloc[0]
-        for pol, solns in [("XX", xx_solns), ("YY", yy_solns)]:
-            if tile.flavor.endswith("-NI"):
-                solns *= phase_diff
+        # solutions at this time index have shape [tile, chan]
+        for soln_idx, (tile_id, xx_solns, yy_solns) in enumerate(
+            zip(soln_tile_ids, all_xx_solns[time_index], all_yy_solns[time_index])
+        ):
+            tile: Tile = tiles[tiles.id == tile_id].iloc[0]
+            for pol, solns in [("XX", xx_solns), ("YY", yy_solns)]:
+                if tile.flavor.endswith("-NI"):
+                    solns *= phase_diff
 
-            try:
-                fit = fit_phase_line(
-                    chanblocks_hz, solns, weights, niter=phase_fit_niter
-                )  # type: ignore
-            except Exception as exc:
-                print(f"{tile_id=:4} ({tile.name}) {pol} {exc}")
-                continue
-            phase_fits.append([tile_id, soln_idx, pol, *fit])
+                try:
+                    fit = fit_phase_line(
+                        chanblocks_hz, solns, weights_1d, niter=phase_fit_niter
+                    )  # type: ignore
+                except Exception as exc:
+                    print(f"{tile_id=:4} ({tile.name}) {pol} {exc}")
+                    continue
+                phase_fits_rows.append([tile_id, soln_idx, pol, *fit])
 
-    phase_fits = pd.DataFrame(
-        phase_fits, columns=["tile_id", "soln_idx", "pol", *PhaseFitInfo._fields]
-    )  # type: ignore
+        phase_fits_df = pd.DataFrame(
+            phase_fits_rows,
+            columns=["tile_id", "soln_idx", "pol", *PhaseFitInfo._fields],
+        )  # type: ignore
 
-    if not len(phase_fits):
-        return
+        if not len(phase_fits_df):
+            continue
 
-    phase_fits = debug_phase_fits(
-        phase_fits,
-        tiles,
-        chanblocks_hz,
-        all_xx_solns[0],
-        all_yy_solns[0],
-        weights,
-        prefix=f"{args.out_dir}/{title} ",
-        show=show,
-        title=title,
-        plot_residual=args.plot_residual,
-        residual_vmax=args.residual_vmax,
-    )  # type: ignore
+        # suffix outputs with time index (and average time)
+        block_prefix = f"{args.out_dir}/{title} t{time_index:03d} "
+        block_title = f"{title} t{time_index:03d} (avg={avg_time})"
+
+        _ = debug_phase_fits(
+            phase_fits_df,
+            tiles,
+            chanblocks_hz,
+            all_xx_solns[time_index],
+            all_yy_solns[time_index],
+            weights_1d,
+            prefix=block_prefix,
+            show=show,
+            title=block_title,
+            plot_residual=args.plot_residual,
+            residual_vmax=args.residual_vmax,
+        )  # type: ignore
 
 
 if __name__ == "__main__":
