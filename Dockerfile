@@ -184,9 +184,13 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     && python -m pip install \
     git+https://github.com/d3v-null/SSINS.git@eavils-copilot \
     git+https://github.com/d3v-null/mwa_qa.git@dev \
-    git+https://github.com/PaulHancock/Aegean.git \
     git+https://github.com/tjgalvin/fits_warp.git \
     git+https://github.com/Chuneeta/mwa_cal.git
+
+# dropped aegeantools because of numpy2
+# RUN --mount=type=cache,target=/root/.cache/pip \
+#     python -m pip install \
+#     git+https://github.com/PaulHancock/Aegean.git
 
 # # download latest Leap_Second.dat, IERS finals2000A.all
 RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
