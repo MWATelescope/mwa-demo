@@ -1232,7 +1232,8 @@ def plot_rx_lengths(flavor_fits, prefix, show, title):
     if prefix:
         plt.tight_layout()
         fig.savefig(f"{prefix}rx_lengths.png", dpi=300, bbox_inches="tight")
-
+    # Close figure to avoid accumulating open figures
+    plt.close(fig)
     return means
 
 
@@ -1324,6 +1325,8 @@ def plot_phase_fits(
         if prefix:
             plt.tight_layout()
             fig.savefig(f"{prefix}phase_fits_{pol}.png", dpi=300, bbox_inches="tight")
+        # Close figure to avoid too many open figures
+        plt.close(fig)
 
 
 def plot_phase_intercepts(prefix, show, title, flavor_fits):
@@ -1358,6 +1361,8 @@ def plot_phase_intercepts(prefix, show, title, flavor_fits):
     if prefix:
         plt.tight_layout()
         fig.savefig(f"{prefix}intercepts.png", dpi=300, bbox_inches="tight")
+    # Close underlying figure to free memory
+    plt.close(fig)
 
 
 def plot_phase_residual(
@@ -1469,6 +1474,8 @@ def plot_phase_residual(
     fig.savefig(f"{prefix}residual.png", dpi=200, bbox_inches="tight")
     # save df to csv
     df.to_csv(f"{prefix}residual.tsv", sep="\t", index=False)
+    # Close underlying figure to free memory
+    plt.close(fig)
 
 
 def pivot_phase_fits(phase_fits: pd.DataFrame, tiles: pd.DataFrame) -> pd.DataFrame:
