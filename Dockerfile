@@ -191,38 +191,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # # download latest Leap_Second.dat, IERS finals2000A.all
 RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
 
-# FROM mwatelescope/giant-squid:latest AS giant_squid
-# RUN /opt/cargo/bin/giant-squid --version
-# # HACK: the calibration fitting code in mwax_mover deserves its own public repo
-FROM d3vnull0/mwax_mover:latest AS mwax_mover
-FROM base
-# # Copy files from the previous stages into the final image
-COPY --from=mwax_mover /app /mwax_mover
-# copy giant squid binary from its own image
-# COPY --from=giant_squid /opt/cargo/bin/giant-squid /opt/cargo/bin/giant-squid
-# RUN /opt/cargo/bin/giant-squid --version
-
-RUN cd /mwax_mover && \
-    chmod +x /mwax_mover/scripts/*.py && \
-    python -m pip install .
-ENV PATH="/mwax_mover/scripts/:${PATH}"
-
 # add chips wrappers
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install  \
     git+https://github.com/d3v-null/CHIPS_wrappers.git@rn-changes
-
-# python /mwax_mover/scripts/cal_analysis.py \
-# --name "${name}" \
-# --metafits "${metafits}" --solns ${soln} \
-# --phase-diff-path=/mwax_mover/phase_diff.txt \
-# --plot-residual --residual-vmax=0.5
-
-# export metafits=${outdir}/${obsid}/raw/${obsid}.metafits
-# export raw="$(ls -1 ${outdir}/${obsid}/raw/${obsid}*.fits)"
-# export soln=${outdir}/${obsid}/cal/hyp_soln_${obsid}.fits
-# docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python mwatelescope/mwa-demo:latest /mwax_mover/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/mwax_mover/phase_diff.txt --plot-residual --residual-vmax=0.5
-# docker run --rm -it -v ${PWD}:${PWD} -w ${PWD} --entrypoint python d3vnull0/mwax_mover:latest /app/scripts/cal_analysis.py --name foo --metafits ${metafits} --solns ${soln} --phase-diff-path=/app/phase_diff.txt --plot-residual --residual-vmax=0.5
 
 # Copy the demo files
 COPY ./demo /demo

@@ -150,6 +150,14 @@ eval ls -1d $prep_vis_pattern | while read -r prep_vis; do
     # CAL QA #
     # ###### #
     # DEMO: use mwa_qa to check calibration solutions
+    cal_dir=$(dirname "${hyp_soln}")
+    cal_base=$(basename "${hyp_soln}")
+    export cal_name=${cal_base%%.fits}
+    python $SCRIPT_BASE/82_calfit.py \
+        --name "${cal_name}" \
+        --metafits "${metafits}" \
+        --solns "${hyp_soln}" \
+        --out-dir "${cal_dir}"
 
     export calqa="${hyp_soln%%.fits}_qa.json"
 
@@ -194,12 +202,3 @@ eval ls -1d $prep_vis_pattern | while read -r prep_vis; do
         echo "cal_vis $cal_vis exists, skipping hyperdrive apply"
     fi
 done
-
-# TODO phase fits, for now you need to singularity exec -B$PWD -B${outdir:-$PWD} -W$PWD --cleanenv docker://mwatelescope/mwa-demo:latest /bin/bash
-cat <<EOF
-# this will only work in the contaier :(
-python /mwax_mover/scripts/cal_analysis.py \
-    --name "${obsid}" \
-    --metafits "${metafits}" --solns ${outdir}/${obsid}/cal/hyp_soln_${obsid}*.fits \
-    --plot-residual --residual-vmax=0.5
-EOF
