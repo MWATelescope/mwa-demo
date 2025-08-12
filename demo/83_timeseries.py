@@ -10,8 +10,10 @@ Then aggregates values across time and produces grid plots (rx x slot):
 - intercepts_xx/yy over time
 
 Usage examples:
-  python demo/83_timeseries.py --dir . --prefix "1099487728" --out-dir .
-  python demo/83_timeseries.py --glob "./* t??? phase_fits.tsv" --out-dir ./out
+demo/83_timeseries.py \
+    --glob "clock_tec/* t??? phase_fits.tsv" \
+    --out-dir ./clock_tec --title "combined" \
+    --smooth 8 --timestep-sec 2 --show --dark
 """
 
 from __future__ import annotations
@@ -112,6 +114,63 @@ def load_timeseries(files: Iterable[PhaseFitsFile]) -> pd.DataFrame:
     return data
 
 
+def build_times_index(data: pd.DataFrame, timestep_sec: float) -> pd.DataFrame:
+    """Build a complete time index per observation, inserting gaps.
+
+    For each `gps_start`, generates all integer `time_index` values between the
+    minimum and maximum present (inclusive). Computes `gps_time` as
+      gps_start + time_index * timestep_sec
+    and returns a concatenated, sorted index with an `order_index` column.
+    """
+    groups = []
+    for gps_start, group in data.groupby("gps_start"):
+        # ensure integers for time_index
+        idx_min = int(pd.to_numeric(group["time_index"]).min())
+        idx_max = int(pd.to_numeric(group["time_index"]).max())
+        full_idx = pd.DataFrame({
+            "gps_start": gps_start,
+            "time_index": np.arange(idx_min, idx_max + 1, dtype=int),
+        })
+        full_idx["gps_time"] = (
+            full_idx["gps_start"].astype(float) +
+            full_idx["time_index"].astype(float) * float(timestep_sec)
+        )
+        groups.append(full_idx)
+    if not groups:
+        return pd.DataFrame(
+            columns=["gps_start", "time_index", "gps_time", "order_index"]
+        )  # type: ignore
+    times_index = pd.concat(groups, ignore_index=True)
+    times_index.sort_values(by=["gps_start", "time_index"], inplace=True)
+    times_index.reset_index(drop=True, inplace=True)
+    times_index["order_index"] = np.arange(len(times_index))
+    return times_index
+
+
+def _smooth_array(values: np.ndarray, window: int) -> np.ndarray:
+    if window is None or window <= 1:
+        return values
+    try:
+        import pandas as _pd  # local import to avoid top-level dependency issues
+
+        return (
+            _pd.Series(values, dtype=float)
+            .rolling(window=window, min_periods=1, center=True)
+            .mean()
+            .to_numpy()
+        )
+    except Exception:
+        # Fallback: simple convolution; treat NaNs as zeros with weight correction
+        vals = values.astype(float)
+        mask = np.isfinite(vals).astype(float)
+        vals[~np.isfinite(vals)] = 0.0
+        kernel = np.ones(window, dtype=float)
+        num = np.convolve(vals, kernel, mode="same")
+        den = np.convolve(mask, kernel, mode="same")
+        den[den == 0] = 1.0
+        return num / den
+
+
 def plot_grid_over_time(
     data: pd.DataFrame,
     *,
@@ -121,6 +180,8 @@ def plot_grid_over_time(
     title: str,
     out_path: str,
     sharey: bool = False,
+    smooth_window: int = 4,
+    times_index: pd.DataFrame | None = None,
 ) -> None:
     """Plot grid of values over time (rx x slot), XX and YY per tile."""
     sns.set_context("talk")
@@ -141,14 +202,15 @@ def plot_grid_over_time(
     elif len(slots) == 1:
         axs = axs[:, np.newaxis]
 
-    # Build a composite time axis across observations: sort by (gps_start, time_index)
-    times_unique = (
-        data[["gps_start", "time_index"]]
-        .drop_duplicates()
-        .sort_values(by=["gps_start", "time_index"], kind="mergesort")
-        .reset_index(drop=True)
-    )
-    times_unique["order_index"] = np.arange(len(times_unique))
+    # Build or reuse composite time index (must include gps_time)
+    if times_index is None:
+        times_index = (
+            data[["gps_start", "time_index", "gps_time"]]
+            .drop_duplicates()
+            .sort_values(by=["gps_start", "time_index"], kind="mergesort")
+            .reset_index(drop=True)
+        )
+    times_unique = times_index.copy()
 
     for ax in axs.flatten():
         ax.axis("off")
@@ -162,14 +224,28 @@ def plot_grid_over_time(
             ax.axis("on")
             # Keep chronological across observations; join on composite times
             tile_times = times_unique.merge(
-                tile, on=["gps_start", "time_index"], how="left"
+                tile.drop(columns=["gps_time"], errors="ignore"),
+                on=["gps_start", "time_index"],
+                how="left",
             )
+            x_raw = tile_times[value_xx].to_numpy(dtype=float)
+            y_raw = tile_times[value_yy].to_numpy(dtype=float)
+            yx = _smooth_array(x_raw, smooth_window)
+            yy = _smooth_array(y_raw, smooth_window)
+            # Do not connect across gaps: preserve NaNs from raw
+            yx[~np.isfinite(x_raw)] = np.nan
+            yy[~np.isfinite(y_raw)] = np.nan
+            # Break between different observations
+            gps_start_arr = tile_times["gps_start"].to_numpy()
+            breaks = np.concatenate(([False], gps_start_arr[1:] != gps_start_arr[:-1]))
+            yx[breaks] = np.nan
+            yy[breaks] = np.nan
             ax.plot(
-                tile_times["order_index"], tile_times[value_xx],
+                tile_times["gps_time"], yx,
                 label="XX", color="#3366cc", linewidth=1.0,
             )
             ax.plot(
-                tile_times["order_index"], tile_times[value_yy],
+                tile_times["gps_time"], yy,
                 label="YY", color="#dc3912", linewidth=1.0,
             )
             # title label
@@ -177,7 +253,7 @@ def plot_grid_over_time(
             ax.set_title(str(name), fontsize=9)
 
     # global labels
-    fig.supxlabel("observation/time order")
+    fig.supxlabel("GPS time (s)")
     fig.supylabel(ylabel)
     fig.suptitle(title)
 
@@ -212,6 +288,8 @@ def plot_all_tiles_overlay_single(
     title: str,
     out_path: str,
     legend_max: int = 12,
+    smooth_window: int = 4,
+    timestep_sec: float = 8.0,
 ) -> None:
     """Plot all tiles overlaid in a single axes for a single value (XX or YY).
 
@@ -229,6 +307,10 @@ def plot_all_tiles_overlay_single(
         .reset_index(drop=True)
     )
     times_unique["order_index"] = np.arange(len(times_unique))
+    times_unique["gps_time"] = (
+        times_unique["gps_start"].astype(float) +
+        times_unique["time_index"].astype(float) * float(timestep_sec)
+    )
 
     # Color palette large enough for many tiles
     groups = list(data.groupby(["rx", "slot"], sort=True))
@@ -240,10 +322,13 @@ def plot_all_tiles_overlay_single(
 
     for idx, ((_rx, _slot), tile) in enumerate(groups):
         tile_times = times_unique.merge(
-            tile, on=["gps_start", "time_index"], how="left"
+            tile.drop(columns=["gps_time"], errors="ignore"),
+            on=["gps_start", "time_index"],
+            how="left",
         )
         series = tile_times[value]
-        med = np.nanmedian(series.to_numpy(dtype=float))
+        series_raw = series.to_numpy(dtype=float)
+        med = np.nanmedian(series_raw)
         if not np.isfinite(med):
             norm_series = series
         else:
@@ -254,9 +339,16 @@ def plot_all_tiles_overlay_single(
             if "name" in tile.columns and pd.notna(tile["name"].iloc[0])
             else f"rx{int(_rx)} s{int(_slot)}"
         )
+        y_sm = _smooth_array(norm_series.to_numpy(dtype=float), smooth_window)
+        # Do not connect across original gaps
+        y_sm[~np.isfinite(series_raw)] = np.nan
+        # Break between different observations
+        gps_start_arr = tile_times["gps_start"].to_numpy()
+        breaks = np.concatenate(([False], gps_start_arr[1:] != gps_start_arr[:-1]))
+        y_sm[breaks] = np.nan
         (ln,) = ax.plot(
-            tile_times["order_index"],
-            norm_series,
+            tile_times["gps_time"],
+            y_sm,
             color=color,
             alpha=0.2,
             linewidth=0.8,
@@ -266,7 +358,7 @@ def plot_all_tiles_overlay_single(
             legend_handles.append(ln)
             legend_labels.append(name)
 
-    ax.set_xlabel("observation/time order")
+    ax.set_xlabel("GPS time (s)")
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     if legend_handles:
@@ -301,6 +393,8 @@ def plot_receiver_overlay_single(
     title: str,
     out_path: str,
     legend_max: int = 12,
+    smooth_window: int = 4,
+    timestep_sec: float = 8.0,
 ) -> None:
     """Plot one line per receiver: mean of tiles on each receiver.
 
@@ -319,6 +413,10 @@ def plot_receiver_overlay_single(
         .reset_index(drop=True)
     )
     times_unique["order_index"] = np.arange(len(times_unique))
+    times_unique["gps_time"] = (
+        times_unique["gps_start"].astype(float) +
+        times_unique["time_index"].astype(float) * float(timestep_sec)
+    )
 
     # Group strictly by RX from TSV (8 tiles per receiver expected)
     receivers = np.sort(data["rx"].unique())
@@ -336,7 +434,9 @@ def plot_receiver_overlay_single(
             recv_df.groupby(["gps_start", "time_index"], as_index=False)[value]
             .mean()
         )
-        merged = times_unique.merge(agg, on=["gps_start", "time_index"], how="left")
+        merged = times_unique.merge(
+            agg, on=["gps_start", "time_index"], how="left"
+        )
         series = merged[value].to_numpy(dtype=float)
         med = np.nanmedian(series)
         if np.isfinite(med):
@@ -345,9 +445,16 @@ def plot_receiver_overlay_single(
 
         color = palette[idx % len(palette)]
         label = f"rx{int(rx):02d}" if len(legend_labels) < legend_max else None
+        y_sm = _smooth_array(series, smooth_window)
+        # Preserve gaps
+        y_sm[~np.isfinite(series)] = np.nan
+        # Break between different observations
+        gps_start_arr = merged["gps_start"].to_numpy()
+        breaks = np.concatenate(([False], gps_start_arr[1:] != gps_start_arr[:-1]))
+        y_sm[breaks] = np.nan
         (ln,) = ax.plot(
-            merged["order_index"],
-            series,
+            merged["gps_time"],
+            y_sm,
             color=color,
             alpha=0.6,
             linewidth=1.2,
@@ -357,7 +464,7 @@ def plot_receiver_overlay_single(
             legend_handles.append(ln)
             legend_labels.append(label)
 
-    ax.set_xlabel("observation/time order")
+    ax.set_xlabel("GPS time (s)")
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     if legend_handles:
@@ -370,7 +477,6 @@ def plot_receiver_overlay_single(
         lo, hi = np.nanpercentile(y_vals, [1.0, 99.0])
         ax.set_ylim(lo, hi)
 
-    plt.show()
     fig.tight_layout()
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
 
@@ -400,7 +506,17 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--title", default=None, help="Title prefix for plots")
     parser.add_argument("--show", action="store_true", help="Show plots interactively")
+    parser.add_argument("--smooth", type=int, default=4, help="Smooth the time series")
+    parser.add_argument(
+        "--timestep-sec", type=float, default=8.0, help="Seconds per timestep"
+    )
+    parser.add_argument(
+        "--dark", action="store_true", help="Use dark theme"
+    )
     args = parser.parse_args(argv)
+
+    if args.dark:
+        plt.style.use("dark_background")
 
     files = find_phase_fits(
         directory=args.dir, glob_pattern=args.glob_pattern, prefix=args.prefix
@@ -409,6 +525,9 @@ def main(argv: list[str] | None = None) -> None:
 
     base_title = args.title or (args.prefix or "phase fits")
     os.makedirs(args.out_dir, exist_ok=True)
+
+    # Create a complete times index with gps_time and filled gaps
+    times_index = build_times_index(data, args.timestep_sec)
 
     # Lengths
     plot_grid_over_time(
@@ -419,6 +538,8 @@ def main(argv: list[str] | None = None) -> None:
         title=f"{base_title} - lengths over time",
         out_path=os.path.join(args.out_dir, f"{base_title} lengths_timeseries.png"),
         sharey=True,
+        smooth_window=args.smooth,
+        times_index=times_index,
     )
 
     # Intercepts (radians, wrapped)
@@ -430,46 +551,54 @@ def main(argv: list[str] | None = None) -> None:
         title=f"{base_title} - intercepts over time",
         out_path=os.path.join(args.out_dir, f"{base_title} intercepts_timeseries.png"),
         sharey=True,
+        smooth_window=args.smooth,
+        times_index=times_index,
     )
 
-    # Overlay plots with all tiles together (separate XX and YY, median-normalized)
-    plot_all_tiles_overlay_single(
-        data,
-        value="length_xx",
-        ylabel="Δlength (m)",
-        title=f"{base_title} - lengths over time (all tiles, XX)",
-        out_path=os.path.join(
-            args.out_dir, f"{base_title} lengths_timeseries_all_xx.png"
-        ),
-    )
-    plot_all_tiles_overlay_single(
-        data,
-        value="length_yy",
-        ylabel="Δlength (m)",
-        title=f"{base_title} - lengths over time (all tiles, YY)",
-        out_path=os.path.join(
-            args.out_dir, f"{base_title} lengths_timeseries_all_yy.png"
-        ),
-    )
+    # # Overlay plots with all tiles together (separate XX and YY, median-normalized)
+    # plot_all_tiles_overlay_single(
+    #     data,
+    #     value="length_xx",
+    #     ylabel="Δlength (m)",
+    #     title=f"{base_title} - lengths over time (all tiles, XX)",
+    #     out_path=os.path.join(
+    #         args.out_dir, f"{base_title} lengths_timeseries_all_xx.png"
+    #     ),
+    #     smooth_window=args.smooth,
+    #     timestep_sec=args.timestep_sec,
+    # )
+    # plot_all_tiles_overlay_single(
+    #     data,
+    #     value="length_yy",
+    #     ylabel="Δlength (m)",
+    #     title=f"{base_title} - lengths over time (all tiles, YY)",
+    #     out_path=os.path.join(
+    #         args.out_dir, f"{base_title} lengths_timeseries_all_yy.png"
+    #     ),
+    #     smooth_window=args.smooth,
+    #     timestep_sec=args.timestep_sec,
+    # )
 
-    plot_all_tiles_overlay_single(
-        data,
-        value="intercept_xx",
-        ylabel="Δintercept (rad)",
-        title=f"{base_title} - intercepts over time (all tiles, XX)",
-        out_path=os.path.join(
-            args.out_dir, f"{base_title} intercepts_timeseries_all_xx.png"
-        ),
-    )
-    plot_all_tiles_overlay_single(
-        data,
-        value="intercept_yy",
-        ylabel="Δintercept (rad)",
-        title=f"{base_title} - intercepts over time (all tiles, YY)",
-        out_path=os.path.join(
-            args.out_dir, f"{base_title} intercepts_timeseries_all_yy.png"
-        ),
-    )
+    # plot_all_tiles_overlay_single(
+    #     data,
+    #     value="intercept_xx",
+    #     ylabel="Δintercept (rad)",
+    #     title=f"{base_title} - intercepts over time (all tiles, XX)",
+    #     out_path=os.path.join(
+    #         args.out_dir, f"{base_title} intercepts_timeseries_all_xx.png"
+    #     ),
+    #     smooth_window=args.smooth,
+    # )
+    # plot_all_tiles_overlay_single(
+    #     data,
+    #     value="intercept_yy",
+    #     ylabel="Δintercept (rad)",
+    #     title=f"{base_title} - intercepts over time (all tiles, YY)",
+    #     out_path=os.path.join(
+    #         args.out_dir, f"{base_title} intercepts_timeseries_all_yy.png"
+    #     ),
+    #     smooth_window=args.smooth,
+    # )
 
     # Receiver-average overlays (mean of 8 tiles per receiver)
     plot_receiver_overlay_single(
@@ -480,6 +609,8 @@ def main(argv: list[str] | None = None) -> None:
         out_path=os.path.join(
             args.out_dir, f"{base_title} lengths_timeseries_receiver_xx.png"
         ),
+        smooth_window=args.smooth,
+        timestep_sec=args.timestep_sec,
     )
     plot_receiver_overlay_single(
         data,
@@ -489,25 +620,29 @@ def main(argv: list[str] | None = None) -> None:
         out_path=os.path.join(
             args.out_dir, f"{base_title} lengths_timeseries_receiver_yy.png"
         ),
+        smooth_window=args.smooth,
+        timestep_sec=args.timestep_sec,
     )
-    plot_receiver_overlay_single(
-        data,
-        value="intercept_xx",
-        ylabel="mean Δintercept (rad)",
-        title=f"{base_title} - receiver mean Δintercept (XX)",
-        out_path=os.path.join(
-            args.out_dir, f"{base_title} intercepts_timeseries_receiver_xx.png"
-        ),
-    )
-    plot_receiver_overlay_single(
-        data,
-        value="intercept_yy",
-        ylabel="mean Δintercept (rad)",
-        title=f"{base_title} - receiver mean Δintercept (YY)",
-        out_path=os.path.join(
-            args.out_dir, f"{base_title} intercepts_timeseries_receiver_yy.png"
-        ),
-    )
+    # plot_receiver_overlay_single(
+    #     data,
+    #     value="intercept_xx",
+    #     ylabel="mean Δintercept (rad)",
+    #     title=f"{base_title} - receiver mean Δintercept (XX)",
+    #     out_path=os.path.join(
+    #         args.out_dir, f"{base_title} intercepts_timeseries_receiver_xx.png"
+    #     ),
+    #     smooth_window=args.smooth,
+    # )
+    # plot_receiver_overlay_single(
+    #     data,
+    #     value="intercept_yy",
+    #     ylabel="mean Δintercept (rad)",
+    #     title=f"{base_title} - receiver mean Δintercept (YY)",
+    #     out_path=os.path.join(
+    #         args.out_dir, f"{base_title} intercepts_timeseries_receiver_yy.png"
+    #     ),
+    #     smooth_window=args.smooth,
+    # )
 
     if args.show:
         plt.show()

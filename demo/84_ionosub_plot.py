@@ -5,11 +5,10 @@ Plot alpha, beta, and gain time series for the top-N sources from ionosub JSON f
 Ranking for "top" sources defaults to highest mean absolute gain across time.
 
 Usage:
-  python demo/84_ionosub_plot.py \
-    --glob "ionosub/*.json" \
-    --out-dir ./ionosub \
-    --top 10 \
-    --rank-by gain
+demo/84_ionosub_plot.py \
+    --glob "ionosub/hyp_peel_109*_ionosub_ssins_30l_src8k_300it_160kHz_i1000_uv.json" \
+    --out-dir ionosub --top 10 --rank-by brightness --sort-by ra \
+    --timestep-sec 2 --smooth 8 --dark --show
 """
 from __future__ import annotations
 
@@ -155,13 +154,45 @@ def select_top_by_series(series_map: dict[str, list[float]], top: int) -> list[s
     return [name for name, _ in scored[:top]]
 
 
+def _smooth_array(values: list[float] | np.ndarray, window: int) -> np.ndarray:
+    """Centered moving average with NaN handling; window<=1 returns input."""
+    try:
+        arr = np.array(values, dtype=float)
+    except Exception:
+        return np.asarray(values)
+    if window is None or window <= 1:
+        return arr
+    try:
+        import pandas as _pd  # type: ignore
+
+        return (
+            _pd.Series(arr, dtype=float)
+            .rolling(window=window, min_periods=1, center=True)
+            .mean()
+            .to_numpy()
+        )
+    except Exception:
+        # Fallback: weighted convolution treating NaNs as 0 with mask
+        vals = arr.astype(float)
+        mask = np.isfinite(vals).astype(float)
+        vals[~np.isfinite(vals)] = 0.0
+        kernel = np.ones(int(window), dtype=float)
+        num = np.convolve(vals, kernel, mode="same")
+        den = np.convolve(mask, kernel, mode="same")
+        den[den == 0] = 1.0
+        return num / den
+
+
 def plot_metric(
-    timepoints: list[int],
+    timepoints: dict[str, list[float]] | list[int] | None,
     series_map: dict[str, list[float]],
     top_names: list[str],
     title: str,
     ylabel: str,
     out_path: str,
+    smooth_window: int = 1,
+    show: bool = False,
+    expected_step: float | None = None,
 ) -> None:
     """Plot a metric for the selected top sources across time."""
     sns.set_context("talk")
@@ -169,22 +200,39 @@ def plot_metric(
     palette = sns.color_palette("husl", n_colors=max(len(top_names), 3))
     handles = []
     labels = []
+    uses_gps_axis = False
     for i, name in enumerate(top_names):
         y = series_map.get(name)
         if y is None:
             continue
-        # Build x-axis per-series to match stacked length
-        x = (
-            list(range(len(y)))
-            if (timepoints is None or len(timepoints) != len(y))
-            else timepoints
-        )
-        (ln,) = plt.plot(x, y, color=palette[i], alpha=0.6, linewidth=1.2,
+        # Build x-axis per-series
+        if isinstance(timepoints, dict):
+            x = timepoints.get(name, list(range(len(y))))
+        elif isinstance(timepoints, list):
+            x = timepoints if len(timepoints) == len(y) else list(range(len(y)))
+        else:
+            x = list(range(len(y)))
+        y_sm = _smooth_array(y, smooth_window)
+        # Break lines across large time gaps
+        if expected_step and isinstance(x, list) and len(x) == len(y_sm) and len(x) > 1:
+            try:
+                x_arr = np.array(x, dtype=float)
+                deltas = np.diff(x_arr)
+                gap_idx = np.where(deltas > (expected_step * 1.5))[0]
+                if gap_idx.size:
+                    y_sm = y_sm.astype(float)
+                    # set point at the gap start to NaN so matplotlib breaks the line
+                    y_sm[gap_idx] = np.nan
+            except Exception:
+                pass
+        if isinstance(x, list) and x and isinstance(x[0], (int, float)) and float(x[0]) > 1e8:
+            uses_gps_axis = True
+        (ln,) = plt.plot(x, y_sm, color=palette[i], alpha=0.6, linewidth=1.2,
                          label=name if len(labels) < 10 else None)
         if len(labels) < 10:
             handles.append(ln)
             labels.append(name)
-    plt.xlabel("time index")
+    plt.xlabel("GPS time (s)" if uses_gps_axis else "time index")
     plt.ylabel(ylabel)
     plt.title(title)
     if handles:
@@ -198,6 +246,8 @@ def plot_metric(
         lo, hi = np.nanpercentile(all_vals, [1.0, 99.0])
         plt.ylim(lo, hi)
     plt.tight_layout()
+    if show:
+        plt.show()
     plt.savefig(out_path, dpi=200, bbox_inches="tight")
 
 
@@ -227,15 +277,32 @@ def main() -> None:
         "--brightness-top-frac", type=float, default=0.1,
         help="For rank-by=brightness, fraction of sources per file counted as 'high'",
     )
+    parser.add_argument(
+        "--smooth", type=int, default=1, help="Centered moving average window size"
+    )
+    parser.add_argument(
+        "--show", action="store_true", help="Show plots interactively"
+    )
+    parser.add_argument(
+        "--dark", action="store_true", help="Use dark theme"
+    )
+    parser.add_argument(
+        "--timestep-sec", type=float, default=8.0,
+        help="Per-subintegration cadence (seconds) to construct time axis",
+    )
     args = parser.parse_args()
+
+    if args.dark:
+        plt.style.use("dark_background")
 
     paths = sorted(glob.glob(args.glob))
     if not paths:
         raise SystemExit(f"No JSON files matched: {args.glob}")
 
-    # We will concatenate time arrays across all files end-to-end
-    # Build per-metric, per-source concatenated series and a matching time vector
-    concat_times: list[float] = []
+    # Build per-metric, per-source concatenated series and per-source time vectors
+    time_map_alpha: dict[str, list[float]] = defaultdict(list)
+    time_map_beta: dict[str, list[float]] = defaultdict(list)
+    time_map_gain: dict[str, list[float]] = defaultdict(list)
     series_alpha: dict[str, list[float]] = defaultdict(list)
     series_beta: dict[str, list[float]] = defaultdict(list)
     series_gain: dict[str, list[float]] = defaultdict(list)
@@ -276,31 +343,9 @@ def main() -> None:
                     brightness_count[name] += 1
         except Exception:
             pass
-        # For each source, extend series with full arrays if present
-        for src_name, vals in doc.items():
-            if not isinstance(vals, dict):
-                continue
-            # alpha / beta / gain arrays
-            with suppress(Exception):
-                arr = vals.get("alphas") or vals.get("alpha")
-                if isinstance(arr, list):
-                    arr_np = np.array(arr, dtype=float)
-                    series_alpha[str(src_name)].extend(arr_np.tolist())
-            with suppress(Exception):
-                arr = vals.get("betas") or vals.get("beta")
-                if isinstance(arr, list):
-                    arr_np = np.array(arr, dtype=float)
-                    series_beta[str(src_name)].extend(arr_np.tolist())
-            with suppress(Exception):
-                arr = vals.get("gains") or vals.get("gain")
-                if isinstance(arr, list):
-                    arr_np = np.array(arr, dtype=float)
-                    series_gain[str(src_name)].extend(arr_np.tolist())
-
-        # Build a time segment of the same length as one of the arrays (prefer gains)
+        # Determine segment length from any available array, and compute segment times
         seg_len = 0
         try:
-            # find any example source with gains array
             for vals in doc.values():
                 if isinstance(vals, dict) and isinstance(vals.get("gains"), list):
                     seg_len = len(vals["gains"])  # type: ignore
@@ -312,20 +357,49 @@ def main() -> None:
                         break
         except Exception:
             seg_len = 0
+        seg_times: list[float] = []
         if seg_len:
-            base = float(t) if t is not None else float(len(concat_times))
-            concat_times.extend([base + i for i in range(seg_len)])
+            base = float(t) if t is not None else 0.0
+            step = float(args.timestep_sec)
+            seg_times = [base + i * step for i in range(seg_len)]
+
+        # For each source, extend series with full arrays if present and append times
+        for src_name, vals in doc.items():
+            if not isinstance(vals, dict):
+                continue
+            # alpha / beta / gain arrays
+            with suppress(Exception):
+                arr = vals.get("alphas") or vals.get("alpha")
+                if isinstance(arr, list):
+                    arr_np = np.array(arr, dtype=float)
+                    series_alpha[str(src_name)].extend(arr_np.tolist())
+                    if seg_times:
+                        time_map_alpha[str(src_name)].extend(seg_times[: len(arr_np)])
+            with suppress(Exception):
+                arr = vals.get("betas") or vals.get("beta")
+                if isinstance(arr, list):
+                    arr_np = np.array(arr, dtype=float)
+                    series_beta[str(src_name)].extend(arr_np.tolist())
+                    if seg_times:
+                        time_map_beta[str(src_name)].extend(seg_times[: len(arr_np)])
+            with suppress(Exception):
+                arr = vals.get("gains") or vals.get("gain")
+                if isinstance(arr, list):
+                    arr_np = np.array(arr, dtype=float)
+                    series_gain[str(src_name)].extend(arr_np.tolist())
+                    if seg_times:
+                        time_map_gain[str(src_name)].extend(seg_times[: len(arr_np)])
 
     if not series_alpha and not series_beta and not series_gain:
         raise SystemExit("No usable alpha/beta/gain data found in JSONs.")
 
-    # Build a global time index matching the max series length; fall back to per-series x
-    max_len = 0
-    for m in (series_gain, series_alpha, series_beta):
-        for arr in m.values():
-            if len(arr) > max_len:
-                max_len = len(arr)
-    timepoints = list(range(max_len)) if max_len else None
+    # Prepare timepoints: prefer per-source GPS time vectors if available
+    any_alpha_times = any(len(v) > 0 for v in time_map_alpha.values())
+    any_beta_times = any(len(v) > 0 for v in time_map_beta.values())
+    any_gain_times = any(len(v) > 0 for v in time_map_gain.values())
+    timepoints_alpha = time_map_alpha if any_alpha_times else None
+    timepoints_beta = time_map_beta if any_beta_times else None
+    timepoints_gain = time_map_gain if any_gain_times else None
 
     # Pick top names
     if args.rank_by in ("alpha", "beta", "gain"):
@@ -357,22 +431,34 @@ def main() -> None:
 
     os.makedirs(args.out_dir, exist_ok=True)
 
-    plot_metric(timepoints, series_alpha, top_names,
+    plot_metric(timepoints_alpha, series_alpha, top_names,
                 title="Alpha of top sources over time",
                 ylabel="alpha",
-                out_path=os.path.join(args.out_dir, "ionosub_alpha_top.png"))
+                out_path=os.path.join(args.out_dir, "ionosub_alpha_top.png"),
+                smooth_window=args.smooth,
+                show=args.show,
+                expected_step=float(args.timestep_sec) if timepoints_alpha is not None else None,
+                )
     plt.close()
 
-    plot_metric(timepoints, series_beta, top_names,
+    plot_metric(timepoints_beta, series_beta, top_names,
                 title="Beta of top sources over time",
                 ylabel="beta",
-                out_path=os.path.join(args.out_dir, "ionosub_beta_top.png"))
+                out_path=os.path.join(args.out_dir, "ionosub_beta_top.png"),
+                smooth_window=args.smooth,
+                show=args.show,
+                expected_step=float(args.timestep_sec) if timepoints_beta is not None else None,
+                )
     plt.close()
 
-    plot_metric(timepoints, series_gain, top_names,
+    plot_metric(timepoints_gain, series_gain, top_names,
                 title="Gain of top sources over time",
                 ylabel="gain",
-                out_path=os.path.join(args.out_dir, "ionosub_gain_top.png"))
+                out_path=os.path.join(args.out_dir, "ionosub_gain_top.png"),
+                smooth_window=args.smooth,
+                show=args.show,
+                expected_step=float(args.timestep_sec) if timepoints_gain is not None else None,
+                )
     plt.close()
 
 
