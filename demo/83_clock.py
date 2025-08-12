@@ -10,7 +10,7 @@ Then aggregates values across time and produces grid plots (rx x slot):
 - intercepts_xx/yy over time
 
 Usage examples:
-demo/83_timeseries.py \
+demo/83_clock.py \
     --glob "clock_tec/* t??? phase_fits.tsv" \
     --out-dir ./clock_tec --title "combined" \
     --smooth 8 --timestep-sec 2 --show --dark

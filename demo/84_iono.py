@@ -5,7 +5,7 @@ Plot alpha, beta, and gain time series for the top-N sources from ionosub JSON f
 Ranking for "top" sources defaults to highest mean absolute gain across time.
 
 Usage:
-demo/84_ionosub_plot.py \
+demo/84_iono.py \
     --glob "ionosub/hyp_peel_109*_ionosub_ssins_30l_src8k_300it_160kHz_i1000_uv.json" \
     --out-dir ionosub --top 10 --rank-by brightness --sort-by ra \
     --timestep-sec 2 --smooth 8 --dark --show
