@@ -689,7 +689,7 @@ def plot_waterfall(data, name, show=False, save=True):
                     aspect="auto",
                     origin="lower",
                     extent=[freq_mhz[0], freq_mhz[-1], time_gps_2d[0], time_gps_2d[-1]],
-                    cmap="viridis",
+                    cmap="cool",
                     interpolation="nearest",
                     vmin=vmin,
                     vmax=vmax,
@@ -838,7 +838,7 @@ def plot_auto_pol(data, name, show=False, save=True):
                             aspect="auto",
                             origin="lower",
                             extent=extent,
-                            cmap="viridis",
+                            cmap="cool",
                             interpolation="nearest",
                             vmin=vmin,
                             vmax=vmax,
@@ -944,7 +944,7 @@ def plot_auto_pol_lines(data, name, show=False, save=True):
                 axes = axes.flatten()
 
                 # Colors for different timesteps
-                colors = plt.cm.viridis(np.linspace(0, 1, len(all_files_data)))
+                colors = plt.cm.cool(np.linspace(0, 1, len(all_files_data)))
 
                 for plot_idx, ant_id in enumerate(ant_ids_in_rx):
                     if plot_idx < 8 and ant_id < n_antennas:
@@ -1084,7 +1084,7 @@ def plot_amp_fp_grid(data, name, show=False, save=True):
                     aspect="auto",
                     origin="lower",
                     extent=extent,
-                    cmap="viridis",
+                    cmap="cool",
                     interpolation="nearest",
                     vmin=vmin,
                     vmax=vmax,
@@ -1223,7 +1223,7 @@ def plot_auto_power_ant(data, name, show=False, save=True):
                             time_gps_grid[0],
                             time_gps_grid[-1],
                         ],
-                        cmap="viridis",
+                        cmap="cool",
                         interpolation="nearest",
                         vmin=vmin,
                         vmax=vmax,
@@ -1318,7 +1318,7 @@ def plot_auto_power_ant_lines(data, name, show=False, save=True):
 
                 if ant_file_data and ant_times:
                     # Plot each timestep as a separate line
-                    colors = plt.cm.viridis(np.linspace(0, 1, len(ant_file_data)))
+                    colors = plt.cm.cool(np.linspace(0, 1, len(ant_file_data)))
 
                     for file_idx, (file_data, file_times) in enumerate(
                         zip(ant_file_data, ant_times)
@@ -1475,7 +1475,7 @@ def plot_auto_sub_ant(data, name, show=False, save=True):
                         aspect="auto",
                         origin="lower",
                         extent=[freq_mhz[0], freq_mhz[-1], time_gps[0], time_gps[-1]],
-                        cmap="viridis",
+                        cmap="cool",
                         interpolation="none",
                         vmin=vmin,
                         vmax=vmax,
@@ -1679,7 +1679,7 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
                                 aspect="auto",
                                 origin="lower",
                                 extent=[0, n_delays - 1, time_gps[0], time_gps[-1]],
-                                cmap="viridis",
+                                cmap="cool",
                                 interpolation="none",
                                 vmin=vmin,
                                 vmax=vmax,
