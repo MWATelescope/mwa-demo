@@ -182,6 +182,7 @@ def plot_grid_over_time(
     sharey: bool = False,
     smooth_window: int = 4,
     times_index: pd.DataFrame | None = None,
+    vmax: float | None = None,
 ) -> None:
     """Plot grid of values over time (rx x slot), XX and YY per tile."""
     sns.set_context("talk")
@@ -264,14 +265,20 @@ def plot_grid_over_time(
     ]
     fig.legend(handles=handles, loc="upper right")
 
-    # Robust y-limits based on 1st-99th percentiles
-    y_vals = np.concatenate([
-        data[value_xx].to_numpy(dtype=float),
-        data[value_yy].to_numpy(dtype=float),
-    ], dtype=float)
-    y_vals = y_vals[np.isfinite(y_vals)]
-    if y_vals.size:
-        lo, hi = np.nanpercentile(y_vals, [1.0, 99.0])
+    # Y-limits
+    lo, hi = None, None
+    if vmax is not None:
+        lo, hi = -float(vmax), float(vmax)
+    else:
+        # Robust y-limits based on 1st-99th percentiles
+        y_vals = np.concatenate([
+            data[value_xx].to_numpy(dtype=float),
+            data[value_yy].to_numpy(dtype=float),
+        ], dtype=float)
+        y_vals = y_vals[np.isfinite(y_vals)]
+        if y_vals.size:
+            lo, hi = np.nanpercentile(y_vals, [1.0, 99.0])
+    if lo is not None and hi is not None:
         for ax in np.ravel(axs):
             if hasattr(ax, 'set_ylim'):
                 ax.set_ylim(lo, hi)
@@ -395,6 +402,7 @@ def plot_receiver_overlay_single(
     legend_max: int = 12,
     smooth_window: int = 4,
     timestep_sec: float = 8.0,
+    vmax: float | None = None,
 ) -> None:
     """Plot one line per receiver: mean of tiles on each receiver.
 
@@ -470,12 +478,16 @@ def plot_receiver_overlay_single(
     if legend_handles:
         ax.legend(legend_handles, legend_labels, loc="upper right", ncol=2)
 
-    # Robust y-limits
-    y_vals = np.array(all_series, dtype=float).ravel()
-    y_vals = y_vals[np.isfinite(y_vals)]
-    if y_vals.size:
-        lo, hi = np.nanpercentile(y_vals, [1.0, 99.0])
-        ax.set_ylim(lo, hi)
+    # Y-limits
+    if vmax is not None:
+        ax.set_ylim(-float(vmax), float(vmax))
+    else:
+        # Robust y-limits
+        y_vals = np.array(all_series, dtype=float).ravel()
+        y_vals = y_vals[np.isfinite(y_vals)]
+        if y_vals.size:
+            lo, hi = np.nanpercentile(y_vals, [1.0, 99.0])
+            ax.set_ylim(lo, hi)
 
     fig.tight_layout()
     fig.savefig(out_path, dpi=200, bbox_inches="tight")
@@ -513,6 +525,10 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--dark", action="store_true", help="Use dark theme"
     )
+    parser.add_argument(
+        "--vmax", type=float, default=None,
+        help="Absolute y-limit for all plots; sets ylim to [-vmax, vmax]",
+    )
     args = parser.parse_args(argv)
 
     if args.dark:
@@ -540,6 +556,7 @@ def main(argv: list[str] | None = None) -> None:
         sharey=True,
         smooth_window=args.smooth,
         times_index=times_index,
+        vmax=args.vmax,
     )
 
     # Intercepts (radians, wrapped)
@@ -553,6 +570,7 @@ def main(argv: list[str] | None = None) -> None:
         sharey=True,
         smooth_window=args.smooth,
         times_index=times_index,
+        vmax=args.vmax,
     )
 
     # # Overlay plots with all tiles together (separate XX and YY, median-normalized)
@@ -611,6 +629,7 @@ def main(argv: list[str] | None = None) -> None:
         ),
         smooth_window=args.smooth,
         timestep_sec=args.timestep_sec,
+        vmax=args.vmax,
     )
     plot_receiver_overlay_single(
         data,
@@ -622,6 +641,7 @@ def main(argv: list[str] | None = None) -> None:
         ),
         smooth_window=args.smooth,
         timestep_sec=args.timestep_sec,
+        vmax=args.vmax,
     )
     # plot_receiver_overlay_single(
     #     data,
