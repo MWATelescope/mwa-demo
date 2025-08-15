@@ -1206,7 +1206,7 @@ def debug_phase_fits(
     if prefix:
         csv_out = f"{prefix}phase_fits.tsv"
         phase_fits_pivot.to_csv(csv_out, sep="\t", index=False)
-        print(f"saved {realpath(csv_out)}")
+        print(f"saved '{realpath(csv_out)}'")
 
     if len(phase_fits_pivot):
         plot_phase_fits(
@@ -1405,7 +1405,7 @@ def plot_phase_fits(
             plt.tight_layout()
             fig_out = f"{prefix}phase_fits_{pol}.png"
             fig.savefig(fig_out, dpi=300, bbox_inches="tight")
-            print(f"saved {realpath(fig_out)}")
+            print(f"saved '{realpath(fig_out)}'")
         # Close figure to avoid too many open figures
         plt.close(fig)
 
@@ -1443,7 +1443,7 @@ def plot_phase_intercepts(prefix, show, title, flavor_fits):
         plt.tight_layout()
         fig_out = f"{prefix}intercepts.png"
         fig.savefig(fig_out, dpi=300, bbox_inches="tight")
-        print(f"saved {realpath(fig_out)}")
+        print(f"saved '{realpath(fig_out)}'")
     # Close underlying figure to free memory
     plt.close(fig)
 
@@ -1553,11 +1553,11 @@ def plot_phase_residual(
         plt.tight_layout()
         fig_out = f"{prefix}residual.png"
         fig.savefig(fig_out, dpi=200, bbox_inches="tight")
-        print(f"saved {realpath(fig_out)}")
+        print(f"saved '{realpath(fig_out)}'")
         # save df to csv
         tsv_out = f"{prefix}residual.tsv"
         df.to_csv(tsv_out, sep="\t", index=False)
-        print(f"saved {realpath(tsv_out)}")
+        print(f"saved '{realpath(tsv_out)}'")
     # Close underlying figure to free memory
     plt.close(fig)
 
@@ -1752,7 +1752,7 @@ def main():
             continue
 
         # suffix outputs with time index (and average time)
-        block_prefix = f"{args.out_dir}/{title} t{time_index:03d} "
+        block_prefix = f"{args.out_dir}/{title}_t{time_index:03d}_"
         block_title = f"{title} t{time_index:03d} (avg={avg_time})"
 
         _ = debug_phase_fits(
