@@ -15,6 +15,7 @@ from argparse import ArgumentParser
 from enum import Enum
 from os.path import realpath
 from typing import NamedTuple, Optional
+from multiprocessing import Pool, cpu_count
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -828,6 +829,28 @@ def wrap_angle(angle):
     return np.mod(angle + np.pi, 2 * np.pi) - np.pi
 
 
+def fit_single_tile_phase(args):
+    """Wrapper function for parallel processing of phase fits."""
+    (
+        tile_id,
+        soln_idx,
+        pol,
+        solns,
+        chanblocks_hz,
+        weights_1d,
+        phase_fit_niter,
+        fit_iono,
+    ) = args
+    try:
+        fit = fit_phase_line(
+            chanblocks_hz, solns, weights_1d, niter=phase_fit_niter, fit_iono=fit_iono
+        )
+        return [tile_id, soln_idx, pol, *fit]
+    except Exception as exc:
+        print(f"{tile_id=:4} {pol} {exc}")
+        return None
+
+
 def fit_phase_line(
     freqs_hz: NDArray[np.float64],
     solution: NDArray[np.complex128],
@@ -943,7 +966,9 @@ def fit_phase_line(
         # Use weighted least squares: minimize sum of weights * (phase - alpha/f)^2
         try:
             # alpha = sum(weights * phase / f) / sum(weights / f^2)
-            alpha_est = np.sum(weights * detrended_phases / freqs_array) / np.sum(weights / freqs_array**2)
+            alpha_est = np.sum(weights * detrended_phases / freqs_array) / np.sum(
+                weights / freqs_array**2
+            )
 
             # Check if estimate is reasonable
             if not np.isfinite(alpha_est) or np.abs(alpha_est) > 1e12:
@@ -986,9 +1011,15 @@ def fit_phase_line(
                 args=(ν.to(u.Hz).value, solution),
                 method="L-BFGS-B",
                 bounds=bounds,
+                options={"maxiter": 50},  # Limit iterations for speed
             )
         else:
-            res = minimize(objective, params, args=(ν.to(u.Hz).value, solution))
+            res = minimize(
+                objective,
+                params,
+                args=(ν.to(u.Hz).value, solution),
+                options={"maxiter": 100},
+            )
         params = res.x
         # print(f"{params=}")
         # print(f"{res.hess_inv=}")
@@ -1637,6 +1668,12 @@ def parse_args(argv=None):
         default=None,
         help="Process at most this many time blocks (for speed)",
     )
+    parser.add_argument(
+        "--n-workers",
+        type=int,
+        default=None,
+        help="Number of parallel workers for phase fitting (default: number of CPU cores)",
+    )
     return parser.parse_args(argv)
 
 
@@ -1674,7 +1711,7 @@ def main():
     soln_tile_ids, all_xx_solns, all_yy_solns, avg_times = soln_group.get_solns(
         refant_name
     )
-    phase_fit_niter = 1
+    phase_fit_niter = 0  # No iterative outlier rejection for speed
 
     # iterate per timeblock and produce outputs per block
     for time_index, avg_time in enumerate(avg_times):
@@ -1721,27 +1758,47 @@ def main():
             if time_index == 0:
                 print("not applying phase correction")
 
-        # solutions at this time index have shape [tile, chan]
+        # Prepare arguments for parallel processing
+        parallel_args = []
         for soln_idx, (tile_id, xx_solns, yy_solns) in enumerate(
             zip(soln_tile_ids, all_xx_solns[time_index], all_yy_solns[time_index])
         ):
             tile: Tile = tiles[tiles.id == tile_id].iloc[0]
             for pol, solns in [("XX", xx_solns), ("YY", yy_solns)]:
                 if tile.flavor.endswith("-NI"):
-                    solns *= phase_diff
+                    solns_corrected = solns * phase_diff
+                else:
+                    solns_corrected = solns
 
-                try:
-                    fit = fit_phase_line(
+                parallel_args.append(
+                    (
+                        tile_id,
+                        soln_idx,
+                        pol,
+                        solns_corrected,
                         chanblocks_hz,
-                        solns,
                         weights_1d,
-                        niter=phase_fit_niter,
-                        fit_iono=args.fit_iono,
-                    )  # type: ignore
-                except Exception as exc:
-                    print(f"{tile_id=:4} ({tile.name}) {pol} {exc}")
-                    continue
-                phase_fits_rows.append([tile_id, soln_idx, pol, *fit])
+                        phase_fit_niter,
+                        args.fit_iono,
+                    )
+                )
+
+        # Process tiles in parallel
+        if args.n_workers is not None:
+            n_workers = args.n_workers
+        else:
+            n_workers = min(cpu_count(), len(parallel_args))
+
+        if n_workers > 1:
+            with Pool(n_workers) as pool:
+                results = pool.map(fit_single_tile_phase, parallel_args)
+                phase_fits_rows.extend([r for r in results if r is not None])
+        else:
+            # Fall back to sequential processing if only one worker
+            for args_tuple in parallel_args:
+                result = fit_single_tile_phase(args_tuple)
+                if result is not None:
+                    phase_fits_rows.append(result)
 
         phase_fits_df = pd.DataFrame(
             phase_fits_rows,
