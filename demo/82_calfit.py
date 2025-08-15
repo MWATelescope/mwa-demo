@@ -13,6 +13,7 @@ import sys
 import traceback
 from argparse import ArgumentParser
 from enum import Enum
+from os.path import realpath
 from typing import NamedTuple, Optional
 
 import matplotlib as mpl
@@ -617,10 +618,7 @@ class HyperfitsSolutionGroup:
     def get_solns(
         self, refant_name=None
     ) -> tuple[
-        NDArray[np.int_],
-        NDArray[np.complex128],
-        NDArray[np.complex128],
-        list[float],
+        NDArray[np.int_], NDArray[np.complex128], NDArray[np.complex128], list[float]
     ]:
         """Return tile ids, xx/yy solutions, and average times.
 
@@ -754,6 +752,7 @@ class PhaseFitInfo(NamedTuple):
 
     length: float
     intercept: float
+    iono_alpha: float
     sigma_resid: float
     chi2dof: float
     quality: float
@@ -770,6 +769,7 @@ class PhaseFitInfo(NamedTuple):
         return PhaseFitInfo(
             length=np.nan,
             intercept=np.nan,
+            iono_alpha=np.nan,
             sigma_resid=np.nan,
             chi2dof=np.nan,
             quality=np.nan,
@@ -834,9 +834,6 @@ def fit_phase_line(
     weights: NDArray[np.float64],
     niter: int = 1,
     fit_iono: bool = False,
-    # chanblocks_per_coarse: int,
-    # bin_size: int = 10,
-    # typical_thickness: float = 3.9,
 ) -> PhaseFitInfo:
     """Linear-fit phases.
 
@@ -923,17 +920,47 @@ def fit_phase_line(
     # Now that we're near a local minimum, refine via a standard minimisation.
     # To get the y-intercept, divide the original data by the constructed data
     # and find the average phase of the result
-    # if fit_iono:
-    #     model = lambda ν, m, c, α: np.exp(1j * (m * ν + c + α / ν**2))
-    #     y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value,
-    #                                               slope.value, 0, 0)))
-    #     params = (slope.value, y_int, 0)
+    if fit_iono:
 
-    def model(ν, m, c):
-        return np.exp(1j * (m * ν + c))
+        def model(ν, m, c, α):
+            return np.exp(1j * (m * ν + c + α / ν))
 
-    y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value, slope.value, 0)))
-    params = (slope.value, y_int)
+        # initial intercept guess with α=0
+        y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value, slope.value, 0, 0)))
+
+        # Better initial guess for ionospheric parameter
+        # Use the FFT slope and estimate alpha from residuals after removing linear trend
+        freqs_array = ν.to(u.Hz).value
+
+        # First fit just the linear model
+        linear_model = model(freqs_array, slope.value, y_int, 0)
+        detrended = solution / linear_model
+
+        # Now unwrap the detrended phases and estimate the ionospheric component
+        detrended_phases = np.unwrap(np.angle(detrended))
+
+        # Fit just the ionospheric component: detrended_phase ≈ alpha/f
+        # Use weighted least squares: minimize sum of weights * (phase - alpha/f)^2
+        try:
+            # alpha = sum(weights * phase / f) / sum(weights / f^2)
+            alpha_est = np.sum(weights * detrended_phases / freqs_array) / np.sum(weights / freqs_array**2)
+
+            # Check if estimate is reasonable
+            if not np.isfinite(alpha_est) or np.abs(alpha_est) > 1e12:
+                alpha_est = 0.0  # No ionosphere
+
+        except Exception:
+            # Fallback to zero ionosphere
+            alpha_est = 0.0
+
+        params = np.array([slope.value, y_int, alpha_est])
+    else:
+
+        def model(ν, m, c):
+            return np.exp(1j * (m * ν + c))
+
+        y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value, slope.value, 0)))
+        params = np.array([slope.value, y_int])
 
     def objective(params, ν, data):
         constructed = model(ν, *params)
@@ -943,8 +970,25 @@ def fit_phase_line(
 
     resid_std, chi2dof, stderr = None, None, None
     # while len(mask) >= 2 and (niter:= niter - 1) <= 0:
-    while True:
-        res = minimize(objective, params, args=(ν.to(u.Hz).value, solution))
+    iteration_count = 0
+    max_iterations = max(niter, 10)  # Safety limit
+
+    while len(mask) >= 2 and iteration_count < max_iterations:
+        if fit_iono:
+            # Use bounds for ionospheric fitting
+            # Slope: typical cable delays -300m to 300m => ~-6e-6 to 6e-6 rad/Hz
+            # Intercept: -pi to pi
+            # Alpha: typical ionospheric values -1e11 to 1e11 rad*Hz
+            bounds = [(-6e-6, 6e-6), (-np.pi, np.pi), (-1e11, 1e11)]
+            res = minimize(
+                objective,
+                params,
+                args=(ν.to(u.Hz).value, solution),
+                method="L-BFGS-B",
+                bounds=bounds,
+            )
+        else:
+            res = minimize(objective, params, args=(ν.to(u.Hz).value, solution))
         params = res.x
         # print(f"{params=}")
         # print(f"{res.hess_inv=}")
@@ -959,16 +1003,24 @@ def fit_phase_line(
         # print(f"{resid_std=}")
         resid_var = residuals.var(ddof=len(params))
         # print(f"{resid_var=}")
-        stderr = np.sqrt(np.diag(res.hess_inv * resid_var))
+
+        # Handle different optimization methods that may or may not provide hessian
+        if (
+            hasattr(res, "hess_inv") and
+            res.hess_inv is not None and
+            isinstance(res.hess_inv, np.ndarray)
+        ):
+            stderr = np.sqrt(np.diag(res.hess_inv * resid_var))
+        else:
+            # For L-BFGS-B or when hessian is not available, use a simple approximation
+            # Use residual std as a proxy for all parameter uncertainties
+            stderr = np.ones(len(params)) * resid_std
         # print(f"{stderr=}")
         mask = np.where(np.abs(residuals) < 2 * stderr[0])[0]
         solution = solution[mask]
         ν = ν[mask]
-        # TODO: iterations?
-        # niter = niter-1
-        # if len(mask) < 2 or niter <= 0:
-        #     break
-        break
+
+        iteration_count += 1
 
     period = ((params[0] * u.rad / u.Hz) / (2 * np.pi * u.rad)).to(u.s)
     quality = len(mask) / nfreqs
@@ -976,6 +1028,7 @@ def fit_phase_line(
     return PhaseFitInfo(
         length=(c * period).to(u.m).value,
         intercept=wrap_angle(params[1]),
+        iono_alpha=(params[2] if fit_iono and len(params) >= 3 else np.nan),
         sigma_resid=resid_std,
         chi2dof=chi2dof,
         quality=quality,
@@ -1151,7 +1204,9 @@ def debug_phase_fits(
     weights2 = weights**2
 
     if prefix:
-        phase_fits_pivot.to_csv(f"{prefix}phase_fits.tsv", sep="\t", index=False)
+        csv_out = f"{prefix}phase_fits.tsv"
+        phase_fits_pivot.to_csv(csv_out, sep="\t", index=False)
+        print(f"saved {realpath(csv_out)}")
 
     if len(phase_fits_pivot):
         plot_phase_fits(
@@ -1223,6 +1278,28 @@ def plot_rx_lengths(flavor_fits, prefix, show, title):
             )
         )
 
+    # Overlay ionospheric alpha (XX) on a twin x-axis
+    try:
+        ax2 = plt.gca().twiny()
+        alpha_xx = good_fits[
+            (good_fits["pol"] == "XX") & np.isfinite(good_fits["iono_alpha"])
+        ]
+        if len(alpha_xx):
+            sns.stripplot(
+                data=alpha_xx,
+                y="rx",
+                x="iono_alpha",
+                orient="h",
+                color="crimson",
+                size=2,
+                jitter=0.25,
+                ax=ax2,
+            )
+            ax2.set_xlabel("iono α (rad·Hz²)", color="crimson")
+            ax2.tick_params(axis="x", colors="crimson")
+    except Exception:
+        pass
+
     fig = plt.gcf()
     if title:
         fig.suptitle(title)
@@ -1278,7 +1355,16 @@ def plot_phase_fits(
                 .value
             )
             intercept = fit[f"intercept_{pol}"]
-            model = gradient * model_freqs + intercept
+            iono_val = fit.get(f"iono_alpha_{pol}")
+            text_lines = [
+                f"L{fit[f'length_{pol}']:+6.2f}m",
+                f"X{fit[f'chi2dof_{pol}']:.4f}",
+            ]
+            if iono_val is not None and np.isfinite(iono_val):
+                text_lines.append(f"A{iono_val:+.2e}")
+                model = gradient * model_freqs + intercept + iono_val / model_freqs
+            else:
+                model = gradient * model_freqs + intercept
             ax.scatter(model_freqs, wrap_angle(model), c="red", s=0.5)
             mask_weights: ArrayLike = weights2[mask]  # type: ignore
             ax.scatter(
@@ -1294,14 +1380,7 @@ def plot_phase_fits(
             )  # |{fit['id']}
             x_text = np.mean(ax.get_xlim())
             y_text = np.mean(ax.get_ylim())
-            text = "\n".join(
-                [
-                    f"L{fit[f'length_{pol}']:+6.2f}m",
-                    f"X{fit[f'chi2dof_{pol}']:.4f}",
-                    # f"S{fit[f'sigma_resid_{pol}']:.4f}",
-                    # f"Q{fit[f'quality_{pol}']:.2f}",
-                ]
-            )
+            text = "\n".join(text_lines)
             ax.text(
                 x_text,
                 y_text,
@@ -1324,7 +1403,9 @@ def plot_phase_fits(
             plt.show()
         if prefix:
             plt.tight_layout()
-            fig.savefig(f"{prefix}phase_fits_{pol}.png", dpi=300, bbox_inches="tight")
+            fig_out = f"{prefix}phase_fits_{pol}.png"
+            fig.savefig(fig_out, dpi=300, bbox_inches="tight")
+            print(f"saved {realpath(fig_out)}")
         # Close figure to avoid too many open figures
         plt.close(fig)
 
@@ -1360,7 +1441,9 @@ def plot_phase_intercepts(prefix, show, title, flavor_fits):
         plt.show()
     if prefix:
         plt.tight_layout()
-        fig.savefig(f"{prefix}intercepts.png", dpi=300, bbox_inches="tight")
+        fig_out = f"{prefix}intercepts.png"
+        fig.savefig(fig_out, dpi=300, bbox_inches="tight")
+        print(f"saved {realpath(fig_out)}")
     # Close underlying figure to free memory
     plt.close(fig)
 
@@ -1379,12 +1462,7 @@ def plot_phase_residual(
     """Plot residual phase after removing linear model, per flavor/pol."""
     plt.clf()
     g = sns.FacetGrid(
-        flavor_fits,
-        row="flavor",
-        col="pol",
-        hue="flavor",
-        sharex=True,
-        sharey=False,
+        flavor_fits, row="flavor", col="pol", hue="flavor", sharex=True, sharey=False
     )
 
     if len(freqs) != len(weights):
@@ -1471,9 +1549,15 @@ def plot_phase_residual(
     if title:
         fig.suptitle(title)
         fig.subplots_adjust(top=0.95)
-    fig.savefig(f"{prefix}residual.png", dpi=200, bbox_inches="tight")
-    # save df to csv
-    df.to_csv(f"{prefix}residual.tsv", sep="\t", index=False)
+    if prefix:
+        plt.tight_layout()
+        fig_out = f"{prefix}residual.png"
+        fig.savefig(fig_out, dpi=200, bbox_inches="tight")
+        print(f"saved {realpath(fig_out)}")
+        # save df to csv
+        tsv_out = f"{prefix}residual.tsv"
+        df.to_csv(tsv_out, sep="\t", index=False)
+        print(f"saved {realpath(tsv_out)}")
     # Close underlying figure to free memory
     plt.close(fig)
 
@@ -1541,6 +1625,18 @@ def parse_args(argv=None):
     parser.add_argument("--plot-residual", default=False, action="store_true")
     parser.add_argument("--residual-vmax", default=None)
     parser.add_argument("--phase-diff-path", default=None)
+    parser.add_argument(
+        "--fit-iono",
+        default=False,
+        action="store_true",
+        help="Fit additional 1/ν^2 ionospheric phase term",
+    )
+    parser.add_argument(
+        "--max-timeblocks",
+        type=int,
+        default=None,
+        help="Process at most this many time blocks (for speed)",
+    )
     return parser.parse_args(argv)
 
 
@@ -1582,6 +1678,8 @@ def main():
 
     # iterate per timeblock and produce outputs per block
     for time_index, avg_time in enumerate(avg_times):
+        if args.max_timeblocks is not None and time_index >= args.max_timeblocks:
+            break
         phase_fits_rows = []
         # compute per-time weights matching concatenated channels
         weights_blocks: list[NDArray[np.float64]] = []
@@ -1634,7 +1732,11 @@ def main():
 
                 try:
                     fit = fit_phase_line(
-                        chanblocks_hz, solns, weights_1d, niter=phase_fit_niter
+                        chanblocks_hz,
+                        solns,
+                        weights_1d,
+                        niter=phase_fit_niter,
+                        fit_iono=args.fit_iono,
                     )  # type: ignore
                 except Exception as exc:
                     print(f"{tile_id=:4} ({tile.name}) {pol} {exc}")

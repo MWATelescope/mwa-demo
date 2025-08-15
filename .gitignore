@@ -5,3 +5,11 @@ bin/*
 **/*.ms/**
 .cache/*
 .astropy/*
+clock_tec/**
+ionosub/**
+metrics/**
+offcuts/**
+ska_low_allsky_imaging/**
+supplemental/**
+templates/**
+.vscode/**
