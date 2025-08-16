@@ -19,7 +19,6 @@ demo/83_clock.py \
 from __future__ import annotations
 
 import argparse
-import glob
 import os
 import re
 from collections.abc import Iterable

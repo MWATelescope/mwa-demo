@@ -13,9 +13,9 @@ import sys
 import traceback
 from argparse import ArgumentParser
 from enum import Enum
+from multiprocessing import Pool, cpu_count
 from os.path import realpath
 from typing import NamedTuple, Optional
-from multiprocessing import Pool, cpu_count
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -828,7 +828,7 @@ def wrap_angle(angle):
 
 
 def fit_single_tile_phase(args):
-    """Wrapper function for parallel processing of phase fits."""
+    """Wrap fit_phase_line for parallel processing."""
     (
         tile_id,
         soln_idx,
@@ -1567,7 +1567,7 @@ def parse_args(argv=None):
         "--n-workers",
         type=int,
         default=None,
-        help="Number of parallel workers for phase fitting (default: number of CPU cores)",
+        help="Number of parallel workers for fitting (default: number of CPU cores)",
     )
     return parser.parse_args(argv)
 
