@@ -40,29 +40,17 @@ class PhaseFitsFile:
     gps_start: int | None
 
 
-TIME_RE = re.compile(r"t(\d{3})\s+phase_fits\.tsv$")
+TIME_RE = re.compile(r"t(\d{3})[\s_]phase_fits\.tsv$")
 GPS_RE = re.compile(r"(?<!\d)(\d{10})(?!\d)")
 
 
 def find_phase_fits(
-    *,
-    directory: str,
-    glob_pattern: str | None,
-    prefix: str | None,
+    candidates: list[str],
 ) -> list[PhaseFitsFile]:
     """Find all phase_fits.tsv files and extract their time index."""
-    candidates: list[str]
-    if glob_pattern:
-        candidates = sorted(glob.glob(glob_pattern))
-    else:
-        candidates = sorted(glob.glob(os.path.join(directory, "* t??? phase_fits.tsv")))
-
     files: list[PhaseFitsFile] = []
     for path in candidates:
         base = os.path.basename(path)
-        # optional prefix filter
-        if prefix and not base.startswith(prefix):
-            continue
         m = TIME_RE.search(base)
         if not m:
             continue
@@ -500,18 +488,7 @@ def main(argv: list[str] | None = None) -> None:
         )
     )
     parser.add_argument(
-        "--dir", default=".", help="Directory to search for TSV files"
-    )
-    parser.add_argument(
-        "--glob",
-        dest="glob_pattern",
-        default=None,
-        help="Custom glob pattern for TSV files",
-    )
-    parser.add_argument(
-        "--prefix",
-        default=None,
-        help="Only include files whose basename starts with this prefix",
+        "--tsv", nargs="+", help="TSV files"
     )
     parser.add_argument(
         "--out-dir", default=".", help="Directory to write output plots"
@@ -534,9 +511,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.dark:
         plt.style.use("dark_background")
 
-    files = find_phase_fits(
-        directory=args.dir, glob_pattern=args.glob_pattern, prefix=args.prefix
-    )
+    files = find_phase_fits(args.tsv)
     data = load_timeseries(files)
 
     base_title = args.title or (args.prefix or "phase fits")
