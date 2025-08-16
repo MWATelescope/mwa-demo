@@ -753,7 +753,6 @@ class PhaseFitInfo(NamedTuple):
 
     length: float
     intercept: float
-    iono_alpha: float
     sigma_resid: float
     chi2dof: float
     quality: float
@@ -770,7 +769,6 @@ class PhaseFitInfo(NamedTuple):
         return PhaseFitInfo(
             length=np.nan,
             intercept=np.nan,
-            iono_alpha=np.nan,
             sigma_resid=np.nan,
             chi2dof=np.nan,
             quality=np.nan,
@@ -839,11 +837,10 @@ def fit_single_tile_phase(args):
         chanblocks_hz,
         weights_1d,
         phase_fit_niter,
-        fit_iono,
     ) = args
     try:
         fit = fit_phase_line(
-            chanblocks_hz, solns, weights_1d, niter=phase_fit_niter, fit_iono=fit_iono
+            chanblocks_hz, solns, weights_1d, niter=phase_fit_niter
         )
         return [tile_id, soln_idx, pol, *fit]
     except Exception as exc:
@@ -856,7 +853,6 @@ def fit_phase_line(
     solution: NDArray[np.complex128],
     weights: NDArray[np.float64],
     niter: int = 1,
-    fit_iono: bool = False,
 ) -> PhaseFitInfo:
     """Linear-fit phases.
 
@@ -895,7 +891,6 @@ def fit_phase_line(
     # normalise
     solution /= np.abs(solution)
     solution *= weights
-    # print(f"{np.angle(solution)[:4]=}, ")
 
     # Now we want to "adjust" the solution data so that it
     #   - is roughly centered on the DC bin
@@ -910,9 +905,8 @@ def fit_phase_line(
     # ...except that ~1/2 of them are negative, so I'll have to add a certain amount
     # once I decide how much zero padding to include.
     # This is set by the resolution I want in delay space (Nyquist rate)
-    # type: ignore
-    dm = 0.01 * u.m  # type: ignore
-    dt = dm / c  # type: ignore The target time resolution
+    dm = 0.01 * u.m
+    dt = dm / c  # The target time resolution
     νmax = 0.5 / dt  # The Nyquist rate
     N = 2 * int(np.round(νmax / dν))  # The number of bins to use during the FFTs
 
@@ -936,56 +930,16 @@ def fit_phase_line(
     # Find max peak, and the equivalent slope
     imax = np.argmax(np.abs(isol0))
     dmax = d[imax]
-    # print(f"{dmax=:.02f}")
     slope = (2 * np.pi * u.rad * dmax / c).to(u.rad / u.Hz)
-    # print(f"{slope=:.10f}")
 
     # Now that we're near a local minimum, refine via a standard minimisation.
     # To get the y-intercept, divide the original data by the constructed data
     # and find the average phase of the result
-    if fit_iono:
+    def model(ν, m, c):
+        return np.exp(1j * (m * ν + c))
 
-        def model(ν, m, c, α):
-            return np.exp(1j * (m * ν + c + α / ν))
-
-        # initial intercept guess with α=0
-        y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value, slope.value, 0, 0)))
-
-        # Better initial guess for ionospheric parameter
-        # Use the FFT slope and estimate alpha from residuals after removing linear trend
-        freqs_array = ν.to(u.Hz).value
-
-        # First fit just the linear model
-        linear_model = model(freqs_array, slope.value, y_int, 0)
-        detrended = solution / linear_model
-
-        # Now unwrap the detrended phases and estimate the ionospheric component
-        detrended_phases = np.unwrap(np.angle(detrended))
-
-        # Fit just the ionospheric component: detrended_phase ≈ alpha/f
-        # Use weighted least squares: minimize sum of weights * (phase - alpha/f)^2
-        try:
-            # alpha = sum(weights * phase / f) / sum(weights / f^2)
-            alpha_est = np.sum(weights * detrended_phases / freqs_array) / np.sum(
-                weights / freqs_array**2
-            )
-
-            # Check if estimate is reasonable
-            if not np.isfinite(alpha_est) or np.abs(alpha_est) > 1e12:
-                alpha_est = 0.0  # No ionosphere
-
-        except Exception:
-            # Fallback to zero ionosphere
-            alpha_est = 0.0
-
-        params = np.array([slope.value, y_int, alpha_est])
-    else:
-
-        def model(ν, m, c):
-            return np.exp(1j * (m * ν + c))
-
-        y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value, slope.value, 0)))
-        params = np.array([slope.value, y_int])
+    y_int = np.angle(np.mean(solution / model(ν.to(u.Hz).value, slope.value, 0)))
+    params = np.array([slope.value, y_int])
 
     def objective(params, ν, data):
         constructed = model(ν, *params)
@@ -994,46 +948,22 @@ def fit_phase_line(
         return cost
 
     resid_std, chi2dof, stderr = None, None, None
-    # while len(mask) >= 2 and (niter:= niter - 1) <= 0:
     iteration_count = 0
     max_iterations = max(niter, 10)  # Safety limit
 
     while len(mask) >= 2 and iteration_count < max_iterations:
-        if fit_iono:
-            # Use bounds for ionospheric fitting
-            # Slope: typical cable delays -300m to 300m => ~-6e-6 to 6e-6 rad/Hz
-            # Intercept: -pi to pi
-            # Alpha: typical ionospheric values -1e11 to 1e11 rad*Hz
-            bounds = [(-6e-6, 6e-6), (-np.pi, np.pi), (-1e11, 1e11)]
-            res = minimize(
-                objective,
-                params,
-                args=(ν.to(u.Hz).value, solution),
-                method="L-BFGS-B",
-                bounds=bounds,
-                options={"maxiter": 50},  # Limit iterations for speed
-            )
-        else:
-            res = minimize(
-                objective,
-                params,
-                args=(ν.to(u.Hz).value, solution),
-                options={"maxiter": 100},
-            )
+        res = minimize(
+            objective,
+            params,
+            args=(ν.to(u.Hz).value, solution),
+            options={"maxiter": 100},
+        )
         params = res.x
-        # print(f"{params=}")
-        # print(f"{res.hess_inv=}")
-        # print(f"{np.angle(solution)[:3]=}")
         constructed = model(ν.to(u.Hz).value, *params)
-        # print(f"{constructed[:3]=}")
         residuals = wrap_angle(np.angle(solution) - np.angle(constructed))
-        # print(f"{residuals[:3]=}")
         chi2dof = np.sum(np.abs(residuals) ** 2) / (len(residuals) - len(params))
-        # print(f"{chi2dof=}")
         resid_std = residuals.std()
-        # print(f"{resid_std=}")
         resid_var = residuals.var(ddof=len(params))
-        # print(f"{resid_var=}")
 
         # Handle different optimization methods that may or may not provide hessian
         if (
@@ -1043,10 +973,10 @@ def fit_phase_line(
         ):
             stderr = np.sqrt(np.diag(res.hess_inv * resid_var))
         else:
-            # For L-BFGS-B or when hessian is not available, use a simple approximation
-            # Use residual std as a proxy for all parameter uncertainties
+            # For methods that don't provide hessian, use residual std as approximation
             stderr = np.ones(len(params)) * resid_std
-        # print(f"{stderr=}")
+
+        # Simple outlier rejection
         mask = np.where(np.abs(residuals) < 2 * stderr[0])[0]
         solution = solution[mask]
         ν = ν[mask]
@@ -1059,12 +989,10 @@ def fit_phase_line(
     return PhaseFitInfo(
         length=(c * period).to(u.m).value,
         intercept=wrap_angle(params[1]),
-        iono_alpha=(params[2] if fit_iono and len(params) >= 3 else np.nan),
         sigma_resid=resid_std,
         chi2dof=chi2dof,
         quality=quality,
         stderr=stderr[0],
-        # median_thickness=median_thickness,
     )
 
 
@@ -1309,28 +1237,6 @@ def plot_rx_lengths(flavor_fits, prefix, show, title):
             )
         )
 
-    # Overlay ionospheric alpha (XX) on a twin x-axis
-    try:
-        ax2 = plt.gca().twiny()
-        alpha_xx = good_fits[
-            (good_fits["pol"] == "XX") & np.isfinite(good_fits["iono_alpha"])
-        ]
-        if len(alpha_xx):
-            sns.stripplot(
-                data=alpha_xx,
-                y="rx",
-                x="iono_alpha",
-                orient="h",
-                color="crimson",
-                size=2,
-                jitter=0.25,
-                ax=ax2,
-            )
-            ax2.set_xlabel("iono α (rad·Hz²)", color="crimson")
-            ax2.tick_params(axis="x", colors="crimson")
-    except Exception:
-        pass
-
     fig = plt.gcf()
     if title:
         fig.suptitle(title)
@@ -1386,16 +1292,11 @@ def plot_phase_fits(
                 .value
             )
             intercept = fit[f"intercept_{pol}"]
-            iono_val = fit.get(f"iono_alpha_{pol}")
             text_lines = [
                 f"L{fit[f'length_{pol}']:+6.2f}m",
                 f"X{fit[f'chi2dof_{pol}']:.4f}",
             ]
-            if iono_val is not None and np.isfinite(iono_val):
-                text_lines.append(f"A{iono_val:+.2e}")
-                model = gradient * model_freqs + intercept + iono_val / model_freqs
-            else:
-                model = gradient * model_freqs + intercept
+            model = gradient * model_freqs + intercept
             ax.scatter(model_freqs, wrap_angle(model), c="red", s=0.5)
             mask_weights: ArrayLike = weights2[mask]  # type: ignore
             ax.scatter(
@@ -1657,12 +1558,6 @@ def parse_args(argv=None):
     parser.add_argument("--residual-vmax", default=None)
     parser.add_argument("--phase-diff-path", default=None)
     parser.add_argument(
-        "--fit-iono",
-        default=False,
-        action="store_true",
-        help="Fit additional 1/ν^2 ionospheric phase term",
-    )
-    parser.add_argument(
         "--max-timeblocks",
         type=int,
         default=None,
@@ -1779,7 +1674,6 @@ def main():
                         chanblocks_hz,
                         weights_1d,
                         phase_fit_niter,
-                        args.fit_iono,
                     )
                 )
 
