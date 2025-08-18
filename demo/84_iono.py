@@ -10,6 +10,7 @@ demo/84_iono.py \
     --out-dir ionosub --top 10 --rank-by brightness --sort-by ra \
     --timestep-sec 2 --smooth 8 --dark --show
 """
+
 from __future__ import annotations
 
 import argparse
@@ -225,10 +226,21 @@ def plot_metric(
                     y_sm[gap_idx] = np.nan
             except Exception:
                 pass
-        if isinstance(x, list) and x and isinstance(x[0], (int, float)) and float(x[0]) > 1e8:
+        if (
+            isinstance(x, list) and
+            x and
+            isinstance(x[0], (int, float)) and
+            float(x[0]) > 1e8
+        ):
             uses_gps_axis = True
-        (ln,) = plt.plot(x, y_sm, color=palette[i], alpha=0.6, linewidth=1.2,
-                         label=name if len(labels) < 10 else None)
+        (ln,) = plt.plot(
+            x,
+            y_sm,
+            color=palette[i],
+            alpha=0.6,
+            linewidth=1.2,
+            label=name if len(labels) < 10 else None,
+        )
         if len(labels) < 10:
             handles.append(ln)
             labels.append(name)
@@ -256,9 +268,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Plot alpha/beta/gain time series from ionosub JSON files"
     )
-    parser.add_argument(
-        "--glob", default="ionosub/*.json", help="Glob pattern for ionosub JSONs"
-    )
+    parser.add_argument("paths", nargs="+", help="ionosub JSON files")
     parser.add_argument(
         "--out-dir", default="ionosub", help="Output directory for plots"
     )
@@ -266,28 +276,32 @@ def main() -> None:
         "--top", type=int, default=10, help="Number of top sources to plot"
     )
     parser.add_argument(
-        "--rank-by", choices=["alpha", "beta", "gain", "brightness"], default="gain",
+        "--rank-by",
+        choices=["alpha", "beta", "gain", "brightness"],
+        default="brightness",
         help="Ranking metric: series magnitude or 'brightness' count",
     )
     parser.add_argument(
-        "--sort-by", choices=["name", "ra"], default="name",
+        "--sort-by",
+        choices=["name", "ra"],
+        default="name",
         help="Order of plotted series (legend): by name or RA",
     )
     parser.add_argument(
-        "--brightness-top-frac", type=float, default=0.1,
+        "--brightness-top-frac",
+        type=float,
+        default=0.1,
         help="For rank-by=brightness, fraction of sources per file counted as 'high'",
     )
     parser.add_argument(
         "--smooth", type=int, default=1, help="Centered moving average window size"
     )
+    parser.add_argument("--show", action="store_true", help="Show plots interactively")
+    parser.add_argument("--dark", action="store_true", help="Use dark theme")
     parser.add_argument(
-        "--show", action="store_true", help="Show plots interactively"
-    )
-    parser.add_argument(
-        "--dark", action="store_true", help="Use dark theme"
-    )
-    parser.add_argument(
-        "--timestep-sec", type=float, default=8.0,
+        "--timestep-sec",
+        type=float,
+        default=8.0,
         help="Per-subintegration cadence (seconds) to construct time axis",
     )
     args = parser.parse_args()
@@ -295,9 +309,8 @@ def main() -> None:
     if args.dark:
         plt.style.use("dark_background")
 
-    paths = sorted(glob.glob(args.glob))
-    if not paths:
-        raise SystemExit(f"No JSON files matched: {args.glob}")
+    if not args.paths:
+        raise SystemExit("No JSON files provided")
 
     # Build per-metric, per-source concatenated series and per-source time vectors
     time_map_alpha: dict[str, list[float]] = defaultdict(list)
@@ -310,7 +323,7 @@ def main() -> None:
     ra_map_global: dict[str, float] = {}
     brightness_count: dict[str, int] = defaultdict(int)
 
-    for p in paths:
+    for p in args.paths:
         t = extract_time_from_filename(p)
         doc = load_json(p)
         # collect RA per source
@@ -403,11 +416,9 @@ def main() -> None:
 
     # Pick top names
     if args.rank_by in ("alpha", "beta", "gain"):
-        sel_map = {
-            "alpha": series_alpha,
-            "beta": series_beta,
-            "gain": series_gain,
-        }[args.rank_by]
+        sel_map = {"alpha": series_alpha, "beta": series_beta, "gain": series_gain}[
+            args.rank_by
+        ]
         top_names = select_top_by_series(sel_map, top=args.top)
     else:
         top_names = []
@@ -431,34 +442,45 @@ def main() -> None:
 
     os.makedirs(args.out_dir, exist_ok=True)
 
-    plot_metric(timepoints_alpha, series_alpha, top_names,
-                title="Alpha of top sources over time",
-                ylabel="alpha",
-                out_path=os.path.join(args.out_dir, "ionosub_alpha_top.png"),
-                smooth_window=args.smooth,
-                show=args.show,
-                expected_step=float(args.timestep_sec) if timepoints_alpha is not None else None,
-                )
+    plot_metric(
+        timepoints_alpha,
+        series_alpha,
+        top_names,
+        title="Alpha of top sources over time",
+        ylabel="alpha",
+        out_path=os.path.join(args.out_dir, "ionosub_alpha_top.png"),
+        smooth_window=args.smooth,
+        show=args.show,
+        expected_step=float(args.timestep_sec)
+        if timepoints_alpha is not None
+        else None,
+    )
     plt.close()
 
-    plot_metric(timepoints_beta, series_beta, top_names,
-                title="Beta of top sources over time",
-                ylabel="beta",
-                out_path=os.path.join(args.out_dir, "ionosub_beta_top.png"),
-                smooth_window=args.smooth,
-                show=args.show,
-                expected_step=float(args.timestep_sec) if timepoints_beta is not None else None,
-                )
+    plot_metric(
+        timepoints_beta,
+        series_beta,
+        top_names,
+        title="Beta of top sources over time",
+        ylabel="beta",
+        out_path=os.path.join(args.out_dir, "ionosub_beta_top.png"),
+        smooth_window=args.smooth,
+        show=args.show,
+        expected_step=float(args.timestep_sec) if timepoints_beta is not None else None,
+    )
     plt.close()
 
-    plot_metric(timepoints_gain, series_gain, top_names,
-                title="Gain of top sources over time",
-                ylabel="gain",
-                out_path=os.path.join(args.out_dir, "ionosub_gain_top.png"),
-                smooth_window=args.smooth,
-                show=args.show,
-                expected_step=float(args.timestep_sec) if timepoints_gain is not None else None,
-                )
+    plot_metric(
+        timepoints_gain,
+        series_gain,
+        top_names,
+        title="Gain of top sources over time",
+        ylabel="gain",
+        out_path=os.path.join(args.out_dir, "ionosub_gain_top.png"),
+        smooth_window=args.smooth,
+        show=args.show,
+        expected_step=float(args.timestep_sec) if timepoints_gain is not None else None,
+    )
     plt.close()
 
 
