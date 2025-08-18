@@ -279,7 +279,7 @@ def main() -> None:
         "--rank-by",
         choices=["alpha", "beta", "gain", "brightness"],
         default="brightness",
-        help="Ranking metric: series magnitude or 'brightness' count",
+        help=("Ranking metric: series magnitude or 'brightness' by per-file order"),
     )
     parser.add_argument(
         "--sort-by",
@@ -321,7 +321,9 @@ def main() -> None:
     series_gain: dict[str, list[float]] = defaultdict(list)
     # Pre-scan to collect RA per source and brightness ordering if needed
     ra_map_global: dict[str, float] = {}
-    brightness_count: dict[str, int] = defaultdict(int)
+    # Aggregated score for how high a source appears in each JSON file
+    # Higher positions contribute larger scores (Borda-style within top fraction)
+    brightness_score: dict[str, float] = defaultdict(float)
 
     for p in args.paths:
         t = extract_time_from_filename(p)
@@ -337,23 +339,42 @@ def main() -> None:
                         ra_map_global[str(src_name)] = float(pos["ra"])  # type: ignore
         except Exception:
             pass
-        # collect brightness ranking per file (median gain)
+        # collect brightness ranking per file based on source order of appearance
+        # Earlier entries are considered brighter (order varies per file)
         try:
-            gain_per_src: list[tuple[str, float]] = []
-            for src_name, vals in doc.items():
-                if not isinstance(vals, dict):
-                    continue
-                arr = vals.get("gains") or vals.get("gain")
-                if isinstance(arr, list) and arr:
-                    arr_np = np.array(arr, dtype=float)
-                    med = float(np.nanmedian(arr_np)) if arr_np.size else np.nan
-                    if np.isfinite(med):
-                        gain_per_src.append((str(src_name), med))
-            if gain_per_src:
-                gain_per_src.sort(key=lambda x: x[1], reverse=True)
-                k = max(1, int(len(gain_per_src) * args.brightness_top_frac))
-                for name, _ in gain_per_src[:k]:
-                    brightness_count[name] += 1
+            ordered_names: list[str] = []
+            # Variant: explicit list of sources preserving order
+            if isinstance(doc.get("sources"), list):
+                for s in doc["sources"]:
+                    name = str(s.get("name", ""))
+                    if name:
+                        ordered_names.append(name)
+            else:
+                # Dict-of-dicts: rely on object key order as loaded from JSON
+                for src_name, vals in doc.items():
+                    if not isinstance(vals, dict):
+                        continue
+                    # Heuristic filter to avoid non-source dicts
+                    if any(
+                        key in vals
+                        for key in (
+                            "gains",
+                            "gain",
+                            "alphas",
+                            "alpha",
+                            "betas",
+                            "beta",
+                            "weighted_catalogue_pos_j2000",
+                            "pos",
+                        )
+                    ):
+                        ordered_names.append(str(src_name))
+            n = len(ordered_names)
+            if n:
+                k = max(1, int(n * args.brightness_top_frac))
+                # Borda-style scores within the top-k positions only
+                for i, name in enumerate(ordered_names[:k]):
+                    brightness_score[name] += float(k - i)
         except Exception:
             pass
         # Determine segment length from any available array, and compute segment times
@@ -425,11 +446,10 @@ def main() -> None:
 
     # Alternative ranking: brightness count
     if args.rank_by not in ("alpha", "beta", "gain") or not top_names:
-        # Default to brightness-based if chosen (extend choices if needed)
-        # Using computed brightness_count
-        if brightness_count:
+        # Default to brightness-based if chosen, using per-file order scores
+        if brightness_score:
             sorted_bright = sorted(
-                brightness_count.items(), key=lambda x: x[1], reverse=True
+                brightness_score.items(), key=lambda x: x[1], reverse=True
             )
             top_names = [name for name, _ in sorted_bright[: args.top]]
         else:
