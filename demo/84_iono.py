@@ -14,7 +14,6 @@ demo/84_iono.py \
 from __future__ import annotations
 
 import argparse
-import glob
 import json
 import os
 import re
