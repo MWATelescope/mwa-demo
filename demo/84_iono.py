@@ -21,6 +21,7 @@ from collections import defaultdict
 from contextlib import suppress
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import numpy as np
 import seaborn as sns
 
@@ -193,6 +194,7 @@ def plot_metric(
     smooth_window: int = 1,
     show: bool = False,
     expected_step: float | None = None,
+    color_map: dict[str, tuple[float, float, float]] | None = None,
 ) -> None:
     """Plot a metric for the selected top sources across time."""
     sns.set_context("talk")
@@ -232,10 +234,15 @@ def plot_metric(
             float(x[0]) > 1e8
         ):
             uses_gps_axis = True
+        color = None
+        if color_map is not None:
+            color = color_map.get(name)
+        if color is None:
+            color = palette[i]
         (ln,) = plt.plot(
             x,
             y_sm,
-            color=palette[i],
+            color=color,
             alpha=0.6,
             linewidth=1.2,
             label=name if len(labels) < 10 else None,
@@ -459,6 +466,34 @@ def main() -> None:
     if args.sort_by == "ra":
         top_names.sort(key=lambda n: (ra_map_global.get(n, float("inf")), n))
 
+    # Map source names to colors based on RA from JSON only (degrees)
+    # Normalize hue over the minimal arc covering the selected sources
+    pairs: list[tuple[str, float]] = []  # (name, ra_deg)
+    for name in top_names:
+        ra_val = ra_map_global.get(name)
+        if ra_val is None or not np.isfinite(ra_val):
+            continue
+        pairs.append((name, float(ra_val) % 360.0))
+
+    ra_color_map: dict[str, tuple[float, float, float]] = {}
+    if pairs:
+        degs = np.array([deg for _, deg in pairs], dtype=float)
+        order = np.argsort(degs)
+        degs_sorted = degs[order]
+        diffs = np.diff(np.concatenate([degs_sorted, degs_sorted[:1] + 360.0]))
+        cut_idx = int(np.argmax(diffs))
+        start = degs_sorted[(cut_idx + 1) % len(degs_sorted)]
+        arc_len = 360.0 - float(diffs[cut_idx])
+        arc_len = max(arc_len, 1e-9)
+        rotated = (degs - start + 360.0) % 360.0
+        rotated = np.minimum(rotated, arc_len)
+        name_to_rot: dict[str, float] = {nm: float(rot) for (nm, _), rot in zip(pairs, rotated)}
+        for name in top_names:
+            if name in name_to_rot:
+                hue = name_to_rot[name] / arc_len
+                rgb = mcolors.hsv_to_rgb((float(hue), 0.85, 0.9))
+                ra_color_map[name] = tuple(np.array(rgb, dtype=float))
+
     os.makedirs(args.out_dir, exist_ok=True)
 
     plot_metric(
@@ -473,6 +508,7 @@ def main() -> None:
         expected_step=float(args.timestep_sec)
         if timepoints_alpha is not None
         else None,
+        color_map=ra_color_map,
     )
     plt.close()
 
@@ -486,6 +522,7 @@ def main() -> None:
         smooth_window=args.smooth,
         show=args.show,
         expected_step=float(args.timestep_sec) if timepoints_beta is not None else None,
+        color_map=ra_color_map,
     )
     plt.close()
 
@@ -499,6 +536,7 @@ def main() -> None:
         smooth_window=args.smooth,
         show=args.show,
         expected_step=float(args.timestep_sec) if timepoints_gain is not None else None,
+        color_map=ra_color_map,
     )
     plt.close()
 
