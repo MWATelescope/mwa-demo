@@ -245,16 +245,22 @@ def plot_metric(
             color=color,
             alpha=0.6,
             linewidth=1.2,
-            label=name if len(labels) < 10 else None,
+            label=name if len(labels) < 5 else None,
         )
-        if len(labels) < 10:
+        if len(labels) < 5:
             handles.append(ln)
             labels.append(name)
     plt.xlabel("GPS time (s)" if uses_gps_axis else "time index")
     plt.ylabel(ylabel)
     plt.title(title)
     if handles:
-        plt.legend(handles=handles, labels=labels, loc="upper right", ncol=2)
+        plt.legend(
+            handles=handles,
+            labels=labels,
+            loc="upper right",
+            ncol=1,
+            fontsize="small",
+        )
     # Robust y-limits
     all_vals = np.array(
         [v for name in top_names for v in (series_map.get(name) or [])], dtype=float
