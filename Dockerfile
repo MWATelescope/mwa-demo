@@ -4,6 +4,8 @@
 # ref: https://docs.docker.com/build/building/multi-platform/
 ARG BASE_IMAGE=mwatelescope/hyperdrive:main
 FROM $BASE_IMAGE AS base
+# docker build . --build-arg=BASE_IMAGE=mwatelescope/hyperdrive:0.6.1-autos-cuda12.5.1-ubuntu24.04 --tag=mwatelescope/mwa-demo:autos_cuda12.5.1 --push
+# module load singularity/default; singularity pull -F /data/curtin_mwaeor/singularity/mwatelescope-mwa-demo-autos_cuda12.5.1.img docker://mwatelescope/mwa-demo:autos_cuda12.5.1
 
 # Suppress perl locale errors
 ENV LC_ALL=C
@@ -179,6 +181,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     'matplotlib==3.9.0' \
     'python-casacore>=3.5.2,<3.7' \
     'aoquality' \
+    'mwalib' \
     && python -m pip install --no-build-isolation \
     'pyuvdata[casa]==3.1.3' \
     && python -m pip install \
