@@ -584,6 +584,172 @@ def plot_timeseries(data, name, show=False, save=True):
     return filename
 
 
+def plot_spectrum(data, name, show=False, save=True):
+    """Plot frequency spectrum for main metrics by averaging across time.
+
+    Args:
+        data: Data dict from load_metrics_data()
+        name: Plot name/title
+        show: Whether to show plot interactively
+        save: Whether to save plot to file
+
+    Returns:
+        str: Path to saved plot file (if save=True)
+    """
+    all_data_2d = data["all_data_2d"]
+
+    if not all_data_2d:
+        print("No 2D data available for spectrum plot")
+        return None
+
+    # Get the first shape key with data
+    shape_key = None
+    for key in all_data_2d:
+        if any(len(all_data_2d[key][col]) > 0 for col in all_data_2d[key] if col != "freq_info"):
+            shape_key = key
+            break
+
+    if shape_key is None:
+        print("No valid 2D data for spectrum plot")
+        return None
+
+    # Get frequency information
+    freq_info = all_data_2d[shape_key].get("freq_info", {})
+    crval1 = freq_info.get("crval1", 167040000.0)
+    cdelt1 = freq_info.get("cdelt1", 20000.0)
+    crpix1 = freq_info.get("crpix1", 1.0)
+
+    # Determine frequency channels
+    n_freq = None
+    for col_name in all_data_2d[shape_key]:
+        if col_name != "freq_info" and all_data_2d[shape_key][col_name]:
+            n_freq = all_data_2d[shape_key][col_name][0].shape[1]
+            break
+
+    if n_freq is None:
+        print("No frequency data found")
+        return None
+
+    freq_channels = np.arange(1, n_freq + 1)
+    freq_hz = crval1 + (freq_channels - crpix1) * cdelt1
+    freq_mhz = freq_hz / 1e6
+
+    fig, axes = plt.subplots(7, 1, figsize=(15, 12), sharex=True)
+    fig.suptitle(f"{name} - Frequency Spectrum", fontsize=16, fontweight="bold")
+
+    column_names = [
+        "AO_FLAG_METRICS",
+        "SSINS_POL=XX",
+        "SSINS_POL=XY",
+        "SSINS_POL=YY",
+        "EAVILS_POL=XX",
+        "EAVILS_POL=XY",
+        "EAVILS_POL=YY",
+    ]
+
+    colors = ["blue", "red", "orange", "green", "purple", "brown", "pink"]
+
+    for i, (col_name, color) in enumerate(zip(column_names, colors)):
+        if col_name in all_data_2d[shape_key] and all_data_2d[shape_key][col_name]:
+            # Collect all data arrays for this metric
+            all_arrays = all_data_2d[shape_key][col_name]
+
+            if len(all_arrays) > 0:
+                # Stack all time-frequency arrays and compute mean spectrum
+                all_data_stacked = []
+                for arr in all_arrays:
+                    if arr.ndim == 2:  # Should be (time, frequency)
+                        all_data_stacked.append(arr)
+
+                if all_data_stacked:
+                    # Concatenate along time axis and compute mean across time
+                    combined_data = np.concatenate(all_data_stacked, axis=0)
+                    spectrum = np.nanmean(combined_data, axis=0)
+
+                    # Plot spectrum if we have valid data
+                    valid_mask = ~np.isnan(spectrum)
+                    if np.any(valid_mask):
+                        axes[i].plot(
+                            freq_mhz[valid_mask],
+                            spectrum[valid_mask],
+                            color=color,
+                            alpha=0.7,
+                            linewidth=1.0,
+                        )
+
+                        # Set y-axis limits with some margin
+                        valid_data = spectrum[valid_mask]
+                        data_range = np.max(valid_data) - np.min(valid_data)
+                        if data_range > 0:
+                            margin = data_range * 0.1
+                            y_min = np.min(valid_data) - margin
+                            y_max = np.max(valid_data) + margin
+                            axes[i].set_ylim(y_min, y_max)
+                        else:
+                            center_val = np.mean(valid_data)
+                            if abs(center_val) > 1e-10:
+                                axes[i].set_ylim(center_val * 0.95, center_val * 1.05)
+                            else:
+                                axes[i].set_ylim(-1e-10, 1e-10)
+                    else:
+                        axes[i].text(
+                            0.5,
+                            0.5,
+                            f"No valid data\nfor {col_name}",
+                            transform=axes[i].transAxes,
+                            ha="center",
+                            va="center",
+                        )
+                else:
+                    axes[i].text(
+                        0.5,
+                        0.5,
+                        f"No 2D data\nfor {col_name}",
+                        transform=axes[i].transAxes,
+                        ha="center",
+                        va="center",
+                    )
+            else:
+                axes[i].text(
+                    0.5,
+                    0.5,
+                    f"No data\nfor {col_name}",
+                    transform=axes[i].transAxes,
+                    ha="center",
+                    va="center",
+                )
+        else:
+            axes[i].text(
+                0.5,
+                0.5,
+                f"No data\nfor {col_name}",
+                transform=axes[i].transAxes,
+                ha="center",
+                va="center",
+            )
+
+        axes[i].set_ylabel(col_name, fontweight="bold")
+        axes[i].grid(True, alpha=0.3)
+        axes[i].set_xlim(freq_mhz[0], freq_mhz[-1])
+
+    axes[-1].set_xlabel("Frequency (MHz)", fontweight="bold")
+
+    plt.tight_layout()
+
+    filename = None
+    if save:
+        filename = f"metrics_spectrum_{name}.png"
+        plt.savefig(filename, dpi=150, bbox_inches="tight")
+        print(realpath(filename))
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
+
+    return filename
+
+
 def plot_waterfall(data, name, show=False, save=True):
     """Plot 2D waterfall plots for main metrics.
 
