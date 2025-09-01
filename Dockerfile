@@ -180,6 +180,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     'pandas>=2.2.3' \
     'matplotlib==3.9.0' \
     'python-casacore>=3.5.2,<3.7' \
+    'click' \
     'aoquality' \
     'mwalib' \
     && python -m pip install --no-build-isolation \
@@ -202,6 +203,10 @@ RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.d
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install  \
     git+https://github.com/d3v-null/CHIPS_wrappers.git@rn-changes
+
+# Copy the lofar files
+COPY ./lofar /lofar
+ENV PATH="/lofar:${PATH}"
 
 # Copy the demo files
 COPY ./demo /demo
