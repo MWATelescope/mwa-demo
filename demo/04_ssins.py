@@ -171,6 +171,13 @@ def get_parser_common(diff=True, spectrum="cross"):
     # arguments for SSINS.INS
     group_ins = parser.add_argument_group("SSINS.INS")
     group_ins.add_argument(
+        "--order",
+        default=0,
+        type=int,
+        help=("order of polynomial fit for each frequency channel"
+              " during mean-subtraction."),
+    )
+    group_ins.add_argument(
         "--spectrum-type",
         default=spectrum,
         choices=["all", "auto", "cross"],
@@ -548,7 +555,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         # select only baselines or autos with this antenna
         ssa = ss.select(ant_str=f"{ant_num}", inplace=False)
         with np.errstate(invalid="ignore"):
-            ins = INS(ssa, spectrum_type=args.spectrum_type)
+            ins = INS(ssa, spectrum_type=args.spectrum_type, order=args.order)
         preapply_flags(ssa, ins, args)
         apply_match_test(mf, ins, args)
         scores[ant_idx] = ins.sig_array
@@ -567,8 +574,8 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         if i == 0:
             try:
                 ax_signal.yaxis.set_label("Antenna")
-            except RuntimeError:
-                print(f"WARN: matplotlib breaking api change")
+            except RuntimeError as e:
+                print(f"WARN: matplotlib breaking api change: {e}")
 
         signal_pscore = slice_(scores[..., i], axis=-1)
         signal_pscore[signal_pscore == 0] = np.nan
@@ -587,8 +594,8 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             ax_signal.yaxis.set_ticklabels(
                 ant_labels, fontsize=args.fontsize, fontfamily="monospace"
             )
-        except RuntimeError:
-            print(f"WARN: matplotlib breaking api change")
+        except RuntimeError as e:
+            print(f"WARN: matplotlib breaking api change: {e}")
 
         # by spectrum: [freq, time]
         ax_spectrum: Axis = subplots[1, i]
@@ -596,8 +603,8 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             ax_spectrum.xaxis.set_label("GPS Time [s]")
             if i == 0:
                 ax_spectrum.yaxis.set_label("Frequency channel [MHz]")
-        except RuntimeError:
-            print(f"WARN: matplotlib breaking api change")
+        except RuntimeError as e:
+            print(f"WARN: matplotlib breaking api change: {e}")
 
         spectrum_pscore = slice_(scores[..., i].transpose(2, 1, 0), axis=-1)
         spectrum_pscore[spectrum_pscore == 0] = np.nan
@@ -628,7 +635,7 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     # incoherent noise spectrum https://ssins.readthedocs.io/en/latest/incoherent_noise_spectrum.html
     mf = get_match_filter(ss.freq_array, args)
     with np.errstate(invalid="ignore"):
-        ins = INS(ss, spectrum_type=args.spectrum_type)
+        ins = INS(ss, spectrum_type=args.spectrum_type, order=args.order)
     apply_match_test(mf, ins, args)
     pols = ss.get_pols()
 
