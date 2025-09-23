@@ -54,6 +54,21 @@ You can inspect the images produced in Carta
 carta --top_level_folder . --host 127.0.0.1
 ```
 
+## Backup Visibilities
+
+If you had some issues with preprocessing or calibration and just want to run wsclean,
+you can try these calibrated visibilities.
+
+```bash
+export outdir=${outdir:-${PWD}/demo/data/}
+# docker run -it --rm -v ${PWD}:${PWD} -w ${PWD} -v${outdir}:${outdir} mwatelescope/mwa-demo:latest
+# demo/00_test.sh
+rm -rf ${outdir}/1121334536/cal/hyp_cal_1121334536_edg80.ms || mkdir -p ${outdir}/1121334536/cal/
+curl -L 'https://projects.pawsey.org.au/mwa-demo/hyp_cal_1121334536_edg80.ms.zip' | tar -C$outdir/1121334536/cal/ -xzf -
+export obsid=1121334536
+demo/07_img.sh
+```
+
 ## Quality Analysis
 
 The images for `1341914000` look a bit weird, let's enable calqa flags and try again.
@@ -83,6 +98,21 @@ done
 ```
 
 ![images of each main MWA configuration](imgs/config_images.png)
+
+## Adjust imaging parameters
+
+check out demo/07_img.sh to see a full list of parametrs
+
+```bash
+for obsid in 1121334536 1303134032 1341914000; do
+  obsid=$obsid demo/06_cal.sh || break
+done
+export ms_list=$(ls -1d ${outdir}/{1121334536,1303134032,1341914000}/cal/hyp_cal_*.ms )
+for briggs in 0.0 0.2 0.4 0.6 0.8 1.0; do
+  briggs=$briggs imgname=combined/img/wsclean_b$briggs demo/07_img.sh || break;
+done
+
+```
 
 ## Joint deconvolution
 
