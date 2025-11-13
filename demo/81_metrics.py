@@ -837,10 +837,18 @@ def plot_waterfall(data, name, show=False, save=True):
         if not waterfall_data:
             continue
 
+        # get ratio between number of channels and number of timestamps
+        channel_ratio = n_freq / len(shape_times)
+        if channel_ratio > 1:
+            fig_height = 50
+        else:
+            fig_height = 50 / np.sqrt(channel_ratio)
+
         fig2, axes2 = plt.subplots(
-            1, 7, figsize=(28, 32), sharex=True, sharey=True, tight_layout=True, dpi=100
+            1, 7, figsize=(28, fig_height), sharex=True, sharey=True, tight_layout=True, dpi=100
         )
-        fig2.suptitle(name, fontsize=6, fontweight="bold")
+        # Make the title bigger
+        fig2.suptitle(name, fontsize=24, fontweight="bold")
 
         for i, (col_name, color) in enumerate(zip(column_names, colors)):
             if col_name in waterfall_data and len(waterfall_data[col_name]) > 0:
@@ -861,9 +869,19 @@ def plot_waterfall(data, name, show=False, save=True):
                     vmax=vmax,
                 )
 
-                plt.colorbar(
-                    im, ax=axes2[i], orientation="horizontal", pad=0.1, shrink=0.8
+                # Fix height of colorbar
+                from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+                divider = make_axes_locatable(axes2[i])
+                # 50 is figure height, 1/50 = 0.02
+                cax = divider.append_axes(
+                    "bottom", size=0.5, pad=0.1
                 )
+                plt.colorbar(
+                    im, cax=cax, orientation="horizontal"
+                )
+                # Optionally make tick labels smaller if colorbar is compressed
+                cax.tick_params(labelsize=10)
 
             axes2[i].set_title(col_name, fontweight="bold")
             axes2[i].set_xlabel("Frequency (MHz)")
