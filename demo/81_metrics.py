@@ -62,12 +62,13 @@ def load_metafits_receiver_mapping(metafits_path):
         return {}
 
 
-def load_metrics_data(metrics_files, metafits_path=None):
+def load_metrics_data(metrics_files, metafits_path=None, antennas_filter=None):
     """Load and process metrics data from FITS files.
 
     Args:
         metrics_files: List of FITS file paths
         metafits_path: Optional path to metafits file for receiver mapping
+        antennas_filter: List of antenna names to include, or None for all antennas
 
     Returns:
         dict: Processed data structure containing all metrics and metadata
@@ -456,6 +457,30 @@ def load_metrics_data(metrics_files, metafits_path=None):
     else:
         common_times = np.array([])
         aligned_data = {}
+
+    # Filter antennas if requested
+    if antennas_filter is not None:
+        print(f"Filtering data for antennas: {antennas_filter}")
+
+        # Get the set of antenna IDs that match the filter
+        filtered_ant_ids = set()
+        for ant_id, info in antenna_table.items():
+            ant_name = info.get("ANTNAME", "")
+            if ant_name in antennas_filter:
+                filtered_ant_ids.add(ant_id)
+
+        # Filter antenna_table
+        antenna_table = {ant_id: info for ant_id, info in antenna_table.items()
+                        if ant_id in filtered_ant_ids}
+
+        # Filter auto_sub_ant data
+        for ant_id in list(auto_sub_ant_data.keys()):
+            if ant_id not in filtered_ant_ids:
+                del auto_sub_ant_data[ant_id]
+                del auto_sub_ant_times[ant_id]
+                del auto_sub_ant_metadata[ant_id]
+
+        print(f"Filtered to {len(antenna_table)} antennas")
 
     return {
         "aligned_data": aligned_data,
@@ -858,11 +883,20 @@ def plot_waterfall(data, name, show=False, save=True):
                 data_2d_norm = data_2d
                 vmin = np.nanquantile(data_2d_norm, 0.05)
                 vmax = np.nanquantile(data_2d_norm, 0.95)
+                # Handle degenerate time range for single time points
+                time_min = time_gps_2d[0]
+                time_max = time_gps_2d[-1]
+                if time_min == time_max:
+                    # For single time points, add small padding to make visible
+                    time_padding = 0.5  # arbitrary small time unit
+                    time_min -= time_padding
+                    time_max += time_padding
+
                 im = axes2[i].imshow(
                     data_2d_norm,
                     aspect="auto",
                     origin="lower",
-                    extent=[freq_mhz[0], freq_mhz[-1], time_gps_2d[0], time_gps_2d[-1]],
+                    extent=[freq_mhz[0], freq_mhz[-1], time_min, time_max],
                     cmap="cool",
                     interpolation="nearest",
                     vmin=vmin,
@@ -1011,11 +1045,20 @@ def plot_auto_pol(data, name, show=False, save=True):
                         vmin = np.nanquantile(antenna_data, 0.05)
                         vmax = np.nanquantile(antenna_data, 0.95)
 
+                        # Handle degenerate time range for single time points
+                        time_min = time_gps_grid[0]
+                        time_max = time_gps_grid[-1]
+                        if time_min == time_max:
+                            # For single time points, add small padding to make visible
+                            time_padding = 0.5  # arbitrary small time unit
+                            time_min -= time_padding
+                            time_max += time_padding
+
                         extent = [
                             freq_mhz_auto[0],
                             freq_mhz_auto[-1],
-                            time_gps_grid[0],
-                            time_gps_grid[-1],
+                            time_min,
+                            time_max,
                         ]
                         im = axes[plot_idx].imshow(
                             antenna_data,
@@ -1257,11 +1300,20 @@ def plot_amp_fp_grid(data, name, show=False, save=True):
                 vmin = np.nanquantile(spectra_grid, 0.05)
                 vmax = np.nanquantile(spectra_grid, 0.95)
 
+                # Handle degenerate time range for single time points
+                time_min = time_gps_grid[0]
+                time_max = time_gps_grid[-1]
+                if time_min == time_max:
+                    # For single time points, add small padding to make visible
+                    time_padding = 0.5  # arbitrary small time unit
+                    time_min -= time_padding
+                    time_max += time_padding
+
                 extent = [
                     freq_mhz[0],
                     freq_mhz[-1],
-                    time_gps_grid[0],
-                    time_gps_grid[-1],
+                    time_min,
+                    time_max,
                 ]
                 im = axes4[row_idx, col_idx].imshow(
                     spectra_grid,
@@ -1654,11 +1706,20 @@ def plot_auto_sub_ant(data, name, show=False, save=True):
                     vmin = np.nanquantile(pol_data_grid, 0.05)
                     vmax = np.nanquantile(pol_data_grid, 0.95)
 
+                    # Handle degenerate time range for single time points
+                    time_min = time_gps[0]
+                    time_max = time_gps[-1]
+                    if time_min == time_max:
+                        # For single time points, add small padding to make visible
+                        time_padding = 0.5  # arbitrary small time unit
+                        time_min -= time_padding
+                        time_max += time_padding
+
                     im = ax.imshow(
                         pol_data_grid,
                         aspect="auto",
                         origin="lower",
-                        extent=[freq_mhz[0], freq_mhz[-1], time_gps[0], time_gps[-1]],
+                        extent=[freq_mhz[0], freq_mhz[-1], time_min, time_max],
                         cmap="cool",
                         interpolation="none",
                         vmin=vmin,
@@ -1837,6 +1898,10 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
 
                     ant_ids_in_rx = sorted(receivers[rx_num])[:8]
 
+                    # Skip receivers with no antennas after filtering
+                    if not ant_ids_in_rx:
+                        continue
+
                     fig7, axes7 = plt.subplots(
                         2, 4, figsize=(20, 12), sharex=True, sharey=True
                     )
@@ -1862,7 +1927,7 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
                                 ant_delay_grid,
                                 aspect="auto",
                                 origin="lower",
-                                extent=[0, n_delays - 1, time_gps[0], time_gps[-1]],
+                                extent=[0, n_delays - 1, -0.5, n_files - 0.5],
                                 cmap="cool",
                                 interpolation="none",
                                 vmin=vmin,
@@ -1875,7 +1940,7 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
                             if plot_idx >= 4:
                                 axes7[plot_idx].set_xlabel("Delay Bin", fontsize=8)
                             if plot_idx % 4 == 0:
-                                axes7[plot_idx].set_ylabel("GPS Time (s)", fontsize=8)
+                                axes7[plot_idx].set_ylabel("File Index", fontsize=8)
                         else:
                             axes7[plot_idx].set_visible(False)
 
@@ -1888,6 +1953,131 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
                     filename = None
                     if save:
                         filename = f"auto_delay_pol_RX{rx_num}_{pol_name}_{name}.png"
+                        plt.savefig(filename, dpi=150, bbox_inches="tight")
+                        filenames.append(filename)
+                        print(realpath(filename))
+
+                    if show:
+                        plt.show()
+                    else:
+                        plt.close()
+
+    return filenames
+
+
+def plot_auto_delay_pol_lines(data, name, show=False, save=True):
+    """Plot AUTO_DELAY_POL data as line plots with each timestep overlaid.
+
+    Args:
+        data: Data dict from load_metrics_data()
+        name: Plot name/title
+        show: Whether to show plot interactively
+        save: Whether to save plot to file
+
+    Returns:
+        list: Paths to saved plot files (if save=True)
+    """
+    auto_delay_pol_data = data["auto_delay_pol_data"]
+    auto_delay_pol_times = data["auto_delay_pol_times"]
+    antenna_table = data["antenna_table"]
+    metafits_receiver_mapping = data["metafits_receiver_mapping"]
+
+    filenames = []
+
+    if not auto_delay_pol_data:
+        print("No AUTO_DELAY_POL data found")
+        return filenames
+
+    print(f"Found AUTO_DELAY_POL data for {len(auto_delay_pol_data)} polarizations")
+
+    # Group antennas by receiver
+    receivers = {}
+    for ant_id, info in antenna_table.items():
+        if metafits_receiver_mapping:
+            ant_name = info.get("ANTNAME", "")
+            rx_num = metafits_receiver_mapping.get(ant_name, "Unknown")
+            if rx_num == "Unknown":
+                continue
+        else:
+            rx_num = info.get("RX_NUMBER", "Unknown")
+
+        if rx_num not in receivers:
+            receivers[rx_num] = []
+        receivers[rx_num].append(ant_id)
+
+    pol_names = ["XX", "YY", "XY"]
+
+    for pol_name in pol_names:
+        if pol_name in auto_delay_pol_data:
+            delay_file_data = auto_delay_pol_data[pol_name]
+            delay_times = auto_delay_pol_times[pol_name]
+
+            if delay_file_data:
+                first_delay_data = delay_file_data[0]
+                n_antennas, n_delays = first_delay_data.shape
+
+                sorted_indices = np.argsort(delay_times)
+                sorted_times = [delay_times[i] for i in sorted_indices]
+                sorted_data = [delay_file_data[i] for i in sorted_indices]
+
+                for rx_num in sorted(receivers.keys()):
+                    if rx_num == "Unknown":
+                        continue
+
+                    ant_ids_in_rx = sorted(receivers[rx_num])[:8]
+
+                    # Skip receivers with no antennas after filtering
+                    if not ant_ids_in_rx:
+                        continue
+
+                    fig, axes = plt.subplots(2, 4, figsize=(20, 12), sharex=True, sharey=True)
+                    fig.suptitle(
+                        f"{name} - AUTO_DELAY_POL {pol_name} Lines - Receiver {rx_num}",
+                        fontsize=12,
+                        fontweight="bold",
+                    )
+                    axes = axes.flatten()
+
+                    # Colors for different timesteps
+                    colors = plt.cm.cool(np.linspace(0, 1, len(sorted_data)))
+
+                    delay_bins = np.arange(n_delays)
+
+                    for plot_idx, ant_id in enumerate(ant_ids_in_rx):
+                        if plot_idx < 8 and ant_id < n_antennas:
+                            # Plot each timestep as a separate line for this antenna
+                            for file_idx in range(len(sorted_data)):
+                                antenna_delays = sorted_data[file_idx][ant_id, :]  # (n_delays,)
+
+                                axes[plot_idx].plot(
+                                    delay_bins,
+                                    antenna_delays,
+                                    color=colors[file_idx],
+                                    alpha=0.7,
+                                    linewidth=1.0,
+                                    label=f"T{file_idx}" if file_idx < 5 else ""  # Only label first few
+                                )
+
+                            ant_name = get_antenna_display_name(ant_id, antenna_table)
+                            axes[plot_idx].set_title(f"{ant_name}", fontsize=9)
+                            axes[plot_idx].grid(True, alpha=0.3)
+
+                            # Add legend only for first subplot if there are multiple timesteps
+                            if plot_idx == 0 and len(sorted_data) > 1:
+                                axes[plot_idx].legend(fontsize=6)
+
+                            if plot_idx >= 4:
+                                axes[plot_idx].set_xlabel("Delay Bin", fontsize=8)
+                            if plot_idx % 4 == 0:
+                                axes[plot_idx].set_ylabel(f"{pol_name} Amplitude", fontsize=8)
+                        else:
+                            axes[plot_idx].set_visible(False)
+
+                    plt.tight_layout()
+
+                    filename = None
+                    if save:
+                        filename = f"auto_delay_pol_lines_RX{rx_num}_{pol_name}_{name}.png"
                         plt.savefig(filename, dpi=150, bbox_inches="tight")
                         filenames.append(filename)
                         print(realpath(filename))
@@ -1941,6 +2131,9 @@ def plot_all_metrics(data, name, show=False, save=True):
     print("Generating AUTO_DELAY_POL plots...")
     results["auto_delay_pol"] = plot_auto_delay_pol(data, name, show, save)
 
+    print("Generating AUTO_DELAY_POL line plots...")
+    results["auto_delay_pol_lines"] = plot_auto_delay_pol_lines(data, name, show, save)
+
     return results
 
 
@@ -1965,6 +2158,12 @@ Examples:
         "Download from http://ws.mwatelescope.org/metadata/fits?obs_id=OBSID. "
         "Without this, plots will use incorrect RX_NUMBER from FITS headers.",
     )
+    parser.add_argument(
+        "--antennas",
+        nargs="+",
+        help="List of antenna names to include in plots (e.g., Tile011 Tile012). "
+        "If not specified, all antennas are included.",
+    )
     parser.add_argument("files", nargs="+", help="Metrics FITS files to process")
 
     args = parser.parse_args()
@@ -1973,6 +2172,7 @@ Examples:
     name = args.name
     show = args.show
     metafits_path = args.metafits
+    antennas_filter = args.antennas
 
     if not metafits_path:
         try:
@@ -1991,7 +2191,7 @@ Examples:
     plt.style.use("dark_background")
 
     # Load data
-    data = load_metrics_data(metrics_files, metafits_path)
+    data = load_metrics_data(metrics_files, metafits_path, antennas_filter)
 
     # Generate all plots
     plot_all_metrics(data, name, show, save=True)
