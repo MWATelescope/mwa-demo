@@ -37,11 +37,9 @@ if ! wsclean --version; then
 fi
 if ! hyperdrive --version; then
     echo "hyperdrive not found. https://mwatelescope.github.io/mwa_hyperdrive/installation/intro.html "
-    exit 1
 fi
 if ! jq --version; then
     echo "jq not found. https://jqlang.github.io/jq/download/ "
-    exit 1
 fi
 if ! python --version; then
     echo "python not found. https://www.python.org/downloads/ "
@@ -66,7 +64,7 @@ elif [[ $srclist =~ GGSM && ! -f "$srclist" ]]; then
     curl -L -o $srclist "https://github.com/GLEAM-X/GLEAM-X-pipeline/raw/master/models/${srclist##*/}"
 fi
 # DEMO: verify srclist
-hyperdrive srclist-verify $srclist
+command -v hyperdrive && hyperdrive srclist-verify $srclist
 
 # #### #
 # BEAM #
@@ -77,7 +75,7 @@ if [[ ! -f "$MWA_BEAM_FILE" ]]; then
     curl -L -o $MWA_BEAM_FILE "http://ws.mwatelescope.org/static/${MWA_BEAM_FILE##*/}"
 fi
 # DEMO: verify beam
-hyperdrive beam fee --output /dev/null
+command -v hyperdrive && hyperdrive beam fee --output /dev/null
 
 # #### #
 # DATA #
