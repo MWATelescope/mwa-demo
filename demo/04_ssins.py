@@ -988,6 +988,9 @@ def main():  # noqa: D103
     args = parser.parse_args()
     print(f"{args=}")
 
+    if args.plot_type == "flags" and args.diff:
+        raise UserWarning("diff not supported for flags plot")
+
     # sky-subtract https://ssins.readthedocs.io/en/latest/sky_subtract.html
     ss = SS()
 
