@@ -922,6 +922,8 @@ def read_select(ss: SS, args):
         vis = file_groups.get(".ms", [])
         base, _ = os.path.splitext(vis[0])
         total_size_mb = sum(du_bs(Path(f)) for f in vis)
+        if total_size_mb == 0:
+            raise UserWarning(f"no measurement set found in {vis}")
         print(f"reading total {int(total_size_mb)}MB")
         start = time.time()
         if len(vis) > 0:
