@@ -183,6 +183,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     'click' \
     'aoquality' \
     'mwalib' \
+    'psrecord' \
+    # 'casatools' \ # broken on arm64
     && python -m pip install --no-build-isolation \
     'pyuvdata[casa]==3.1.3' \
     && python -m pip install \
