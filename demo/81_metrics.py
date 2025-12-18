@@ -1243,11 +1243,13 @@ def plot_amp_fp_grid(data, name, show=False, save=True):
     pol_suffixes = ["_XX", "_YY", "_XY"]
 
     found_amp_fp = False
+    valid_pol_key = None
     for base_name in amp_fp_base_names:
         for pol_suffix in pol_suffixes:
             pol_key = base_name + pol_suffix
             if pol_key in additional_data_2d and additional_data_2d[pol_key]:
                 found_amp_fp = True
+                valid_pol_key = pol_key
                 break
         if found_amp_fp:
             break
@@ -1258,7 +1260,7 @@ def plot_amp_fp_grid(data, name, show=False, save=True):
 
     # Frequency info from stored WCS
     wcs_info = data["wcs_info"]
-    n_freq = 768  # This should match the data shape
+    n_freq = additional_data_2d[valid_pol_key][0].shape[0]
     crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6
@@ -1394,7 +1396,11 @@ def plot_auto_power_ant(data, name, show=False, save=True):
 
     # Frequency info from stored WCS
     wcs_info = data["wcs_info"]
-    n_freq = 768  # This should match the data shape
+
+    # Get n_freq from data
+    first_ant = list(auto_power_ant_data.keys())[0]
+    n_freq = auto_power_ant_data[first_ant][0].shape[2]
+
     crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6
@@ -1530,7 +1536,11 @@ def plot_auto_power_ant_lines(data, name, show=False, save=True):
 
     # Frequency info from stored WCS
     wcs_info = data["wcs_info"]
-    n_freq = 768  # This should match the data shape
+
+    # Get n_freq from data
+    first_ant = list(auto_power_ant_data.keys())[0]
+    n_freq = auto_power_ant_data[first_ant][0].shape[2]
+
     crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6
@@ -1645,7 +1655,11 @@ def plot_auto_sub_ant(data, name, show=False, save=True):
 
     # Frequency info from stored WCS
     wcs_info = data["wcs_info"]
-    n_freq = 768  # This should match the data shape
+
+    # Get n_freq from data
+    first_ant = list(auto_sub_ant_data.keys())[0]
+    n_freq = auto_sub_ant_data[first_ant][0].shape[2]
+
     crval1, cdelt1, crpix1 = wcs_info["crval1"], wcs_info["cdelt1"], wcs_info["crpix1"]
     freq_hz = crval1 + (np.arange(1, n_freq + 1) - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6

@@ -13,3 +13,5 @@ ska_low_allsky_imaging/**
 supplemental/**
 templates/**
 .vscode/**
+.DS_Store
+*.metafits
