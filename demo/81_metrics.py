@@ -17,9 +17,11 @@ plot_timeseries(data, name, show=True)
 import argparse
 from os.path import realpath
 from pathlib import Path
+from collections import OrderedDict
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from astropy.io import fits
 
 
@@ -536,9 +538,6 @@ def plot_timeseries(data, name, show=False, save=True):
         print("No valid data for timeseries plot")
         return None
 
-    fig, axes = plt.subplots(7, 1, figsize=(15, 12), sharex=True)
-    fig.suptitle(name, fontsize=6, fontweight="bold")
-
     column_names = [
         "AO_FLAG_METRICS",
         "SSINS_POL=XX",
@@ -549,7 +548,15 @@ def plot_timeseries(data, name, show=False, save=True):
         "EAVILS_POL=YY",
     ]
 
+    fig, axes = plt.subplots(len(column_names), 1, figsize=(15, 12), sharex=True)
+    fig.suptitle(name, fontsize=6, fontweight="bold")
+
     colors = ["blue", "red", "orange", "green", "purple", "brown", "pink"]
+
+    timeseries_data = OrderedDict()
+    timeseries_data['gps_time'] = common_times
+    for col_name in column_names:
+        timeseries_data[col_name] = aligned_data[col_name]
 
     for i, (col_name, color) in enumerate(zip(column_names, colors)):
         if len(aligned_data[col_name]) > 0:
@@ -595,18 +602,24 @@ def plot_timeseries(data, name, show=False, save=True):
 
     plt.tight_layout()
 
-    filename = None
+    plot_filename = None
+    csv_filename = None
     if save:
-        filename = f"metrics_timeseries_{name}.png"
-        plt.savefig(filename, dpi=150, bbox_inches="tight")
-        print(realpath(filename))
+        plot_filename = f"metrics_timeseries_{name}.png"
+        plt.savefig(plot_filename, dpi=150, bbox_inches="tight")
+        print(realpath(plot_filename))
+
+        csv_filename = f"metrics_timeseries_{name}.csv"
+        dataframe = pd.DataFrame(timeseries_data)
+        dataframe.to_csv(csv_filename, index=False)
+        print(realpath(csv_filename))
 
     if show:
         plt.show()
     else:
         plt.close()
 
-    return filename
+    return plot_filename
 
 
 def plot_spectrum(data, name, show=False, save=True):
@@ -659,9 +672,6 @@ def plot_spectrum(data, name, show=False, save=True):
     freq_hz = crval1 + (freq_channels - crpix1) * cdelt1
     freq_mhz = freq_hz / 1e6
 
-    fig, axes = plt.subplots(7, 1, figsize=(15, 12), sharex=True)
-    fig.suptitle(f"{name} - Frequency Spectrum", fontsize=16, fontweight="bold")
-
     column_names = [
         "AO_FLAG_METRICS",
         "SSINS_POL=XX",
@@ -672,9 +682,16 @@ def plot_spectrum(data, name, show=False, save=True):
         "EAVILS_POL=YY",
     ]
 
+    fig, axes = plt.subplots(len(column_names), 1, figsize=(15, 12), sharex=True)
+    fig.suptitle(f"{name} - Frequency Spectrum", fontsize=16, fontweight="bold")
+
     colors = ["blue", "red", "orange", "green", "purple", "brown", "pink"]
 
-    for i, (col_name, color) in enumerate(zip(column_names, colors)):
+    spectrum_data = OrderedDict()
+    spectrum_data['freq_mhz'] = freq_mhz
+    for col_name in column_names:
+        spectrum_data[col_name] = None
+
         if col_name in all_data_2d[shape_key] and all_data_2d[shape_key][col_name]:
             # Collect all data arrays for this metric
             all_arrays = all_data_2d[shape_key][col_name]
@@ -689,56 +706,41 @@ def plot_spectrum(data, name, show=False, save=True):
                 if all_data_stacked:
                     # Concatenate along time axis and compute mean across time
                     combined_data = np.concatenate(all_data_stacked, axis=0)
-                    spectrum = np.nanmean(combined_data, axis=0)
+                    spectrum_data[col_name] = np.nanmean(combined_data, axis=0)
 
-                    # Plot spectrum if we have valid data
-                    valid_mask = ~np.isnan(spectrum)
-                    if np.any(valid_mask):
-                        axes[i].plot(
-                            freq_mhz[valid_mask],
-                            spectrum[valid_mask],
-                            color=color,
-                            alpha=0.7,
-                            linewidth=1.0,
-                        )
+    for i, (col_name, color) in enumerate(zip(column_names, colors)):
+        if spectrum_data[col_name] is not None:
+            spectrum = spectrum_data[col_name]
+            # Plot spectrum if we have valid data
+            valid_mask = ~np.isnan(spectrum)
+            if np.any(valid_mask):
+                axes[i].plot(
+                    freq_mhz[valid_mask],
+                    spectrum[valid_mask],
+                    color=color,
+                    alpha=0.7,
+                    linewidth=1.0,
+                )
 
-                        # Set y-axis limits with some margin
-                        valid_data = spectrum[valid_mask]
-                        data_range = np.max(valid_data) - np.min(valid_data)
-                        if data_range > 0:
-                            margin = data_range * 0.1
-                            y_min = np.min(valid_data) - margin
-                            y_max = np.max(valid_data) + margin
-                            axes[i].set_ylim(y_min, y_max)
-                        else:
-                            center_val = np.mean(valid_data)
-                            if abs(center_val) > 1e-10:
-                                axes[i].set_ylim(center_val * 0.95, center_val * 1.05)
-                            else:
-                                axes[i].set_ylim(-1e-10, 1e-10)
-                    else:
-                        axes[i].text(
-                            0.5,
-                            0.5,
-                            f"No valid data\nfor {col_name}",
-                            transform=axes[i].transAxes,
-                            ha="center",
-                            va="center",
-                        )
+                # Set y-axis limits with some margin
+                valid_data = spectrum[valid_mask]
+                data_range = np.max(valid_data) - np.min(valid_data)
+                if data_range > 0:
+                    margin = data_range * 0.1
+                    y_min = np.min(valid_data) - margin
+                    y_max = np.max(valid_data) + margin
+                    axes[i].set_ylim(y_min, y_max)
                 else:
-                    axes[i].text(
-                        0.5,
-                        0.5,
-                        f"No 2D data\nfor {col_name}",
-                        transform=axes[i].transAxes,
-                        ha="center",
-                        va="center",
-                    )
+                    center_val = np.mean(valid_data)
+                    if abs(center_val) > 1e-10:
+                        axes[i].set_ylim(center_val * 0.95, center_val * 1.05)
+                    else:
+                        axes[i].set_ylim(-1e-10, 1e-10)
             else:
                 axes[i].text(
                     0.5,
                     0.5,
-                    f"No data\nfor {col_name}",
+                    f"No valid data\nfor {col_name}",
                     transform=axes[i].transAxes,
                     ha="center",
                     va="center",
@@ -761,18 +763,24 @@ def plot_spectrum(data, name, show=False, save=True):
 
     plt.tight_layout()
 
-    filename = None
+    plot_filename = None
+    csv_filename = None
     if save:
-        filename = f"metrics_spectrum_{name}.png"
-        plt.savefig(filename, dpi=150, bbox_inches="tight")
-        print(realpath(filename))
+        plot_filename = f"metrics_spectrum_{name}.png"
+        plt.savefig(plot_filename, dpi=150, bbox_inches="tight")
+        print(realpath(plot_filename))
+
+        csv_filename = f"metrics_spectrum_{name}.csv"
+        dataframe = pd.DataFrame(spectrum_data)
+        dataframe.to_csv(csv_filename, index=False)
+        print(realpath(csv_filename))
 
     if show:
         plt.show()
     else:
         plt.close()
 
-    return filename
+    return plot_filename
 
 
 def plot_waterfall(data, name, show=False, save=True):
@@ -2123,6 +2131,11 @@ def plot_all_metrics(data, name, show=False, save=True):
 
     print("Generating waterfall plots...")
     results["waterfall"] = plot_waterfall(data, name, show, save)
+
+    print("Generating spectrum plot...")
+    results["spectrum"] = plot_spectrum(data, name, show, save)
+
+    return results # DELETEME
 
     print("Generating AUTO_POL plots...")
     results["auto_pol"] = plot_auto_pol(data, name, show, save)
