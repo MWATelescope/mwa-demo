@@ -2135,8 +2135,6 @@ def plot_all_metrics(data, name, show=False, save=True):
     print("Generating spectrum plot...")
     results["spectrum"] = plot_spectrum(data, name, show, save)
 
-    return results # DELETEME
-
     print("Generating AUTO_POL plots...")
     results["auto_pol"] = plot_auto_pol(data, name, show, save)
 
