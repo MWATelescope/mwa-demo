@@ -296,7 +296,7 @@ def load_metrics_data(metrics_files, metafits_path=None, antennas_filter=None):
                         pass
 
                 # Process AUTO_SUB_ANT HDUs
-                for hdu_name in auto_sub_ant_hdus:
+                for ant_idx, hdu_name in enumerate(auto_sub_ant_hdus):
                     try:
                         hdu_data = hdul[hdu_name].data
                         hdu_header = hdul[hdu_name].header
@@ -314,7 +314,7 @@ def load_metrics_data(metrics_files, metafits_path=None, antennas_filter=None):
 
                             # Build antenna table
                             if ant_id not in antenna_table:
-                                ant_info = {"HDU_NAME": hdu_name}
+                                ant_info = {"HDU_NAME": hdu_name, "ROW_INDEX": ant_idx}
                                 key_fields = [
                                     "ANTNAME",
                                     "ANT_ID",
@@ -1019,20 +1019,25 @@ def plot_auto_pol(data, name, show=False, save=True):
                 antenna_grids = {}
 
                 for ant_id in ant_ids_in_rx:
-                    if ant_id < n_antennas:
-                        antenna_grids[ant_id] = np.full(
-                            (n_time_bins, n_freq_auto), np.nan
-                        )
+                    if ant_id in antenna_table:
+                        # Use ROW_INDEX to determine if valid, but key by ant_id for display
+                        row_idx = antenna_table[ant_id].get("ROW_INDEX")
+                        if row_idx is not None and row_idx < n_antennas:
+                            antenna_grids[ant_id] = np.full(
+                                (n_time_bins, n_freq_auto), np.nan
+                            )
 
                 all_files_data = np.array(additional_data_2d[hdu_name])
 
                 for file_idx, file_time in enumerate(file_times):
                     time_bin_idx = np.argmin(np.abs(file_time_grid - file_time))
                     for ant_id in ant_ids_in_rx:
-                        if ant_id < n_antennas and ant_id in antenna_grids:
-                            antenna_grids[ant_id][time_bin_idx, :] = all_files_data[
-                                file_idx, ant_id, :
-                            ]
+                        if ant_id in antenna_table:
+                            row_idx = antenna_table[ant_id].get("ROW_INDEX")
+                            if row_idx is not None and row_idx < n_antennas and ant_id in antenna_grids:
+                                antenna_grids[ant_id][time_bin_idx, :] = all_files_data[
+                                    file_idx, row_idx, :
+                                ]
 
                 fig, axes = plt.subplots(
                     2, 4, figsize=(20, 10), sharex=True, sharey=True
@@ -1046,6 +1051,7 @@ def plot_auto_pol(data, name, show=False, save=True):
 
                 time_gps_grid = file_time_grid
 
+                im = None
                 for plot_idx, ant_id in enumerate(ant_ids_in_rx):
                     if plot_idx < 8 and ant_id in antenna_grids:
                         antenna_data = antenna_grids[ant_id]
@@ -1090,10 +1096,11 @@ def plot_auto_pol(data, name, show=False, save=True):
                         axes[plot_idx].set_visible(False)
 
                 plt.tight_layout()
-                cbar = fig.colorbar(
-                    im, ax=axes, orientation="vertical", pad=0.02, shrink=0.8
-                )
-                cbar.set_label(f"{hdu_name} Amplitude", fontsize=8)
+                if im is not None:
+                    cbar = fig.colorbar(
+                        im, ax=axes, orientation="vertical", pad=0.02, shrink=0.8
+                    )
+                    cbar.set_label(f"{hdu_name} Amplitude", fontsize=8)
 
                 filename = None
                 if save:
@@ -1182,19 +1189,27 @@ def plot_auto_pol_lines(data, name, show=False, save=True):
                 colors = plt.cm.cool(np.linspace(0, 1, len(all_files_data)))
 
                 for plot_idx, ant_id in enumerate(ant_ids_in_rx):
-                    if plot_idx < 8 and ant_id < n_antennas:
+                    # Check validity via ROW_INDEX
+                    row_idx = None
+                    if ant_id in antenna_table:
+                        row_idx = antenna_table[ant_id].get("ROW_INDEX")
+
+                    if plot_idx < 8 and row_idx is not None and row_idx < n_antennas:
                         # Plot each timestep as a separate line for this antenna
                         for file_idx in range(len(all_files_data)):
-                            antenna_spectrum = all_files_data[file_idx, ant_id, :]  # (n_freq,)
+                            if ant_id in antenna_table:
+                                row_idx = antenna_table[ant_id].get("ROW_INDEX")
+                                if row_idx is not None and row_idx < n_antennas:
+                                    antenna_spectrum = all_files_data[file_idx, row_idx, :]  # (n_freq,)
 
-                            axes[plot_idx].plot(
-                                freq_mhz_auto,
-                                antenna_spectrum,
-                                color=colors[file_idx],
-                                alpha=0.7,
-                                linewidth=1.0,
-                                label=f"T{file_idx}" if file_idx < 5 else ""  # Only label first few
-                            )
+                                    axes[plot_idx].plot(
+                                        freq_mhz_auto,
+                                        antenna_spectrum,
+                                        color=colors[file_idx],
+                                        alpha=0.7,
+                                        linewidth=1.0,
+                                        label=f"T{file_idx}" if file_idx < 5 else ""  # Only label first few
+                                    )
 
                         ant_name = get_antenna_display_name(ant_id, antenna_table)
                         axes[plot_idx].set_title(f"{ant_name}", fontsize=9)
@@ -1425,6 +1440,7 @@ def plot_auto_power_ant(data, name, show=False, save=True):
         )
         axes5 = axes5.flatten()
 
+        im = None
         for ant_idx, antenna_name in enumerate(antenna_names):
             if ant_idx < len(antenna_names):
                 ant_file_data = auto_power_ant_data[antenna_name]
@@ -1501,8 +1517,9 @@ def plot_auto_power_ant(data, name, show=False, save=True):
                 axes5[ant_idx].set_visible(False)
 
         plt.tight_layout()
-        cbar = fig5.colorbar(im, ax=axes5, orientation="vertical", pad=0.02, shrink=0.8)
-        cbar.set_label(f"AUTO_POWER_ANT {pol_name} Amplitude", fontsize=8)
+        if im is not None:
+            cbar = fig5.colorbar(im, ax=axes5, orientation="vertical", pad=0.02, shrink=0.8)
+            cbar.set_label(f"AUTO_POWER_ANT {pol_name} Amplitude", fontsize=8)
 
         filename = None
         if save:
@@ -1934,13 +1951,23 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
                     )
                     axes7 = axes7.flatten()
 
+                    im = None
                     for plot_idx, ant_id in enumerate(ant_ids_in_rx):
-                        if plot_idx < 8 and ant_id < n_antennas:
-                            n_files = len(sorted_data)
+                        if plot_idx < 8:
+                            # Use ROW_INDEX to check validity
+                            row_idx = None
+                            if ant_id in antenna_table:
+                                row_idx = antenna_table[ant_id].get("ROW_INDEX")
+
+                            if row_idx is not None and row_idx < n_antennas:
+                                n_files = len(sorted_data)
                             ant_delay_grid = np.full((n_files, n_delays), np.nan)
 
                             for file_idx, file_data in enumerate(sorted_data):
-                                ant_delay_grid[file_idx, :] = file_data[ant_id, :]
+                                if ant_id in antenna_table:
+                                    row_idx = antenna_table[ant_id].get("ROW_INDEX")
+                                    if row_idx is not None and row_idx < n_antennas:
+                                        ant_delay_grid[file_idx, :] = file_data[row_idx, :]
 
                             vmin = np.nanquantile(ant_delay_grid, 0.05)
                             vmax = np.nanquantile(ant_delay_grid, 0.95)
@@ -1967,10 +1994,11 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
                             axes7[plot_idx].set_visible(False)
 
                     plt.tight_layout()
-                    cbar = fig7.colorbar(
-                        im, ax=axes7, orientation="vertical", pad=0.02, shrink=0.8
-                    )
-                    cbar.set_label(f"AUTO_DELAY_POL {pol_name} Amplitude", fontsize=8)
+                    if im is not None:
+                        cbar = fig7.colorbar(
+                            im, ax=axes7, orientation="vertical", pad=0.02, shrink=0.8
+                        )
+                        cbar.set_label(f"AUTO_DELAY_POL {pol_name} Amplitude", fontsize=8)
 
                     filename = None
                     if save:
@@ -2066,19 +2094,27 @@ def plot_auto_delay_pol_lines(data, name, show=False, save=True):
                     delay_bins = np.arange(n_delays)
 
                     for plot_idx, ant_id in enumerate(ant_ids_in_rx):
-                        if plot_idx < 8 and ant_id < n_antennas:
+                        # Check validity via ROW_INDEX
+                        row_idx = None
+                        if ant_id in antenna_table:
+                            row_idx = antenna_table[ant_id].get("ROW_INDEX")
+
+                        if plot_idx < 8 and row_idx is not None and row_idx < n_antennas:
                             # Plot each timestep as a separate line for this antenna
                             for file_idx in range(len(sorted_data)):
-                                antenna_delays = sorted_data[file_idx][ant_id, :]  # (n_delays,)
+                                if ant_id in antenna_table:
+                                    row_idx = antenna_table[ant_id].get("ROW_INDEX")
+                                    if row_idx is not None and row_idx < n_antennas:
+                                        antenna_delays = sorted_data[file_idx][row_idx, :]  # (n_delays,)
 
-                                axes[plot_idx].plot(
-                                    delay_bins,
-                                    antenna_delays,
-                                    color=colors[file_idx],
-                                    alpha=0.7,
-                                    linewidth=1.0,
-                                    label=f"T{file_idx}" if file_idx < 5 else ""  # Only label first few
-                                )
+                                        axes[plot_idx].plot(
+                                            delay_bins,
+                                            antenna_delays,
+                                            color=colors[file_idx],
+                                            alpha=0.7,
+                                            linewidth=1.0,
+                                            label=f"T{file_idx}" if file_idx < 5 else ""  # Only label first few
+                                        )
 
                             ant_name = get_antenna_display_name(ant_id, antenna_table)
                             axes[plot_idx].set_title(f"{ant_name}", fontsize=9)
