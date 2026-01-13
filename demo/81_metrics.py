@@ -2132,6 +2132,8 @@ def plot_auto_delay_pol_lines(data, name, show=False, save=True):
                                 axes[plot_idx].set_xlabel("Delay Bin", fontsize=8)
                             if plot_idx % 4 == 0:
                                 axes[plot_idx].set_ylabel(f"{pol_name} Amplitude", fontsize=8)
+
+                            axes[plot_idx].set_yscale('log')
                         else:
                             axes[plot_idx].set_visible(False)
 
