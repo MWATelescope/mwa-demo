@@ -2175,8 +2175,8 @@ def plot_all_metrics(data, name, show=False, save=True):
     print("Generating spectrum plot...")
     results["spectrum"] = plot_spectrum(data, name, show, save)
 
-    print("Generating AUTO_POL plots...")
-    results["auto_pol"] = plot_auto_pol(data, name, show, save)
+    # print("Generating AUTO_POL plots...")
+    # results["auto_pol"] = plot_auto_pol(data, name, show, save)
 
     print("Generating AUTO_POL line plots...")
     results["auto_pol_lines"] = plot_auto_pol_lines(data, name, show, save)
@@ -2184,8 +2184,8 @@ def plot_all_metrics(data, name, show=False, save=True):
     print("Generating AMP_FP grid plot...")
     results["amp_fp"] = plot_amp_fp_grid(data, name, show, save)
 
-    print("Generating AUTO_POWER_ANT plots...")
-    results["auto_power_ant"] = plot_auto_power_ant(data, name, show, save)
+    # print("Generating AUTO_POWER_ANT plots...")
+    # results["auto_power_ant"] = plot_auto_power_ant(data, name, show, save)
 
     print("Generating AUTO_POWER_ANT line plots...")
     results["auto_power_ant_lines"] = plot_auto_power_ant_lines(data, name, show, save)
@@ -2193,8 +2193,8 @@ def plot_all_metrics(data, name, show=False, save=True):
     print("Generating AUTO_SUB_ANT plots...")
     results["auto_sub_ant"] = plot_auto_sub_ant(data, name, show, save)
 
-    print("Generating AUTO_DELAY_POL plots...")
-    results["auto_delay_pol"] = plot_auto_delay_pol(data, name, show, save)
+    # print("Generating AUTO_DELAY_POL plots...")
+    # results["auto_delay_pol"] = plot_auto_delay_pol(data, name, show, save)
 
     print("Generating AUTO_DELAY_POL line plots...")
     results["auto_delay_pol_lines"] = plot_auto_delay_pol_lines(data, name, show, save)
