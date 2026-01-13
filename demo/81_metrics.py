@@ -1969,14 +1969,17 @@ def plot_auto_delay_pol(data, name, show=False, save=True):
                                     if row_idx is not None and row_idx < n_antennas:
                                         ant_delay_grid[file_idx, :] = file_data[row_idx, :]
 
-                            vmin = np.nanquantile(ant_delay_grid, 0.05)
-                            vmax = np.nanquantile(ant_delay_grid, 0.95)
+                            # Exclude DC bin (index 0) for plotting and scaling
+                            plot_data = ant_delay_grid[:, 1:]
+
+                            vmin = np.nanquantile(plot_data, 0.05)
+                            vmax = np.nanquantile(plot_data, 0.95)
 
                             im = axes7[plot_idx].imshow(
-                                ant_delay_grid,
+                                plot_data,
                                 aspect="auto",
                                 origin="lower",
-                                extent=[0, n_delays - 1, -0.5, n_files - 0.5],
+                                extent=[1, n_delays - 1, -0.5, n_files - 0.5],
                                 cmap="cool",
                                 interpolation="none",
                                 vmin=vmin,
@@ -2107,9 +2110,10 @@ def plot_auto_delay_pol_lines(data, name, show=False, save=True):
                                     if row_idx is not None and row_idx < n_antennas:
                                         antenna_delays = sorted_data[file_idx][row_idx, :]  # (n_delays,)
 
+                                        # Exclude DC bin (index 0)
                                         axes[plot_idx].plot(
-                                            delay_bins,
-                                            antenna_delays,
+                                            delay_bins[1:],
+                                            antenna_delays[1:],
                                             color=colors[file_idx],
                                             alpha=0.7,
                                             linewidth=1.0,
