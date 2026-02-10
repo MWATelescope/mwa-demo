@@ -2,7 +2,7 @@
 # cross-platform, cpu-only dockerfile for demoing MWA software stack
 # on amd64, arm64
 # ref: https://docs.docker.com/build/building/multi-platform/
-ARG BASE_IMAGE=mwatelescope/hyperdrive:main
+ARG BASE_IMAGE=docker.io/mwatelescope/hyperdrive:v0.7.0-devel
 FROM $BASE_IMAGE AS base
 # docker build . --build-arg=BASE_IMAGE=mwatelescope/hyperdrive:0.6.1-autos-cuda12.5.1-ubuntu24.04 --tag=mwatelescope/mwa-demo:autos_cuda12.5.1 --push
 # module load singularity/default; singularity pull -F /data/curtin_mwaeor/singularity/mwatelescope-mwa-demo-autos_cuda12.5.1.img docker://mwatelescope/mwa-demo:autos_cuda12.5.1
