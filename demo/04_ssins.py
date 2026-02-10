@@ -630,17 +630,29 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
     )
 
 
-def plot_spectrum(ss, args, obsname, suffix, cmap):
+def plot_spectrum(ss, args, obsname, suffix, cmap, ins=None):
     """Plot the spectrum z-scores."""
     # incoherent noise spectrum https://ssins.readthedocs.io/en/latest/incoherent_noise_spectrum.html
-    mf = get_match_filter(ss.freq_array, args)
-    with np.errstate(invalid="ignore"):
-        ins = INS(ss, spectrum_type=args.spectrum_type, order=args.order)
-    apply_match_test(mf, ins, args)
-    pols = ss.get_pols()
+    if ins is None:
+        mf = get_match_filter(ss.freq_array, args)
+        with np.errstate(invalid="ignore"):
+            ins = INS(ss, spectrum_type=args.spectrum_type, order=args.order)
+        apply_match_test(mf, ins, args)
+    else:
+        # If INS is provided, we assume it's already prepared/diffed if necessary.
+        # But we still need to apply match test if not done.
+        # However, apply_match_test is usually done after INS creation.
+        # In our iterative loading, we just create INS. Match test should be applied here.
+        mf = get_match_filter(ins.freq_array, args)
+        apply_match_test(mf, ins, args)
 
-    gps_times = get_gps_times(ss)
-    freqs_mhz = (ss.freq_array) / 1e6
+    pols = ins.polarization_array if hasattr(ins, 'polarization_array') else ss.get_pols()
+
+    # INS uses center frequencies usually?
+    freqs_mhz = (ins.freq_array) / 1e6
+    gps_times = np.unique(ins.time_array) # INS time array might be different from SS (diffed)
+
+    # ... logic continues ...
     channames = [f"{ch: 8.4f}" for ch in freqs_mhz]
 
     subplots = plt.subplots(2, len(pols), sharex=True, sharey=True)[1]
@@ -850,6 +862,7 @@ def read_raw(uvd: UVData, metafits, raw_fits, read_kwargs):
 def read_select(ss: SS, args):
     """Read provided files into ss and select data."""
     file_groups = group_by_filetype(args.files)
+    ins = None
 
     print(f"reading from {file_groups=}")
 
@@ -931,8 +944,42 @@ def read_select(ss: SS, args):
         if args.diff:
             read_kwargs["run_check"] = False
             select_kwargs["run_check"] = False
-        ss.read(vis, **read_kwargs)
-        ss.scan_number_array = None  # these are not handled correctly
+
+        if len(vis) > 1:
+            if args.plot_type == "spectrum" and args.diff:
+                print(f"Optimizing memory: computing INS incrementally from {len(vis)} MS files")
+                ss.read(vis[0], **read_kwargs)
+                ss.scan_number_array = None
+
+                with np.errstate(invalid="ignore"):
+                    ins = INS(ss, spectrum_type=args.spectrum_type, order=args.order)
+
+                for v in vis[1:]:
+                    ss_next = type(ss)()
+                    ss_next.read(v, **read_kwargs)
+                    ss_next.scan_number_array = None
+
+                    with np.errstate(invalid="ignore"):
+                        ins_next = INS(ss_next, spectrum_type=args.spectrum_type, order=args.order)
+                    ins += ins_next
+                    del ss_next
+                    del ins_next
+            else:
+                print(f"Reading {len(vis)} MS files iteratively to bypass pyuvdata issues")
+                # Read first file
+                ss.read(vis[0], **read_kwargs)
+                ss.scan_number_array = None
+
+                # Read and append others
+                for v in vis[1:]:
+                    ss_next = type(ss)()
+                    ss_next.read(v, **read_kwargs)
+                    ss_next.scan_number_array = None
+                    ss += ss_next
+        else:
+            ss.read(vis, **read_kwargs)
+            ss.scan_number_array = None  # these are not handled correctly
+
         read_time = time.time() - start
         print(f"read took {int(read_time)}s. {int(total_size_mb / read_time)} MB/s")
     elif len(other_types.intersection([".uvfits", ".uvh5"])) == 1:
@@ -967,22 +1014,25 @@ def read_select(ss: SS, args):
 
     ss.history = ss.history or ""
 
-    start = time.time()
-    unflagged_ants = get_unflagged_ants(ss, args)
-    if len(unflagged_ants) != len(ss.antenna_numbers):
-        select_kwargs["antenna_nums"] = unflagged_ants
-    ss.select(inplace=True, **select_kwargs)
-    select_time = time.time() - start
-    select_message = ""
-    if int(select_time) >= 1:
-        select_message = f"select took {int(select_time)}s. "
-    print(f"select took {int(select_time)}s. {select_message}")
-    print("history:", ss.history)
+    if ins is None:
+        start = time.time()
+        unflagged_ants = get_unflagged_ants(ss, args)
+        if len(unflagged_ants) != len(ss.antenna_numbers):
+            select_kwargs["antenna_nums"] = unflagged_ants
+        ss.select(inplace=True, **select_kwargs)
+        select_time = time.time() - start
+        select_message = ""
+        if int(select_time) >= 1:
+            select_message = f"select took {int(select_time)}s. "
+        print(f"select took {int(select_time)}s. {select_message}")
+        print("history:", ss.history)
 
-    if args.flag_choice is not None:
-        ss.apply_flags(flag_choice=args.flag_choice)
+        if args.flag_choice is not None:
+            ss.apply_flags(flag_choice=args.flag_choice)
+    elif args.flag_choice is not None:
+        print("Warning: flag_choice ignored when optimizing INS memory usage")
 
-    return base
+    return base, ins
 
 
 def main():  # noqa: D103
@@ -997,7 +1047,7 @@ def main():  # noqa: D103
     ss = SS()
 
     try:
-        base = read_select(ss, args)
+        base, ins = read_select(ss, args)
     except ValueError as exc:
         traceback.print_exception(exc)
         parser.print_usage()
@@ -1011,9 +1061,11 @@ def main():  # noqa: D103
     obsname = base.split("/")[-1]
     plt.suptitle(f"{obsname}{suffix}")
     if args.plot_type == "sigchain":
+        if ins is not None:
+             print("Warning: Optimization enabled but plot_type is sigchain. Optimization is only for spectrum.")
         plot_sigchain(ss, args, obsname, suffix, cmap)
     elif args.plot_type == "spectrum":
-        ins = plot_spectrum(ss, args, obsname, suffix, cmap)
+        ins = plot_spectrum(ss, args, obsname, suffix, cmap, ins=ins)
         maskname = f"{base}{suffix}"
         ins.write(f"{base}{suffix}", output_type="mask", clobber=True)
         print(f"wrote {maskname}_SSINS_mask.h5")
