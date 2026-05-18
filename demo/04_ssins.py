@@ -294,6 +294,17 @@ def get_parser():
         "--export-tsv", default=False, action="store_true", help="export values to TSV"
     )
 
+    group_fft = parser.add_argument_group("FFT / delay transform")
+    group_fft.add_argument(
+        "--fft", default=False, action="store_true", help="Apply delay transform (FFT along frequency axis)"
+    )
+    group_fft.add_argument(
+        "--delay-min", default=0, type=float, help="Minimum delay in nanoseconds (default: 0)"
+    )
+    group_fft.add_argument(
+        "--delay-max", default=300, type=float, help="Maximum delay in nanoseconds (default: 300)"
+    )
+
     return parser
 
 
@@ -471,6 +482,8 @@ def get_suffix(args):
         suffix += f".norx{args.skip_rxs[0]}"
     if len(args.sel_pols) == 1:
         suffix += f".{args.sel_pols[0]}"
+    if "fft" in vars(args) and args.fft:
+        suffix += ".fft"
     return suffix
 
 
@@ -502,6 +515,39 @@ def get_match_filter(freq_array, args):
     return MF(
         freq_array=freq_array, sig_thresh=sig_thresh, shape_dict=shape_dict, **mf_args
     )
+
+
+def apply_delay_transform(data, freq_array, args, freq_axis=1):
+    """
+    Apply delay transform (FFT) along frequency axis.
+
+    Returns transformed data, delays in ns, and mask for delay range.
+
+    Args:
+        data: Input data array
+        freq_array: Frequency array in Hz
+        args: Arguments with delay_min and delay_max in ns
+        freq_axis: Axis along which to perform FFT (default: 1)
+    """
+    # Calculate channel bandwidth
+    df = np.median(np.diff(freq_array))
+
+    # FFT along frequency axis
+    fft_data = np.fft.fftshift(np.fft.fft(data, axis=freq_axis), axes=freq_axis)
+
+    # Calculate delay bins in nanoseconds
+    n_freqs = data.shape[freq_axis]
+    delays = np.fft.fftshift(np.fft.fftfreq(n_freqs, df)) * 1e9  # convert to ns
+
+    # Create mask for delay range
+    delay_mask = (delays >= args.delay_min) & (delays <= args.delay_max)
+
+    # Apply mask
+    fft_data_masked = np.take(fft_data, np.where(delay_mask)[0], axis=freq_axis)
+    delays_masked = delays[delay_mask]
+
+    # Take absolute value for visualization
+    return np.abs(fft_data_masked), delays_masked, delay_mask
 
 
 def preapply_flags(ss: SS, ins: INS, args):
@@ -560,8 +606,42 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         apply_match_test(mf, ins, args)
         scores[ant_idx] = ins.sig_array
 
+    # Apply FFT if requested
+    if args.fft:
+        # Transform: [ant, time, freq, pol] -> FFT along freq axis (axis=2)
+        # First transform to get delay array size
+        data_slice_0 = scores[0, :, :, 0]  # [time, freq]
+        fft_result_0, delays, _ = apply_delay_transform(data_slice_0, ss.freq_array, args, freq_axis=1)
+
+        # Initialize output array with correct shape
+        scores_fft = np.zeros((len(unflagged_ants), ss.Ntimes, len(delays), ss.Npols))
+        scores_fft[0, :, :, 0] = fft_result_0
+
+        # Process remaining antennas and polarizations
+        for ant_idx in range(len(unflagged_ants)):
+            for pol_idx in range(ss.Npols):
+                if ant_idx == 0 and pol_idx == 0:
+                    continue  # Already processed
+                data_slice = scores[ant_idx, :, :, pol_idx]  # [time, freq]
+                fft_result, _, _ = apply_delay_transform(data_slice, ss.freq_array, args, freq_axis=1)
+                scores_fft[ant_idx, :, :, pol_idx] = fft_result
+
+        scores = scores_fft
+        freqs_mhz = delays  # Now in nanoseconds
+        freq_label = "Delay [ns]"
+        n_freqs = len(delays)
+        # Calculate bin edges for proper extent
+        delay_spacing = np.median(np.diff(delays)) if len(delays) > 1 else delays[-1] - delays[0]
+        freq_extent_min = delays[0] - delay_spacing / 2
+        freq_extent_max = delays[-1] + delay_spacing / 2
+    else:
+        freq_label = "Frequency channel [MHz]"
+        n_freqs = ss.Nfreqs
+        freq_extent_min = np.min(freqs_mhz)
+        freq_extent_max = np.max(freqs_mhz)
+
     subplots = plt.subplots(
-        2, len(pols), height_ratios=[len(unflagged_ants), ss.Nfreqs]
+        2, len(pols), height_ratios=[len(unflagged_ants), n_freqs]
     )[1].reshape((2, len(pols)))
 
     def slice_(scores, axis):
@@ -602,7 +682,7 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         try:
             ax_spectrum.xaxis.set_label("GPS Time [s]")
             if i == 0:
-                ax_spectrum.yaxis.set_label("Frequency channel [MHz]")
+                ax_spectrum.yaxis.set_label(freq_label)
         except RuntimeError as e:
             print(f"WARN: matplotlib breaking api change: {e}")
 
@@ -617,14 +697,14 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
             extent=[
                 np.min(gps_times),
                 np.max(gps_times),
-                np.max(freqs_mhz),
-                np.min(freqs_mhz),
+                freq_extent_max,
+                freq_extent_min,
             ],
         )
 
     plt.gcf().set_size_inches(
         8 * len(pols), (np.min([
-            ((len(unflagged_ants) + ss.Nfreqs) * args.fontsize / 72),
+            ((len(unflagged_ants) + n_freqs) * args.fontsize / 72),
             ((2 ** 15) / 300),
         ]))
     )
@@ -643,13 +723,60 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     freqs_mhz = (ss.freq_array) / 1e6
     channames = [f"{ch: 8.4f}" for ch in freqs_mhz]
 
+    # Apply FFT if requested
+    if args.fft:
+        # First do FFT on first pol to get delay array size
+        metric_result_0, delays, _ = apply_delay_transform(
+            ins.metric_array[..., 0], ss.freq_array, args, freq_axis=1
+        )
+        print(f"FFT: {len(delays)} delay bins from {delays.min():.2f} to {delays.max():.2f} ns")
+        print(f"FFT: metric range [{np.nanmin(metric_result_0):.2e}, {np.nanmax(metric_result_0):.2e}]")
+
+        # Initialize arrays with correct shape
+        metric_array_fft = np.zeros((ins.Ntimes, len(delays), ins.Npols))
+        sig_array_fft = np.zeros((ins.Ntimes, len(delays), ins.Npols))
+        metric_array_fft[..., 0] = metric_result_0
+
+        sig_result_0, _, _ = apply_delay_transform(
+            ins.sig_array[..., 0], ss.freq_array, args, freq_axis=1
+        )
+        sig_array_fft[..., 0] = sig_result_0
+        print(f"FFT: sig range [{np.nanmin(sig_result_0):.2e}, {np.nanmax(sig_result_0):.2e}]")
+
+        # Process remaining polarizations
+        for pol_idx in range(1, ins.Npols):
+            metric_result, _, _ = apply_delay_transform(
+                ins.metric_array[..., pol_idx], ss.freq_array, args, freq_axis=1
+            )
+            sig_result, _, _ = apply_delay_transform(
+                ins.sig_array[..., pol_idx], ss.freq_array, args, freq_axis=1
+            )
+            metric_array_fft[..., pol_idx] = metric_result
+            sig_array_fft[..., pol_idx] = sig_result
+
+        freqs_mhz = delays  # Now in nanoseconds
+        channames = [f"{ch: 8.4f}" for ch in delays]
+        freq_label = "Delay [ns]"
+        metric_array = metric_array_fft
+        sig_array = sig_array_fft
+        # Calculate bin edges for proper extent
+        delay_spacing = np.median(np.diff(delays)) if len(delays) > 1 else delays[-1] - delays[0]
+        freq_extent_min = delays[0] - delay_spacing / 2
+        freq_extent_max = delays[-1] + delay_spacing / 2
+    else:
+        freq_label = "Frequency channel [MHz]"
+        metric_array = ins.metric_array
+        sig_array = ins.sig_array
+        freq_extent_min = np.min(freqs_mhz)
+        freq_extent_max = np.max(freqs_mhz)
+
     subplots = plt.subplots(2, len(pols), sharex=True, sharey=True)[1]
     subplots = subplots.reshape((2, len(pols)))
 
     for i, pol in enumerate(pols):
         ax_mets = [
-            ("vis_amps", ins.metric_array[..., i]),
-            ("z_score", ins.sig_array[..., i]),
+            ("vis_amps", metric_array[..., i]),
+            ("z_score", sig_array[..., i]),
         ]
 
         for a, (name, metric) in enumerate(ax_mets):
@@ -661,8 +788,8 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
                 interpolation="none",
                 cmap=cmap,
                 extent=[
-                    np.min(freqs_mhz),
-                    np.max(freqs_mhz),
+                    freq_extent_min,
+                    freq_extent_max,
                     np.max(gps_times),
                     np.min(gps_times),
                 ],
@@ -672,7 +799,7 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
                 ax.set_ylabel("GPS Time [s]")
 
             if a == len(ax_mets) - 1:
-                ax.set_xlabel("Frequency channel [MHz]")
+                ax.set_xlabel(freq_label)
 
             if args.export_tsv:
                 df = pd.DataFrame(metric, columns=channames, index=gps_times)
@@ -708,6 +835,21 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
 
     occupancy /= full_occupancy_value
 
+    # Apply FFT if requested
+    if args.fft:
+        occupancy_fft, delays, _ = apply_delay_transform(occupancy, ss.freq_array, args, freq_axis=1)
+        occupancy = occupancy_fft
+        freqs_mhz = delays  # Now in nanoseconds
+        freq_label = "Delay [ns]"
+        # Calculate bin edges for proper extent
+        delay_spacing = np.median(np.diff(delays)) if len(delays) > 1 else delays[-1] - delays[0]
+        freq_extent_min = delays[0] - delay_spacing / 2
+        freq_extent_max = delays[-1] + delay_spacing / 2
+    else:
+        freq_label = "Frequency channel [MHz]"
+        freq_extent_min = np.min(freqs_mhz)
+        freq_extent_max = np.max(freqs_mhz)
+
     plt.suptitle(f"{obsname} occupancy{suffix} {pols[0] if len(pols) == 1 else ''}")
     plt.imshow(
         occupancy[...],
@@ -715,8 +857,8 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
         interpolation="none",
         cmap=cmap,
         extent=[
-            np.min(freqs_mhz),
-            np.max(freqs_mhz),
+            freq_extent_min,
+            freq_extent_max,
             np.max(gps_times),
             np.min(gps_times),
         ],
@@ -727,7 +869,7 @@ def plot_flags(ss: UVData, args, obsname, suffix, cmap):
     cbar.set_label("Flag occupancy")
 
     plt.ylabel("GPS Time [s]")
-    plt.xlabel("Frequency channel [MHz]")
+    plt.xlabel(freq_label)
 
     plt.gcf().set_size_inches(16, np.min([9, 4 * len(pols)]))
 
