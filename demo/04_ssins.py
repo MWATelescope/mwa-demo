@@ -1017,6 +1017,8 @@ def main():  # noqa: D103
         maskname = f"{base}{suffix}"
         ins.write(f"{base}{suffix}", output_type="mask", clobber=True)
         print(f"wrote {maskname}_SSINS_mask.h5")
+        ins.write(f"{base}{suffix}", output_type="match_events", clobber=True)
+        print(f"wrote {maskname}_SSINS_match_events.yml")
 
     elif args.plot_type == "flags":
         plot_flags(ss, args, obsname, suffix, cmap)
