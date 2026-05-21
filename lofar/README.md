@@ -9,9 +9,9 @@ docker run --rm -v ${PWD}:${PWD} -w ${PWD} -v ${outdir}:${outdir} mwa-demo
 pip install click aoquality
 export ms=${outdir}/1341914000/cal/hyp_cal_1341914000.ms
 export name=${ms%.ms}
-lofar/plot_flags.py plot_occ <(echo ${ms}) --filename ${name}
+/lofar/plot_flags.py plot_occ <(echo ${ms}) --filename ${name}
 aoquality collect -d DATA $ms
-lofar/plot_aoqstats.py plot_aoq ${ms} --name ${name}
+/lofar/plot_aoqstats.py plot_aoq ${ms} --name ${name}
 ```
 
 ```bash

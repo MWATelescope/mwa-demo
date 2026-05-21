@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 
-"""Get channel and antenna information from the metafits file."""
+"""
+Get channel and antenna information from the metafits file.
+
+e.g. with docker
+
+docker run --rm -it -v $PWD:/demo/data --entrypoint /demo/03_mwalib.py \
+    mwa-demo /demo/data/1367324136.metafits
+
+"""
 
 import sys
 

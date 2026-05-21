@@ -4,8 +4,8 @@
 # ref: https://docs.docker.com/build/building/multi-platform/
 ARG BASE_IMAGE=docker.io/mwatelescope/hyperdrive:v0.7.0-devel
 FROM $BASE_IMAGE AS base
-# docker build . --build-arg=BASE_IMAGE=mwatelescope/hyperdrive:0.6.1-autos-cuda12.5.1-ubuntu24.04 --tag=mwatelescope/mwa-demo:autos_cuda12.5.1 --push
-# module load singularity/default; singularity pull -F /data/curtin_mwaeor/singularity/mwatelescope-mwa-demo-autos_cuda12.5.1.img docker://mwatelescope/mwa-demo:autos_cuda12.5.1
+# docker build . --build-arg=BASE_IMAGE=mwatelescope/hyperdrive:0.7.0-bmetrics-cuda12.5.1-ubuntu24.04 --tag=mwatelescope/mwa-demo:cuda12.5.1 --push
+# module load singularity/default; singularity pull -F /data/curtin_mwaeor/singularity/mwatelescope-mwa-demo-cuda12.5.1.img docker://mwatelescope/mwa-demo:cuda12.5.1
 
 # Suppress perl locale errors
 ENV LC_ALL=C
@@ -145,11 +145,14 @@ RUN --mount=type=cache,target=${CARGO_HOME}/git/db \
     --mount=type=cache,target=${CARGO_HOME}/registry/ \
     if ! command -v birli; then \
         apt-get update && \
-        DEBIAN_FRONTEND=noninteractive apt-get install -y libaoflagger0 automake libcfitsio-dev && \
-        git clone https://github.com/mwatelescope/birli.git --branch=eavil_ssins /birli && \
+        DEBIAN_FRONTEND=noninteractive apt-get install -y automake libcfitsio-dev && \
+        git clone https://github.com/mwatelescope/birli.git --branch=bmetrics /birli && \
         cd /birli && \
         wget https://gitlab.com/aroffringa/aoflagger/-/raw/master/interface/aoflagger.h && \
-        CXXFLAGS=-I. cargo install --path . --locked --features=aoflagger && \
+        PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH \
+        RUSTFLAGS="-C link-args=-Wl,-rpath,/usr/local/lib -L/usr/local/lib" \
+        CXXFLAGS=-I. \
+        cargo install --path . --locked --features=aoflagger && \
         cargo clean && \
         cd / && \
         rm -rf /birli && \
@@ -166,7 +169,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     'cython<3.0' \
     'scikit_build_core' \
     'setuptools-scm==8.2.0' \
-    'packaging==24.2' \
+    'packaging>=24.0' \
     && python -m pip install \
     'pyvo>=1.5.2' \
     'psutil>=6.0.0' \
