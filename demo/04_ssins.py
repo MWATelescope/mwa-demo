@@ -21,6 +21,7 @@ import sys
 import time
 import traceback
 from argparse import SUPPRESS, ArgumentParser, BooleanOptionalAction
+from collections import defaultdict
 from itertools import chain, groupby
 from os.path import basename, dirname, splitext
 from pathlib import Path
@@ -28,6 +29,7 @@ from pathlib import Path
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
+import yaml
 from astropy import units as u
 from astropy.time import Time
 from matplotlib import pyplot as plt
@@ -529,6 +531,46 @@ def apply_match_test(mf: MF, ins: INS, args):
     mf.apply_match_test(ins, **match_test_args)
 
 
+def _ins_pol_plane(arr):
+    """Return (Ntimes, Nfreqs) from a per-pol INS array."""
+    arr = np.asarray(arr)
+    if arr.ndim == 3:
+        return arr[..., 0]
+    return arr
+
+
+def combine_ins_per_pol(ins_per_pol, pols, ss):
+    """Stack per-pol INS objects into one multi-pol INS for combined outputs."""
+    ins = ins_per_pol[pols[0]].copy()
+    ins.Npols = len(pols)
+    ins.polarization_array = ss.polarization_array.copy()
+    ins.metric_array = np.ma.stack(
+        [_ins_pol_plane(ins_per_pol[p].metric_array) for p in pols], axis=-1
+    )
+    ins.metric_ms = np.ma.stack(
+        [_ins_pol_plane(ins_per_pol[p].metric_ms) for p in pols], axis=-1
+    )
+    ins.sig_array = np.ma.stack(
+        [_ins_pol_plane(ins_per_pol[p].sig_array) for p in pols], axis=-1
+    )
+    ins.weights_array = np.stack(
+        [_ins_pol_plane(ins_per_pol[p].weights_array) for p in pols], axis=-1
+    )
+    ins.weights_square_array = np.stack(
+        [
+            _ins_pol_plane(ins_per_pol[p].weights_square_array)
+            for p in pols
+        ],
+        axis=-1,
+    )
+    ins.match_events = []
+    for pol in pols:
+        ins.match_events.extend(ins_per_pol[pol].match_events)
+    ins.history += f"Combined per-pol INS for polarizations {list(pols)}. "
+    ins.check()
+    return ins
+
+
 # #### #
 # PLOT #
 # #### #
@@ -634,9 +676,6 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     """Plot the spectrum z-scores."""
     # incoherent noise spectrum https://ssins.readthedocs.io/en/latest/incoherent_noise_spectrum.html
     mf = get_match_filter(ss.freq_array, args)
-    with np.errstate(invalid="ignore"):
-        ins = INS(ss, spectrum_type=args.spectrum_type, order=args.order)
-    apply_match_test(mf, ins, args)
     pols = ss.get_pols()
 
     gps_times = get_gps_times(ss)
@@ -646,10 +685,17 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
     subplots = plt.subplots(2, len(pols), sharex=True, sharey=True)[1]
     subplots = subplots.reshape((2, len(pols)))
 
+    ins_per_pol = {}
     for i, pol in enumerate(pols):
+        ss_pol = ss.select(polarizations=[pol], inplace=False)
+        with np.errstate(invalid="ignore"):
+            ins_pol = INS(ss_pol, spectrum_type=args.spectrum_type, order=args.order)
+        apply_match_test(mf, ins_pol, args)
+        ins_per_pol[pol] = ins_pol
+
         ax_mets = [
-            ("vis_amps", ins.metric_array[..., i]),
-            ("z_score", ins.sig_array[..., i]),
+            ("vis_amps", ins_pol.metric_array[..., 0]),
+            ("z_score", ins_pol.sig_array[..., 0]),
         ]
 
         for a, (name, metric) in enumerate(ax_mets):
@@ -684,9 +730,10 @@ def plot_spectrum(ss, args, obsname, suffix, cmap):
                 )
                 print(p)
 
+    ins = combine_ins_per_pol(ins_per_pol, pols, ss)
     plt.gcf().set_size_inches(8 * len(pols), 16)
 
-    return ins
+    return ins, ins_per_pol, pols
 
 
 def plot_flags(ss: UVData, args, obsname, suffix, cmap):
@@ -985,6 +1032,110 @@ def read_select(ss: SS, args):
     return base
 
 
+def compute_rfi_metrics(match_events_file):
+    """
+    Compute statistically sound metrics for RFI events grouped by type.
+    
+    Reads match_events YAML file and returns dict with metrics per RFI type:
+    - count: number of events
+    - mean_sig: mean significance
+    - total_sig: sum of significances  
+    - total_area: sum of (freq_extent × time_extent)
+    - sig_weighted_area: sum of (sig × area) - total RFI impact
+    - sig_area_rms: sqrt(sum(sig² × area)) - RMS-like metric
+    
+    Groups events with common prefixes:
+    - All "narrow_*" events grouped as "narrow"
+    - All "TV-*" events grouped as "TV"
+    - All "SL-*" events grouped as "SL"
+    """
+    try:
+        with open(match_events_file, 'r') as f:
+            match_data = yaml.safe_load(f)
+    except (FileNotFoundError, yaml.YAMLError):
+        return {}
+    
+    if not match_data or 'shape' not in match_data:
+        return {}
+    
+    freq_bounds = match_data['freq_bounds']
+    time_bounds = match_data['time_bounds']
+    shapes = match_data['shape']
+    sigs = match_data['sig']
+    
+    def normalize_rfi_type(rfi_type):
+        """Group RFI types by common prefixes."""
+        if rfi_type.startswith('narrow_') or rfi_type.startswith('time_broadcast_narrow_'):
+            return 'narrow'
+        elif rfi_type.startswith('TV-'):
+            return 'TV'
+        elif rfi_type.startswith('SL-'):
+            return 'SL'
+        return rfi_type
+    
+    # Group events by type
+    metrics_by_type = defaultdict(lambda: {
+        'count': 0,
+        'significances': [],
+        'areas': [],
+        'sig_times_area': [],
+        'sig2_times_area': [],
+        'subtypes': defaultdict(int)
+    })
+    
+    # Iterate through all events
+    for i in range(len(shapes)):
+        rfi_type_raw = shapes[i]
+        rfi_type = normalize_rfi_type(rfi_type_raw)
+        sig = sigs[i]
+        
+        # Skip null significances
+        if sig is None or (isinstance(sig, float) and np.isnan(sig)):
+            continue
+            
+        # Calculate spatial extent (area in time-freq space)
+        freq_start, freq_end = freq_bounds[i]
+        time_start, time_end = time_bounds[i]
+        freq_extent = freq_end - freq_start
+        time_extent = time_end - time_start
+        area = freq_extent * time_extent
+        
+        # Accumulate metrics
+        metrics_by_type[rfi_type]['count'] += 1
+        metrics_by_type[rfi_type]['significances'].append(sig)
+        metrics_by_type[rfi_type]['areas'].append(area)
+        metrics_by_type[rfi_type]['sig_times_area'].append(sig * area)
+        metrics_by_type[rfi_type]['sig2_times_area'].append(sig**2 * area)
+        metrics_by_type[rfi_type]['subtypes'][rfi_type_raw] += 1
+    
+    # Compute final statistics per type
+    result = {}
+    for rfi_type, data in metrics_by_type.items():
+        sigs = np.array(data['significances'])
+        areas = np.array(data['areas'])
+        sig_times_area = np.array(data['sig_times_area'])
+        sig2_times_area = np.array(data['sig2_times_area'])
+        
+        result[rfi_type] = {
+            'count': data['count'],
+            'mean_sig': float(np.mean(sigs)),
+            'max_sig': float(np.max(sigs)),
+            'total_sig': float(np.sum(sigs)),
+            'total_area': int(np.sum(areas)),
+            'mean_area': float(np.mean(areas)),
+            'sig_weighted_area': float(np.sum(sig_times_area)),
+            'sig_area_rms': float(np.sqrt(np.sum(sig2_times_area))),
+            'subtypes': dict(data['subtypes'])
+        }
+    
+    # Sort by sig_area_rms (most impactful RFI first)
+    result = dict(sorted(result.items(), 
+                        key=lambda x: x[1]['sig_area_rms'], 
+                        reverse=True))
+    
+    return result
+
+
 def main():  # noqa: D103
     parser = get_parser()
     args = parser.parse_args()
@@ -1013,12 +1164,63 @@ def main():  # noqa: D103
     if args.plot_type == "sigchain":
         plot_sigchain(ss, args, obsname, suffix, cmap)
     elif args.plot_type == "spectrum":
-        ins = plot_spectrum(ss, args, obsname, suffix, cmap)
+        ins, ins_per_pol, pols = plot_spectrum(ss, args, obsname, suffix, cmap)
         maskname = f"{base}{suffix}"
+        
+        # Write combined mask (all pols)
         ins.write(f"{base}{suffix}", output_type="mask", clobber=True)
         print(f"wrote {maskname}_SSINS_mask.h5")
+        
+        # Write combined match_events
+        match_events_file = f"{maskname}_SSINS_match_events.yml"
         ins.write(f"{base}{suffix}", output_type="match_events", clobber=True)
-        print(f"wrote {maskname}_SSINS_match_events.yml")
+        print(f"wrote {match_events_file}")
+        
+        # Compute combined metrics
+        rfi_metrics = compute_rfi_metrics(match_events_file)
+        if rfi_metrics:
+            metrics_file = f"{maskname}_SSINS_metrics.yml"
+            with open(metrics_file, 'w') as f:
+                yaml.dump(rfi_metrics, f, default_flow_style=False, sort_keys=False)
+            print(f"wrote {metrics_file}")
+        
+        # Write per-pol match_events and metrics
+        all_pol_metrics = {}
+        for pol in pols:
+            pol_base = f"{base}{suffix}_{pol}"
+            ins_per_pol[pol].write(pol_base, output_type="match_events", clobber=True)
+            pol_match_events_file = f"{pol_base}_SSINS_match_events.yml"
+            print(f"wrote {pol_match_events_file}")
+            
+            # Compute per-pol metrics
+            pol_metrics = compute_rfi_metrics(pol_match_events_file)
+            if pol_metrics:
+                all_pol_metrics[pol] = pol_metrics
+        
+        # Write combined per-pol metrics file
+        if all_pol_metrics:
+            pol_metrics_file = f"{maskname}_SSINS_metrics_by_pol.yml"
+            with open(pol_metrics_file, 'w') as f:
+                yaml.dump(all_pol_metrics, f, default_flow_style=False, sort_keys=False)
+            print(f"wrote {pol_metrics_file}")
+            
+            # Print summary to console
+            print("\n=== RFI Metrics Summary by Polarization (sorted by impact) ===")
+            for pol in pols:
+                if pol not in all_pol_metrics:
+                    continue
+                print(f"\n--- Polarization: {pol} ---")
+                for rfi_type, metrics in all_pol_metrics[pol].items():
+                    print(f"\n{rfi_type}:")
+                    if 'subtypes' in metrics and len(metrics['subtypes']) > 1:
+                        subtypes_str = ', '.join(f"{k}({v})" for k, v in metrics['subtypes'].items())
+                        print(f"  subtypes:           {subtypes_str}")
+                    print(f"  count:              {metrics['count']}")
+                    print(f"  mean_sig:           {metrics['mean_sig']:.2f}")
+                    print(f"  max_sig:            {metrics['max_sig']:.2f}")
+                    print(f"  total_area:         {metrics['total_area']} (time×freq cells)")
+                    print(f"  sig_area_rms:       {metrics['sig_area_rms']:.2f} (impact metric)")
+                    print(f"  sig_weighted_area:  {metrics['sig_weighted_area']:.2f}")
 
     elif args.plot_type == "flags":
         plot_flags(ss, args, obsname, suffix, cmap)
