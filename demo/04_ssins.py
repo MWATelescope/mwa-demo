@@ -523,12 +523,89 @@ def preapply_flags(ss: SS, ins: INS, args):
         ins.metric_array[~np.isfinite(ins.sig_array)] = np.nan
 
 
+def detect_leading_bad_times(ins: INS, max_check: int = 8) -> int:
+    """
+    Detect leading integrations with anomalous amplitudes or z-scores.
+
+    Compares log-median amplitudes and median |z-scores| for the first
+    integrations against a robust reference from later data.
+    """
+    metric = np.ma.asarray(ins.metric_array)
+    sig = np.ma.asarray(ins.sig_array)
+    if metric.ndim == 3:
+        amp = np.ma.median(metric, axis=(1, 2))
+        zscore = np.ma.median(np.abs(sig), axis=(1, 2))
+    else:
+        amp = np.ma.median(metric, axis=1)
+        zscore = np.ma.median(np.abs(sig), axis=1)
+    amp = np.asarray(amp, dtype=float)
+    zscore = np.asarray(zscore, dtype=float)
+    n = amp.size
+    if n < 3:
+        return 0
+
+    check = min(max_check, n - 2)
+
+    def _leading_outliers(series, *, log=False):
+        tail = series[check:]
+        tail = tail[np.isfinite(tail)]
+        if tail.size < 2:
+            tail = series[1:]
+            tail = tail[np.isfinite(tail)]
+        if tail.size < 2:
+            return 0
+        if log:
+            tail = tail[tail > 0]
+            if tail.size < 2:
+                return 0
+            tail = np.log(tail)
+        ref = np.median(tail)
+        mad = np.median(np.abs(tail - ref))
+        scale = 1.4826 * mad if mad > 0 else max(float(np.std(tail)), 0.05 if log else 1.0)
+        n_skip = 0
+        for t in range(check):
+            v = series[t]
+            if not np.isfinite(v) or (log and v <= 0):
+                n_skip = t + 1
+                continue
+            vv = np.log(v) if log else v
+            if (vv - ref) / scale > 3:
+                n_skip = t + 1
+            else:
+                break
+        return n_skip
+
+    return max(
+        _leading_outliers(amp, log=True),
+        _leading_outliers(zscore),
+    )
+
+
+def mask_leading_bad_times(ins: INS) -> int:
+    """Mask leading bad integrations and recompute z-scores. Returns count masked."""
+    n = detect_leading_bad_times(ins)
+    if n <= 0:
+        return 0
+    ins.metric_array[:n] = np.ma.masked
+    ins.weights_array[:n] = 0
+    if ins.weights_square_array is not None:
+        ins.weights_square_array[:n] = 0
+    ins.metric_ms = ins.mean_subtract()
+    ins.sig_array = np.ma.copy(ins.metric_ms)
+    ins.history += f"Masked {n} leading integration(s) with anomalous amplitudes. "
+    print(f"masked {n} leading integration(s) with anomalous amplitudes")
+    return n
+
+
 def apply_match_test(mf: MF, ins: INS, args):
     """Use ins.apply_match_test() to apply the match filter."""
+    n_bad = mask_leading_bad_times(ins)
     match_test_args = {}
     if args.tb_aggro > 0:
         match_test_args["time_broadcast"] = True
     mf.apply_match_test(ins, **match_test_args)
+    if n_bad:
+        ins.match_events = [e for e in ins.match_events if e[0].start >= n_bad]
 
 
 def _ins_pol_plane(arr):
@@ -1032,6 +1109,214 @@ def read_select(ss: SS, args):
     return base
 
 
+def _ins_flag_mask(arr):
+    """True where INS data is flagged (masked or non-finite)."""
+    arr = np.ma.asarray(_ins_pol_plane(arr))
+    if np.ma.isMaskedArray(arr):
+        flagged = np.ma.getmaskarray(arr)
+    else:
+        flagged = np.zeros(arr.shape, dtype=bool)
+    return flagged | ~np.isfinite(np.asarray(arr))
+
+
+def _mf_shape_stat(metric_ms, mask, shape, fslice):
+    """
+    Per-time MF detection statistic for a shape band.
+
+    Matches SSINS match_filter.match_test: streak/TV/SL use
+    |mean(z)|*sqrt(N); narrow uses per-cell |z|.
+    """
+    ms = np.abs(np.ma.asarray(metric_ms))
+    band_mask = mask if fslice is None else mask[:, fslice]
+    band_ms = ms if fslice is None else ms[:, fslice]
+
+    if shape == "narrow":
+        stat = band_ms.copy()
+        stat[band_mask] = np.nan
+        return stat, "cell"
+
+    n_unmasked = np.sum(~band_mask, axis=1)
+    with np.errstate(invalid="ignore"):
+        band_mean = np.nanmean(np.where(band_mask, np.nan, band_ms), axis=1)
+    stat = np.abs(band_mean) * np.sqrt(n_unmasked)
+    stat[n_unmasked == 0] = np.nan
+    return stat, "time"
+
+
+def _event_flag_frac(match_events, n_times, n_freqs):
+    """Fraction of time×freq cells covered by match events."""
+    if not match_events or n_times <= 0 or n_freqs <= 0:
+        return 0.0
+    total = n_times * n_freqs
+    flagged = 0
+    for event in match_events:
+        t_slice, f_slice = event[0], event[1]
+        if t_slice is None or f_slice is None:
+            continue
+        t0 = t_slice.start if t_slice.start is not None else 0
+        t1 = t_slice.stop if t_slice.stop is not None else n_times
+        if f_slice.start is None and f_slice.stop is None:
+            f0, f1 = 0, n_freqs
+        else:
+            f0 = f_slice.start if f_slice.start is not None else 0
+            f1 = f_slice.stop if f_slice.stop is not None else n_freqs
+        flagged += max(0, t1 - t0) * max(0, f1 - f0)
+    return float(min(flagged, total) / total)
+
+
+def _events_for_shape(match_events, shape):
+    """Return events belonging to a shape (narrow_* grouped under narrow)."""
+    out = []
+    for event in match_events:
+        event_shape = event[2]
+        if shape == "narrow":
+            if str(event_shape).startswith("narrow"):
+                out.append(event)
+        elif event_shape == shape:
+            out.append(event)
+    return out
+
+
+def compute_pol_tuning_stats(ins, mf, args):
+    """
+    Per-shape stats to help tune MF thresholds.
+
+    Reports the MF detection statistic (|mean(z)|*sqrt(N) for streak/TV/SL,
+    per-cell |z| for narrow), flag occupancy, and match-event coverage.
+    """
+    metric_ms = _ins_pol_plane(ins.metric_ms)
+    mask = _ins_flag_mask(ins.metric_array)
+    sig = np.abs(_ins_pol_plane(ins.sig_array))
+    n_times, _n_freqs = sig.shape
+    unmasked = (~mask) & np.isfinite(sig)
+
+    result = {
+        "n_times": n_times,
+        "n_freqs": _n_freqs,
+        "flag_frac": _event_flag_frac(ins.match_events, n_times, _n_freqs),
+        "z_median": float(np.median(sig[unmasked])) if unmasked.any() else None,
+        "z_p90": float(np.percentile(sig[unmasked], 90)) if unmasked.any() else None,
+        "z_p99": float(np.percentile(sig[unmasked], 99)) if unmasked.any() else None,
+        "z_max": float(np.nanmax(sig)) if np.isfinite(sig).any() else None,
+        "shapes": {},
+    }
+
+    for shape, fslice in mf.slice_dict.items():
+        thresh = float(mf.sig_thresh.get(shape, args.threshold))
+        stat, stat_axis = _mf_shape_stat(metric_ms, mask, shape, fslice)
+        band_mask = mask if fslice is None else mask[:, fslice]
+
+        if stat_axis == "cell":
+            flat = stat[np.isfinite(stat)]
+            above = int(np.sum(flat >= thresh)) if flat.size else 0
+            above_frac = float(above / flat.size) if flat.size else 0.0
+        else:
+            valid = stat[np.isfinite(stat)]
+            above = int(np.sum(valid >= thresh)) if valid.size else 0
+            above_frac = float(above / n_times) if n_times else 0.0
+            flat = valid
+
+        events = _events_for_shape(ins.match_events, shape)
+        event_sigs = [float(e[3]) for e in events if e[3] is not None]
+        event_times = sorted({e[0].start for e in events if e[0] is not None})
+
+        shape_stats = {
+            "threshold": thresh,
+            "stat": stat_axis,
+            "max_sig": float(np.nanmax(flat)) if flat.size else None,
+            "p50_sig": float(np.percentile(flat, 50)) if flat.size else None,
+            "p90_sig": float(np.percentile(flat, 90)) if flat.size else None,
+            "p99_sig": float(np.percentile(flat, 99)) if flat.size else None,
+            "times_above_threshold": above,
+            "times_above_threshold_frac": above_frac,
+            "flag_frac": _event_flag_frac(events, n_times, _n_freqs),
+            "headroom": float(np.nanmax(flat) / thresh)
+            if flat.size and thresh > 0
+            else None,
+            "event_count": len(event_sigs),
+            "event_times": len(event_times),
+            "event_times_frac": float(len(event_times) / n_times)
+            if n_times
+            else 0.0,
+        }
+        if event_sigs:
+            shape_stats["event_max_sig"] = max(event_sigs)
+            shape_stats["event_mean_sig"] = float(np.mean(event_sigs))
+            shape_stats["event_p50_sig"] = float(np.percentile(event_sigs, 50))
+
+        if stat_axis == "time" and flat.size:
+            bg = stat.copy()
+            for t in event_times:
+                if 0 <= t < bg.size:
+                    bg[t] = np.nan
+            bg = bg[np.isfinite(bg)]
+            if bg.size:
+                shape_stats["bg_p50_sig"] = float(np.percentile(bg, 50))
+                shape_stats["bg_p90_sig"] = float(np.percentile(bg, 90))
+
+        result["shapes"][shape] = shape_stats
+
+    return result
+
+
+def print_pol_tuning_summary(all_pol_tuning, pols):
+    """Print compact per-pol table for threshold tuning."""
+    print(
+        "\n=== Per-pol MF tuning stats "
+        "(streak/TV: |mean(z)|*sqrt(N); narrow: per-cell |z|) ==="
+    )
+    header = (
+        f"{'shape':<10} {'thr':>5} {'p50':>7} {'p90':>7} {'bg90':>7} "
+        f"{'flag%':>6} {'t>th':>8} {'evt_t':>8} {'events':>7}"
+    )
+    for pol in pols:
+        tuning = all_pol_tuning.get(pol)
+        if not tuning:
+            continue
+        z_med = tuning["z_median"]
+        z_p90 = tuning.get("z_p90")
+        z_line = f"z_med={z_med:.2f}" if z_med is not None else "z_med=?"
+        if z_p90 is not None:
+            z_line += f", z_p90={z_p90:.1f}"
+        print(
+            f"\n--- {pol}  "
+            f"(flagged {100 * tuning['flag_frac']:.1f}% of cells, {z_line}) ---"
+        )
+        print(header)
+        shapes = tuning["shapes"]
+        order = sorted(
+            shapes.keys(),
+            key=lambda s: (
+                0 if s == "streak" else 1 if s == "narrow" else 2,
+                s,
+            ),
+        )
+        for shape in order:
+            s = shapes[shape]
+            if s["max_sig"] is None:
+                continue
+            if (
+                s["event_count"] == 0
+                and s["times_above_threshold"] == 0
+                and s["flag_frac"] < 0.001
+            ):
+                continue
+            bg90 = s.get("bg_p90_sig")
+            bg_str = f"{bg90:7.1f}" if bg90 is not None else "    n/a"
+            t_above = s["times_above_threshold"]
+            if s["stat"] == "time":
+                t_str = f"{t_above:4d}/{tuning['n_times']:<3d}"
+            else:
+                t_str = f"{t_above:8d}c"
+            evt_t = s.get("event_times", 0)
+            print(
+                f"{shape:<10} {s['threshold']:5.1f} {s['p50_sig']:7.1f} "
+                f"{s['p90_sig']:7.1f} {bg_str} {100 * s['flag_frac']:5.1f}% "
+                f"{t_str:>8} {evt_t:3d}/{tuning['n_times']:<3d} "
+                f"{s['event_count']:7d}"
+            )
+
+
 def compute_rfi_metrics(match_events_file):
     """
     Compute statistically sound metrics for RFI events grouped by type.
@@ -1088,7 +1373,7 @@ def compute_rfi_metrics(match_events_file):
         rfi_type_raw = shapes[i]
         rfi_type = normalize_rfi_type(rfi_type_raw)
         sig = sigs[i]
-        
+
         # Skip null significances
         if sig is None or (isinstance(sig, float) and np.isnan(sig)):
             continue
@@ -1186,6 +1471,8 @@ def main():  # noqa: D103
         
         # Write per-pol match_events and metrics
         all_pol_metrics = {}
+        mf = get_match_filter(ss.freq_array, args)
+        all_pol_tuning = {}
         for pol in pols:
             pol_base = f"{base}{suffix}_{pol}"
             ins_per_pol[pol].write(pol_base, output_type="match_events", clobber=True)
@@ -1196,6 +1483,7 @@ def main():  # noqa: D103
             pol_metrics = compute_rfi_metrics(pol_match_events_file)
             if pol_metrics:
                 all_pol_metrics[pol] = pol_metrics
+            all_pol_tuning[pol] = compute_pol_tuning_stats(ins_per_pol[pol], mf, args)
         
         # Write combined per-pol metrics file
         if all_pol_metrics:
@@ -1221,6 +1509,13 @@ def main():  # noqa: D103
                     print(f"  total_area:         {metrics['total_area']} (time×freq cells)")
                     print(f"  sig_area_rms:       {metrics['sig_area_rms']:.2f} (impact metric)")
                     print(f"  sig_weighted_area:  {metrics['sig_weighted_area']:.2f}")
+
+        if all_pol_tuning:
+            tuning_file = f"{maskname}_SSINS_tuning_by_pol.yml"
+            with open(tuning_file, 'w') as f:
+                yaml.dump(all_pol_tuning, f, default_flow_style=False, sort_keys=False)
+            print(f"wrote {tuning_file}")
+            print_pol_tuning_summary(all_pol_tuning, pols)
 
     elif args.plot_type == "flags":
         plot_flags(ss, args, obsname, suffix, cmap)
@@ -1248,7 +1543,7 @@ if __name__ == "__main__":
 # isolated example:
 """
 export outdir= ... # e.g. /data , which has adequate space
-export obsid=1418228256
+export obsid=1444505528
 giant-squid submit-vis -w $obsid
 docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD \
     $([ -d /demo ] && echo " -v /demo:/demo") \
@@ -1256,6 +1551,15 @@ docker run --rm -it -v ${outdir:=$PWD}:${outdir} -v $PWD:$PWD \
     --entrypoint /demo/04_ssins.py \
     mwatelescope/mwa-demo:latest \
     $(cd $outdir; ls -1 ${obsid}*fits)
+# or
+# singularity run --env obsid=${obsid} --env outdir=${outdir} docker://mwatelescope/mwa-demo:latest \
+export obsid=1444505528
+export outdir=/data/curtin_mwaeor/nfdata
+singularity exec --env obsid=${obsid} --env outdir=${outdir} -B $PWD:$PWD -W $PWD /data/curtin_mwaeor/singularity/mwatelescope-mwa-demo-cuda12.5.1.img \
+    /demo/04_ssins.py \
+    --crosses \
+    --no-diff \
+    ${obsid}/raw/${obsid}.metafits ${obsid}/prep/birli_${obsid}_norfi.uvfits
 """
 # (default)                     = plot diff spectrum
 # --no-diff                     = don't difference visibilities in time (sky-subtract)
