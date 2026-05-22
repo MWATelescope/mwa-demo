@@ -581,9 +581,10 @@ def detect_leading_bad_times(ins: INS, max_check: int = 8) -> int:
     )
 
 
-def mask_leading_bad_times(ins: INS) -> int:
+def mask_leading_bad_times(ins: INS, n: int | None = None, *, quiet: bool = False) -> int:
     """Mask leading bad integrations and recompute z-scores. Returns count masked."""
-    n = detect_leading_bad_times(ins)
+    if n is None:
+        n = detect_leading_bad_times(ins)
     if n <= 0:
         return 0
     ins.metric_array[:n] = np.ma.masked
@@ -593,13 +594,30 @@ def mask_leading_bad_times(ins: INS) -> int:
     ins.metric_ms = ins.mean_subtract()
     ins.sig_array = np.ma.copy(ins.metric_ms)
     ins.history += f"Masked {n} leading integration(s) with anomalous amplitudes. "
-    print(f"masked {n} leading integration(s) with anomalous amplitudes")
+    if not quiet:
+        print(f"masked {n} leading integration(s) with anomalous amplitudes")
     return n
 
 
-def apply_match_test(mf: MF, ins: INS, args):
+def reference_leading_bad_times(ss: SS, args) -> int:
+    """
+    Leading bad integrations from full-array INS, max over polarizations.
+
+    Per-antenna INS subsets can miss the t=0 artifact; sigchain uses this
+    reference count so it matches spectrum plots.
+    """
+    n_bad = 0
+    for pol in ss.get_pols():
+        ss_pol = ss.select(polarizations=[pol], inplace=False)
+        with np.errstate(invalid="ignore"):
+            ins = INS(ss_pol, spectrum_type=args.spectrum_type, order=args.order)
+        n_bad = max(n_bad, detect_leading_bad_times(ins))
+    return n_bad
+
+
+def apply_match_test(mf: MF, ins: INS, args, n_bad: int | None = None):
     """Use ins.apply_match_test() to apply the match filter."""
-    n_bad = mask_leading_bad_times(ins)
+    n_bad = mask_leading_bad_times(ins, n=n_bad, quiet=n_bad is not None)
     match_test_args = {}
     if args.tb_aggro > 0:
         match_test_args["time_broadcast"] = True
@@ -668,6 +686,12 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
 
     # build a scores array for each signal chain
     scores = np.zeros((len(unflagged_ants), ss.Ntimes, ss.Nfreqs, ss.Npols))
+    n_bad = reference_leading_bad_times(ss, args)
+    if n_bad:
+        print(
+            f"sigchain: using {n_bad} leading integration(s) masked "
+            f"(from full-array reference, same as spectrum)"
+        )
     for ant_idx, (ant_num, _) in enumerate(zip(ant_numbers, ant_names)):
         if ant_num not in unflagged_ants:
             continue
@@ -676,8 +700,8 @@ def plot_sigchain(ss, args, obsname, suffix, cmap):
         with np.errstate(invalid="ignore"):
             ins = INS(ssa, spectrum_type=args.spectrum_type, order=args.order)
         preapply_flags(ssa, ins, args)
-        apply_match_test(mf, ins, args)
-        scores[ant_idx] = ins.sig_array
+        apply_match_test(mf, ins, args, n_bad=n_bad)
+        scores[ant_idx] = np.ma.asarray(ins.sig_array).filled(np.nan)
 
     subplots = plt.subplots(
         2, len(pols), height_ratios=[len(unflagged_ants), ss.Nfreqs]
