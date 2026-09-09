@@ -129,7 +129,7 @@ done <<'EoF'
 pyvo|        pip install pyvo # https://pyvo.readthedocs.io/en/latest/#installation
 mwalib|      pip install mwalib # https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/348127236/mwalib
 ssins|       pip install git+https://github.com/mwilensky768/SSINS.git # https://github.com/mwilensky768/SSINS#installation
-mwa_qa|      pip install git+https://github.com/d3v-null/mwa_qa.git@dev
+mwa_qa|      pip install git+https://github.com/d3v-null/mwa_qa.git@main
 AegeanTools| pip install git+https://github.com/PaulHancock/Aegean.git
 fits_warp|   pip install psutil git+https://github.com/tjgalvin/fits_warp.git
 EoF

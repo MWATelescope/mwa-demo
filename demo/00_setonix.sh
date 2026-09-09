@@ -12,7 +12,7 @@ pip install --user \
     git+https://github.com/mwilensky768/SSINS.git \
     git+https://github.com/PaulHancock/Aegean.git \
     git+https://github.com/tjgalvin/fits_warp.git \
-    git+https://github.com/d3v-null/mwa_qa.git@dev
+    git+https://github.com/d3v-null/mwa_qa.git@main
 
 export singularity_base="singularity exec"
 export docker_img=${docker_img:="mwatelescope/mwa-demo:latest"}

@@ -140,7 +140,13 @@ The steps in the [Dockerfile](Dockerfile) may be a useful guide.
   - pyvo <https://pyvo.readthedocs.io/en/latest/#installation>
   - mwalib `pip install mwalib` <https://mwatelescope.atlassian.net/wiki/spaces/MP/pages/348127236/mwalib>
   - ssins `pip install git+https://github.com/mwilensky768/SSINS.git` <https://github.com/mwilensky768/SSINS#installation>
-  - mwa_qa `pip install git+https://github.com/d3v-null/mwa_qa.git@dev`
+  - mwa_qa `pip install git+https://github.com/d3v-null/mwa_qa.git@main`
+  - mwa_cal `pip install git+https://github.com/Chuneeta/mwa_cal.git` -- depends
+    on mwa_qa, which is not published to PyPI. Install the two in one `pip
+    install` so that pip can resolve mwa_qa from the git URL, or install mwa_qa
+    first; otherwise mwa_cal fails with
+    `No matching distribution found for mwa_qa`. The
+    [Dockerfile](Dockerfile) keeps both in a single invocation for this reason.
   - AegeanTools `pip install git+https://github.com/PaulHancock/Aegean.git` <https://aegeantools.rtfd.io/>
   - fits_warp `pip install psutil git+https://github.com/tjgalvin/fits_warp.git`
 - jq <https://jqlang.github.io/jq/download/>

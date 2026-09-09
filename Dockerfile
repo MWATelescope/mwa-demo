@@ -163,6 +163,13 @@ RUN --mount=type=cache,target=${CARGO_HOME}/git/db \
 
 # install python prerequisites
 # - install Cython first to fix pyuvdata compilation issues
+# mwa_qa is installed here rather than in a later layer because mwa_cal below
+# depends on it and it is not on PyPI, so the same pip invocation has to resolve
+# both. Keyed on a ref so that a new commit invalidates this layer; otherwise
+# the line never changes, cache-from reuses it, and the image silently keeps
+# whatever mwa_qa it was first built with:
+#   --build-arg MWA_QA_REF=$(git ls-remote https://github.com/d3v-null/mwa_qa.git main | cut -f1)
+ARG MWA_QA_REF=main
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip config set global.break-system-packages true && \
     python -m pip install \
@@ -192,7 +199,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     'pyuvdata[casa]==3.1.3' \
     && python -m pip install \
     git+https://github.com/d3v-null/SSINS.git@eavils-copilot \
-    git+https://github.com/d3v-null/mwa_qa.git@dev \
+    git+https://github.com/d3v-null/mwa_qa.git@${MWA_QA_REF} \
     git+https://github.com/tjgalvin/fits_warp.git \
     git+https://github.com/Chuneeta/mwa_cal.git
 

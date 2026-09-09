@@ -51,12 +51,20 @@ jobs:
         with:
           platforms: ${{ matrix.platform }}
 
+      # resolved per build so a new mwa_qa commit busts its layer; without
+      # this the pip line never changes and cache-from keeps the old install
+      - name: Resolve mwa_qa ref
+        run: |
+          echo "MWA_QA_REF=$(git ls-remote https://github.com/d3v-null/mwa_qa.git main | cut -f1)" >> $GITHUB_ENV
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: ${{ matrix.platform }}
+          build-args: |
+            MWA_QA_REF=${{ env.MWA_QA_REF }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha
