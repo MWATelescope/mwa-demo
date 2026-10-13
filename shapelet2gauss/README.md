@@ -86,6 +86,11 @@ no `makesourcedb` needed):
 * one patch per hyperdrive source (`--patch single` puts everything in one patch); shapelets
   raise, so run `shapelet2gauss.py` first
 * fluxes below 1e-30 are zeroed (DP3 refuses denormals)
+* patch count matters: DP3 needs 24 minutes to load the full catalogue with one patch per
+  source (338797 patches) but 49 s with `--patch single`. Use per-source patches on
+  beam-selected cuts only (`hyperdrive srclist-by-beam` first, then convert).
+* DP3 applies no horizon cut: it predicts the 97828 all-sky components behind the tangent
+  plane too. Cut the model to the field before predicting.
 
 Validation: the 300 brightest sources for obs 1443210064 (`hyperdrive srclist-by-beam`,
 12758 components, Fornax A included) were simulated into an MS with
@@ -99,3 +104,5 @@ visibilities hyperdrive writes are not exactly consistent with the UVWs it write
 precessed-array frame vs the MS frame; with `--no-precession` the deviation is 30%).
 Gaussian-only sources agree to 0.2%, which also confirms the orientation convention.
 Per-channel power ratios are 1.00000-1.00001, which checks the curved-power-law mapping.
+The full single-patch catalogue (360395 components) predicted by DP3 also matches a direct
+Fourier sum of the `.skymodel` file itself to 0.00012% rms (max 0.1 Jy on 8.1 kJy).
