@@ -1,59 +1,59 @@
-nDUB033439-2658    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0048 max=0.0741 rms<600=0.0008 zero=0.0001 E0=0.9476 sumF=0.212 sum|F|/F=6.67 t=7.8s
-nDUB034738-2712    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0040 max=0.0817 rms<600=0.0008 zero=0.0004 E0=1.0044 sumF=0.625 sum|F|/F=7.44 t=7.3s
-nDUB042505-2639    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0059 max=0.1255 rms<600=0.0010 zero=0.0004 E0=0.9869 sumF=1.097 sum|F|/F=4.14 t=7.5s
-nDUB042728-2653    comp0 nmax= 6 N=  64 ngauss=120 rms=0.0074 max=0.0932 rms<600=0.0013 zero=0.0005 E0=1.0005 sumF=0.238 sum|F|/F=6.83 t=8.8s
-nDUB042728-2653    comp1 nmax= 6 N= 128 ngauss= 75 rms=0.0028 max=0.0601 rms<600=0.0006 zero=0.0000 E0=0.9962 sumF=0.511 sum|F|/F=3.15 t=2.3s
-nDUB043831-2926    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0062 max=0.1243 rms<600=0.0011 zero=0.0001 E0=0.9813 sumF=0.433 sum|F|/F=7.65 t=8.0s
-nEXT033829-3526    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0062 max=0.0900 rms<600=0.0012 zero=0.0001 E0=0.9964 sumF=7.919 sum|F|/F=2.38 t=8.0s
-nEXT033829-3526    comp1 nmax= 8 N= 128 ngauss=120 rms=0.0034 max=0.0814 rms<600=0.0004 zero=0.0001 E0=0.9957 sumF=2.090 sum|F|/F=3.94 t=7.6s
-nEXT034024-2840    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0033 max=0.0882 rms<600=0.0006 zero=0.0001 E0=0.9954 sumF=1.159 sum|F|/F=3.72 t=7.6s
-nEXT034631-3422    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0046 max=0.1198 rms<600=0.0009 zero=0.0001 E0=0.9978 sumF=13.096 sum|F|/F=3.10 t=6.9s
-nEXT034731-3437    comp0 nmax= 8 N= 128 ngauss=100 rms=0.0029 max=0.0699 rms<600=0.0004 zero=0.0001 E0=0.9956 sumF=0.985 sum|F|/F=2.79 t=3.6s
-nEXT035140-2743    comp0 nmax=14 N= 256 ngauss= 85 rms=0.0029 max=0.0665 rms<600=0.0005 zero=0.0000 E0=0.9972 sumF=21.493 sum|F|/F=1.73 t=7.7s
-nEXT040754-2937    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0043 max=0.0851 rms<600=0.0009 zero=0.0001 E0=0.9956 sumF=0.764 sum|F|/F=4.68 t=6.7s
-nGLM032911-2600    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0033 max=0.0689 rms<600=0.0006 zero=0.0002 E0=0.9956 sumF=4.601 sum|F|/F=2.13 t=5.5s
+nDUB033439-2658    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0039 max=0.0569 rms<600=0.0006 zero=0.0002 E0=0.9476 sumF=0.212 sum|F|/F=8.07 t=79.1s
+nDUB034738-2712    comp0 nmax= 8 N= 128 ngauss= 93 rms=0.0031 max=0.0600 rms<600=0.0006 zero=0.0001 E0=1.0044 sumF=0.624 sum|F|/F=7.83 t=240.2s
+nDUB042505-2639    comp0 nmax= 8 N= 128 ngauss=103 rms=0.0055 max=0.1345 rms<600=0.0009 zero=0.0003 E0=0.9869 sumF=1.098 sum|F|/F=4.60 t=259.3s
+nDUB042728-2653    comp0 nmax= 6 N=  64 ngauss= 61 rms=0.0050 max=0.0871 rms<600=0.0010 zero=0.0002 E0=1.0005 sumF=0.238 sum|F|/F=13.25 t=62.9s
+nDUB042728-2653    comp1 nmax= 6 N= 128 ngauss= 75 rms=0.0028 max=0.0628 rms<600=0.0007 zero=0.0001 E0=0.9962 sumF=0.511 sum|F|/F=3.15 t=2.7s
+nDUB043831-2926    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0040 max=0.0697 rms<600=0.0007 zero=0.0002 E0=0.9813 sumF=0.433 sum|F|/F=8.05 t=98.9s
+nEXT033829-3526    comp0 nmax= 8 N= 128 ngauss=119 rms=0.0044 max=0.0727 rms<600=0.0006 zero=0.0001 E0=0.9964 sumF=7.919 sum|F|/F=2.51 t=235.9s
+nEXT033829-3526    comp1 nmax= 8 N= 128 ngauss=120 rms=0.0032 max=0.0898 rms<600=0.0006 zero=0.0000 E0=0.9957 sumF=2.091 sum|F|/F=4.05 t=58.0s
+nEXT034024-2840    comp0 nmax= 8 N= 128 ngauss=106 rms=0.0030 max=0.0789 rms<600=0.0006 zero=0.0000 E0=0.9954 sumF=1.159 sum|F|/F=3.78 t=40.1s
+nEXT034631-3422    comp0 nmax= 8 N= 128 ngauss=101 rms=0.0040 max=0.1062 rms<600=0.0007 zero=0.0000 E0=0.9978 sumF=13.093 sum|F|/F=3.08 t=262.2s
+nEXT034731-3437    comp0 nmax= 8 N= 128 ngauss= 94 rms=0.0030 max=0.0783 rms<600=0.0004 zero=0.0002 E0=0.9956 sumF=0.986 sum|F|/F=2.81 t=8.0s
+nEXT035140-2743    comp0 nmax=14 N= 256 ngauss= 85 rms=0.0029 max=0.0665 rms<600=0.0005 zero=0.0000 E0=0.9972 sumF=21.493 sum|F|/F=1.73 t=7.0s
+nEXT040754-2937    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0043 max=0.0813 rms<600=0.0008 zero=0.0000 E0=0.9956 sumF=0.764 sum|F|/F=4.70 t=5.5s
+nGLM032911-2600    comp0 nmax= 8 N= 128 ngauss=118 rms=0.0029 max=0.0618 rms<600=0.0005 zero=0.0002 E0=0.9956 sumF=4.601 sum|F|/F=2.03 t=25.1s
 nGLM033051-2614    comp0 nmax= 1 N=  64 ngauss= 10 rms=0.0014 max=0.0128 rms<600=0.0003 zero=0.0000 E0=0.9958 sumF=0.221 sum|F|/F=1.14 t=0.1s
-nGLM033121-2606    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0080 max=0.1508 rms<600=0.0011 zero=0.0004 E0=0.9936 sumF=1.521 sum|F|/F=2.86 t=7.9s
-nGLM033428-2717    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0043 max=0.0772 rms<600=0.0007 zero=0.0000 E0=0.9959 sumF=0.279 sum|F|/F=4.25 t=6.1s
-nGLM033444-2707    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0034 max=0.0626 rms<600=0.0006 zero=0.0002 E0=0.9955 sumF=0.608 sum|F|/F=2.45 t=6.6s
-nGLM033941-2833A   comp0 nmax= 8 N= 128 ngauss=120 rms=0.0090 max=0.1994 rms<600=0.0022 zero=0.0005 E0=0.9945 sumF=0.136 sum|F|/F=11.78 t=7.7s
-nGLM033941-2833B   comp0 nmax= 8 N= 128 ngauss= 85 rms=0.0028 max=0.0552 rms<600=0.0004 zero=0.0001 E0=0.9954 sumF=1.078 sum|F|/F=2.31 t=3.3s
-nGLM034600-3443    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0090 max=0.1749 rms<600=0.0014 zero=0.0002 E0=0.9833 sumF=0.563 sum|F|/F=5.02 t=6.7s
-nGLM034724-3424    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0050 max=0.0797 rms<600=0.0006 zero=0.0001 E0=0.9443 sumF=1.555 sum|F|/F=4.48 t=6.4s
-nGLM034742-2141    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0035 max=0.0719 rms<600=0.0006 zero=0.0001 E0=0.9956 sumF=0.589 sum|F|/F=3.23 t=7.0s
-nGLM034800-2709    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0099 max=0.1807 rms<600=0.0018 zero=0.0005 E0=0.9815 sumF=0.134 sum|F|/F=12.85 t=5.7s
-nGLM034805-2146    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0068 max=0.1621 rms<600=0.0013 zero=0.0000 E0=0.9957 sumF=0.336 sum|F|/F=4.74 t=5.6s
-nGLM034851-2943    comp0 nmax= 8 N= 128 ngauss= 80 rms=0.0029 max=0.0490 rms<600=0.0005 zero=0.0001 E0=0.9959 sumF=1.885 sum|F|/F=2.14 t=2.0s
-nGLM035235-2538    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0070 max=0.1089 rms<600=0.0013 zero=0.0002 E0=0.9950 sumF=1.131 sum|F|/F=2.79 t=5.9s
-nGLM035257-2532    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0072 max=0.1410 rms<600=0.0016 zero=0.0005 E0=0.9711 sumF=0.182 sum|F|/F=8.99 t=7.5s
-nGLM040248-2437    comp0 nmax= 8 N= 128 ngauss=100 rms=0.0029 max=0.0761 rms<600=0.0005 zero=0.0003 E0=0.9957 sumF=2.220 sum|F|/F=2.10 t=3.9s
-nGLM040627-2143    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0044 max=0.0899 rms<600=0.0007 zero=0.0000 E0=0.9924 sumF=0.565 sum|F|/F=2.93 t=6.0s
-nGLM040741-3102    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0105 max=0.1862 rms<600=0.0019 zero=0.0002 E0=1.0040 sumF=0.210 sum|F|/F=12.44 t=5.5s
-nGLM040746-2931    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0078 max=0.1347 rms<600=0.0013 zero=0.0002 E0=0.9963 sumF=0.216 sum|F|/F=7.85 t=6.1s
-nGLM040826-3101    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0085 max=0.1425 rms<600=0.0012 zero=0.0000 E0=0.9981 sumF=2.784 sum|F|/F=3.39 t=5.8s
-nGLM041509-2929    comp0 nmax= 8 N= 128 ngauss= 95 rms=0.0029 max=0.0597 rms<600=0.0004 zero=0.0000 E0=0.9957 sumF=6.218 sum|F|/F=3.36 t=3.2s
-nGLM041703-2909    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0070 max=0.1704 rms<600=0.0015 zero=0.0004 E0=0.9946 sumF=0.568 sum|F|/F=9.38 t=5.9s
-nGLM041734-2917    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0072 max=0.1251 rms<600=0.0010 zero=0.0001 E0=1.0232 sumF=0.179 sum|F|/F=6.00 t=6.5s
-nGLM041739-2209    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0086 max=0.1366 rms<600=0.0014 zero=0.0004 E0=0.9972 sumF=0.198 sum|F|/F=7.79 t=6.0s
-nGLM041748-2156    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0050 max=0.0932 rms<600=0.0010 zero=0.0001 E0=0.9853 sumF=0.156 sum|F|/F=13.40 t=6.0s
-nGLM041755-2200    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0035 max=0.0592 rms<600=0.0005 zero=0.0001 E0=0.9954 sumF=2.034 sum|F|/F=3.14 t=6.1s
-nGLM042347-3402    comp0 nmax= 8 N= 128 ngauss=100 rms=0.0029 max=0.0508 rms<600=0.0006 zero=0.0001 E0=0.9956 sumF=4.921 sum|F|/F=3.28 t=3.4s
-nGLM042640-2643    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0034 max=0.0757 rms<600=0.0005 zero=0.0000 E0=0.9844 sumF=4.266 sum|F|/F=4.29 t=6.3s
-nGLM042859-3137    comp0 nmax= 8 N= 128 ngauss=105 rms=0.0030 max=0.0991 rms<600=0.0006 zero=0.0000 E0=0.9953 sumF=1.097 sum|F|/F=4.30 t=4.4s
-nGLM043018-2800    comp0 nmax= 8 N= 128 ngauss= 55 rms=0.0026 max=0.0475 rms<600=0.0005 zero=0.0001 E0=0.9958 sumF=4.322 sum|F|/F=2.42 t=1.3s
-nGLM043252-2324    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0070 max=0.1121 rms<600=0.0010 zero=0.0000 E0=0.9939 sumF=1.660 sum|F|/F=2.86 t=5.6s
-nGLM043501-2332    comp0 nmax=10 N= 128 ngauss=120 rms=0.0037 max=0.0622 rms<600=0.0005 zero=0.0002 E0=0.9723 sumF=0.335 sum|F|/F=19.96 t=6.4s
-nGLM043501-2332    comp1 nmax= 6 N= 128 ngauss=120 rms=0.0045 max=0.0994 rms<600=0.0008 zero=0.0002 E0=0.9962 sumF=0.702 sum|F|/F=2.35 t=6.7s
-nJ032918-360154    comp0 nmax= 6 N= 128 ngauss=120 rms=0.0060 max=0.1228 rms<600=0.0012 zero=0.0004 E0=0.9946 sumF=0.084 sum|F|/F=10.29 t=6.3s
-nJ032918-360154    comp1 nmax= 6 N=  64 ngauss=120 rms=0.0050 max=0.0930 rms<600=0.0006 zero=0.0002 E0=0.9960 sumF=0.608 sum|F|/F=2.58 t=5.1s
-nJ033002-360833    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0045 max=0.0820 rms<600=0.0007 zero=0.0000 E0=0.9297 sumF=0.571 sum|F|/F=7.17 t=5.6s
-nJ033014-365309    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0056 max=0.1189 rms<600=0.0010 zero=0.0001 E0=0.9861 sumF=5.675 sum|F|/F=3.19 t=6.6s
-nJ033336-360820    comp0 nmax= 8 N= 128 ngauss=100 rms=0.0030 max=0.0596 rms<600=0.0006 zero=0.0001 E0=1.0999 sumF=1.842 sum|F|/F=8.20 t=3.8s
-nJ034132-362232    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0036 max=0.0828 rms<600=0.0006 zero=0.0002 E0=0.9951 sumF=3.203 sum|F|/F=2.20 t=5.2s
-nJ035224-370719    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0042 max=0.0708 rms<600=0.0007 zero=0.0001 E0=0.9959 sumF=0.925 sum|F|/F=4.55 t=5.2s
-nJ035315-371634    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0079 max=0.1352 rms<600=0.0013 zero=0.0001 E0=0.9930 sumF=0.406 sum|F|/F=4.27 t=5.5s
-nJ035947-370027    comp0 nmax= 8 N= 128 ngauss= 90 rms=0.0028 max=0.0600 rms<600=0.0005 zero=0.0000 E0=0.9958 sumF=7.104 sum|F|/F=2.48 t=3.2s
-nJ041825-371939    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0081 max=0.1351 rms<600=0.0014 zero=0.0003 E0=0.9949 sumF=1.503 sum|F|/F=2.84 t=5.4s
-nJ042702-360250    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0067 max=0.1565 rms<600=0.0013 zero=0.0003 E0=0.9942 sumF=1.041 sum|F|/F=3.71 t=5.2s
-nJ042940-363050    comp0 nmax= 8 N= 128 ngauss=110 rms=0.0029 max=0.0613 rms<600=0.0005 zero=0.0001 E0=0.9957 sumF=13.354 sum|F|/F=2.85 t=4.0s
-nJ043237-343348    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0075 max=0.1737 rms<600=0.0011 zero=0.0001 E0=0.9848 sumF=0.998 sum|F|/F=4.64 t=5.6s
+nGLM033121-2606    comp0 nmax= 8 N= 128 ngauss=114 rms=0.0064 max=0.1365 rms<600=0.0011 zero=0.0003 E0=0.9936 sumF=1.522 sum|F|/F=3.43 t=267.7s
+nGLM033428-2717    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0042 max=0.0684 rms<600=0.0007 zero=0.0001 E0=0.9959 sumF=0.279 sum|F|/F=4.22 t=5.2s
+nGLM033444-2707    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0033 max=0.0717 rms<600=0.0005 zero=0.0000 E0=0.9955 sumF=0.608 sum|F|/F=2.51 t=154.3s
+nGLM033941-2833A   comp0 nmax= 8 N= 128 ngauss= 81 rms=0.0072 max=0.1434 rms<600=0.0010 zero=0.0001 E0=0.9945 sumF=0.136 sum|F|/F=13.63 t=177.4s
+nGLM033941-2833B   comp0 nmax= 8 N= 128 ngauss= 84 rms=0.0029 max=0.0546 rms<600=0.0005 zero=0.0001 E0=0.9954 sumF=1.078 sum|F|/F=2.30 t=3.4s
+nGLM034600-3443    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0073 max=0.1396 rms<600=0.0013 zero=0.0000 E0=0.9833 sumF=0.562 sum|F|/F=5.44 t=25.8s
+nGLM034724-3424    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0045 max=0.0923 rms<600=0.0004 zero=0.0000 E0=0.9443 sumF=1.555 sum|F|/F=4.50 t=145.6s
+nGLM034742-2141    comp0 nmax= 8 N= 128 ngauss=108 rms=0.0029 max=0.0545 rms<600=0.0005 zero=0.0001 E0=0.9956 sumF=0.589 sum|F|/F=3.31 t=39.1s
+nGLM034800-2709    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0081 max=0.1282 rms<600=0.0011 zero=0.0001 E0=0.9815 sumF=0.134 sum|F|/F=12.20 t=245.7s
+nGLM034805-2146    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0060 max=0.1542 rms<600=0.0011 zero=0.0002 E0=0.9957 sumF=0.336 sum|F|/F=4.53 t=81.3s
+nGLM034851-2943    comp0 nmax= 8 N= 128 ngauss= 80 rms=0.0029 max=0.0490 rms<600=0.0005 zero=0.0001 E0=0.9959 sumF=1.885 sum|F|/F=2.14 t=1.8s
+nGLM035235-2538    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0063 max=0.1187 rms<600=0.0011 zero=0.0001 E0=0.9950 sumF=1.131 sum|F|/F=3.93 t=87.1s
+nGLM035257-2532    comp0 nmax= 8 N= 128 ngauss=114 rms=0.0051 max=0.1042 rms<600=0.0010 zero=0.0003 E0=0.9711 sumF=0.182 sum|F|/F=17.96 t=209.1s
+nGLM040248-2437    comp0 nmax= 8 N= 128 ngauss= 92 rms=0.0029 max=0.0746 rms<600=0.0005 zero=0.0001 E0=0.9957 sumF=2.220 sum|F|/F=2.05 t=3.3s
+nGLM040627-2143    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0034 max=0.0728 rms<600=0.0006 zero=0.0000 E0=0.9924 sumF=0.565 sum|F|/F=3.00 t=95.5s
+nGLM040741-3102    comp0 nmax= 8 N= 128 ngauss=119 rms=0.0082 max=0.1590 rms<600=0.0012 zero=0.0003 E0=1.0040 sumF=0.209 sum|F|/F=13.53 t=307.2s
+nGLM040746-2931    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0071 max=0.1287 rms<600=0.0011 zero=0.0002 E0=0.9963 sumF=0.216 sum|F|/F=7.75 t=4.0s
+nGLM040826-3101    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0076 max=0.1204 rms<600=0.0013 zero=0.0003 E0=0.9981 sumF=2.783 sum|F|/F=3.68 t=21.1s
+nGLM041509-2929    comp0 nmax= 8 N= 128 ngauss= 94 rms=0.0030 max=0.0560 rms<600=0.0005 zero=0.0001 E0=0.9957 sumF=6.219 sum|F|/F=3.35 t=2.8s
+nGLM041703-2909    comp0 nmax= 8 N= 128 ngauss=107 rms=0.0058 max=0.1480 rms<600=0.0014 zero=0.0002 E0=0.9946 sumF=0.565 sum|F|/F=12.22 t=217.6s
+nGLM041734-2917    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0059 max=0.0930 rms<600=0.0009 zero=0.0002 E0=1.0232 sumF=0.179 sum|F|/F=6.21 t=207.9s
+nGLM041739-2209    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0061 max=0.1092 rms<600=0.0011 zero=0.0002 E0=0.9972 sumF=0.199 sum|F|/F=8.92 t=69.6s
+nGLM041748-2156    comp0 nmax= 8 N= 128 ngauss=105 rms=0.0048 max=0.0889 rms<600=0.0008 zero=0.0000 E0=0.9853 sumF=0.157 sum|F|/F=13.83 t=280.9s
+nGLM041755-2200    comp0 nmax= 8 N= 128 ngauss=103 rms=0.0029 max=0.0499 rms<600=0.0004 zero=0.0000 E0=0.9954 sumF=2.034 sum|F|/F=3.00 t=95.9s
+nGLM042347-3402    comp0 nmax= 8 N= 128 ngauss= 99 rms=0.0028 max=0.0528 rms<600=0.0005 zero=0.0001 E0=0.9956 sumF=4.919 sum|F|/F=3.32 t=3.6s
+nGLM042640-2643    comp0 nmax= 8 N= 128 ngauss= 87 rms=0.0030 max=0.0672 rms<600=0.0003 zero=0.0000 E0=0.9844 sumF=4.265 sum|F|/F=4.37 t=178.3s
+nGLM042859-3137    comp0 nmax= 8 N= 128 ngauss= 99 rms=0.0030 max=0.0936 rms<600=0.0005 zero=0.0002 E0=0.9953 sumF=1.096 sum|F|/F=4.35 t=26.5s
+nGLM043018-2800    comp0 nmax= 8 N= 128 ngauss= 50 rms=0.0029 max=0.0580 rms<600=0.0006 zero=0.0001 E0=0.9958 sumF=4.322 sum|F|/F=2.37 t=0.9s
+nGLM043252-2324    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0056 max=0.0956 rms<600=0.0010 zero=0.0000 E0=0.9939 sumF=1.660 sum|F|/F=3.00 t=71.7s
+nGLM043501-2332    comp0 nmax=10 N= 128 ngauss=113 rms=0.0030 max=0.0521 rms<600=0.0006 zero=0.0002 E0=0.9723 sumF=0.336 sum|F|/F=21.39 t=233.4s
+nGLM043501-2332    comp1 nmax= 6 N= 128 ngauss= 96 rms=0.0036 max=0.0870 rms<600=0.0004 zero=0.0000 E0=0.9962 sumF=0.702 sum|F|/F=2.39 t=186.2s
+nJ032918-360154    comp0 nmax= 6 N= 128 ngauss=113 rms=0.0036 max=0.0511 rms<600=0.0006 zero=0.0002 E0=0.9946 sumF=0.083 sum|F|/F=14.87 t=244.3s
+nJ032918-360154    comp1 nmax= 6 N=  64 ngauss= 98 rms=0.0040 max=0.0935 rms<600=0.0006 zero=0.0000 E0=0.9960 sumF=0.608 sum|F|/F=3.21 t=134.5s
+nJ033002-360833    comp0 nmax= 8 N= 128 ngauss=104 rms=0.0044 max=0.0645 rms<600=0.0007 zero=0.0001 E0=0.9297 sumF=0.571 sum|F|/F=7.35 t=196.6s
+nJ033014-365309    comp0 nmax= 8 N= 128 ngauss=114 rms=0.0035 max=0.0810 rms<600=0.0007 zero=0.0002 E0=0.9861 sumF=5.676 sum|F|/F=3.64 t=201.6s
+nJ033336-360820    comp0 nmax= 8 N= 128 ngauss= 90 rms=0.0030 max=0.0509 rms<600=0.0005 zero=0.0001 E0=1.0999 sumF=1.844 sum|F|/F=8.26 t=64.9s
+nJ034132-362232    comp0 nmax= 8 N= 128 ngauss=104 rms=0.0029 max=0.0690 rms<600=0.0004 zero=0.0001 E0=0.9951 sumF=3.202 sum|F|/F=2.41 t=22.6s
+nJ035224-370719    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0041 max=0.0672 rms<600=0.0007 zero=0.0000 E0=0.9959 sumF=0.925 sum|F|/F=4.49 t=5.9s
+nJ035315-371634    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0062 max=0.1166 rms<600=0.0007 zero=0.0000 E0=0.9930 sumF=0.406 sum|F|/F=4.41 t=161.2s
+nJ035947-370027    comp0 nmax= 8 N= 128 ngauss= 95 rms=0.0028 max=0.0703 rms<600=0.0005 zero=0.0000 E0=0.9958 sumF=7.103 sum|F|/F=2.55 t=2.4s
+nJ041825-371939    comp0 nmax= 8 N= 128 ngauss=120 rms=0.0072 max=0.1357 rms<600=0.0012 zero=0.0003 E0=0.9949 sumF=1.503 sum|F|/F=3.08 t=103.0s
+nJ042702-360250    comp0 nmax= 8 N= 128 ngauss= 97 rms=0.0056 max=0.1401 rms<600=0.0012 zero=0.0005 E0=0.9942 sumF=1.042 sum|F|/F=3.90 t=197.2s
+nJ042940-363050    comp0 nmax= 8 N= 128 ngauss=100 rms=0.0030 max=0.0710 rms<600=0.0005 zero=0.0002 E0=0.9957 sumF=13.348 sum|F|/F=2.86 t=3.5s
+nJ043237-343348    comp0 nmax= 8 N= 128 ngauss= 89 rms=0.0065 max=0.1686 rms<600=0.0013 zero=0.0001 E0=0.9848 sumF=0.998 sum|F|/F=5.15 t=176.3s

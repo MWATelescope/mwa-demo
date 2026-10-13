@@ -207,7 +207,7 @@ def fit_component(maj_as, min_as, pa_deg, coeffs, uvmax=2000.0, tol=0.003, kmax=
         atoms.append((lax[i], lax[j], si, sg))
         if len(atoms) % solve_every == 0 or len(atoms) >= kmax:
             a = solve()
-            keep = np.abs(a) > 0
+            keep = np.abs(a) > 1e-9 * np.abs(a).max()     # bounded LSQ leaves ~1e-323 residues at the bounds
             atoms = [at for at, kp in zip(atoms, keep) if kp]
             amps = a[keep]
             Ruv = E - (gauss_vis(U, V, params_of(amps)) if len(atoms) else 0)
@@ -222,7 +222,7 @@ def fit_component(maj_as, min_as, pa_deg, coeffs, uvmax=2000.0, tol=0.003, kmax=
             Ruv = Ruv - np.sum(w * (A.conj() * Ruv).real) / Gnorm[si] * A
     if len(atoms) % solve_every != 0:
         a = solve()
-        keep = np.abs(a) > 0
+        keep = np.abs(a) > 1e-9 * np.abs(a).max()
         atoms = [at for at, kp in zip(atoms, keep) if kp]
         amps = a[keep]
     rms, mx, rms_short, z = metrics(amps)

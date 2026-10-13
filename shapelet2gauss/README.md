@@ -22,7 +22,7 @@ Produced `srclist_pumav3_EoR0LoBES_EoR1pietro_CenA-GP_2023-11-07_no-shapelets.ya
    catalogue flux density), i.e. the Gaussian version is ~17% fainter.
 2. The remaining **59 shapelet components** (55 sources, all in EoR1, 135 Jy in total, mostly
    45 coefficients / order 8) were fitted with Gaussians by `shapelet2gauss.py` as below:
-   6590 Gaussians, median 120 per component.
+   6114 Gaussians, median 107 per component.
 
 Everything else in the catalogue (337k points, 15k Gaussians) is byte-for-byte unchanged.
 
@@ -56,10 +56,10 @@ Everything else in the catalogue (337k points, 15k Gaussians) is byte-for-byte u
 ## Results
 
 `fit_report_2023-11-07_srclist.txt` lists every component. Across the 59 components:
-rms on |uv| < 600 wavelengths median 0.08%, worst 0.22%; zero-spacing error < 0.05%.
+rms on |uv| < 600 wavelengths median 0.06%, worst 0.14%; zero-spacing error < 0.05%.
 `e2e.py` (hyperdrive simulation of the shapelet vs Gaussian version of a source, obs
 1443210064 phase centre, no beam) on 7 sources including the three brightest gives
-0.04-0.25% rms and < 1.1% maximum visibility differences.
+0.04-0.17% rms and < 0.9% maximum visibility differences.
 
 ## Usage
 
@@ -68,4 +68,30 @@ rms on |uv| < 600 wavelengths median 0.08%, worst 0.22%; zero-spacing error < 0.
 python shapelet2gauss.py in.yaml out.yaml --nproc 20            # ~25 s for the 59 components
 python shapelet2gauss.py in.yaml out.yaml --only nEXT035140-2743 --verbose
 python e2e.py nEXT035140-2743 in.yaml out.yaml                  # downloads the metafits
+python yaml2dp3.py out.yaml out.skymodel                         # DP3 / BBS text sky model
 ```
+
+## Converting the YAML to a DP3 sky model
+
+`hyperdrive srclist-convert -o ao` is not usable for this: the AO writer skips every source
+with a curved power law, which is 77% of this catalogue's components. `yaml2dp3.py` writes the
+DP3/BBS text format directly (DP3 reads it straight from `predict.sourcedb=file.skymodel`,
+no `makesourcedb` needed):
+
+* `power_law` (S0 (nu/nu0)^a) -> `LogarithmicSI=true, SpectralIndex=[a]`
+* `curved_power_law` (S0 (nu/nu0)^a exp(q ln^2(nu/nu0))) -> `SpectralIndex=[a, q*ln(10)]`,
+  because DP3 evaluates S0 (nu/nu0)^(c0 + c1 log10(nu/nu0)) (`base/PointSource.cc`)
+* Gaussians: FWHM arcsec and position angle carry over unchanged; `OrientationIsAbsolute` is
+  left false because hyperdrive also evaluates Gaussians in the phase-centre frame
+* one patch per hyperdrive source (`--patch single` puts everything in one patch); shapelets
+  raise, so run `shapelet2gauss.py` first
+* fluxes below 1e-30 are zeroed (DP3 refuses denormals)
+
+Validation: the 300 brightest sources for obs 1443210064 (`hyperdrive srclist-by-beam`,
+12758 components, Fornax A included) were simulated into an MS with
+`hyperdrive vis-simulate --no-beam` and predicted again by DP3 (`predict.usebeammodel=false`)
+from the converted sky model. The two agree to 0.23% rms (phase residual < 0.75 deg, growing
+with baseline length). With `--no-precession` in hyperdrive the disagreement is 30%, so the
+remaining 0.2% is the difference between hyperdrive's precession and casacore's J2000
+handling, not the sky-model conversion. Per-channel power ratios are 1.00000-1.00001, which
+checks the curved-power-law mapping.
