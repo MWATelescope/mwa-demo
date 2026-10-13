@@ -90,8 +90,12 @@ no `makesourcedb` needed):
 Validation: the 300 brightest sources for obs 1443210064 (`hyperdrive srclist-by-beam`,
 12758 components, Fornax A included) were simulated into an MS with
 `hyperdrive vis-simulate --no-beam` and predicted again by DP3 (`predict.usebeammodel=false`)
-from the converted sky model. The two agree to 0.23% rms (phase residual < 0.75 deg, growing
-with baseline length). With `--no-precession` in hyperdrive the disagreement is 30%, so the
-remaining 0.2% is the difference between hyperdrive's precession and casacore's J2000
-handling, not the sky-model conversion. Per-channel power ratios are 1.00000-1.00001, which
-checks the curved-power-law mapping.
+from the converted sky model. The two agree to 0.23% rms (0.63% for the 5000 brightest sources,
+18060 components). The residual is on hyperdrive's side: a direct Fourier sum of the catalogue
+(J2000 positions, MS phase centre and UVW column, hyperdrive's spectral formulas) reproduces
+DP3's MODEL_DATA to 0.0000% rms (max 1 mJy on ~400 Jy visibilities) for the 9938 point
+components, while hyperdrive's DATA column deviates from the same sum by 0.8%, i.e. the
+visibilities hyperdrive writes are not exactly consistent with the UVWs it writes (its
+precessed-array frame vs the MS frame; with `--no-precession` the deviation is 30%).
+Gaussian-only sources agree to 0.2%, which also confirms the orientation convention.
+Per-channel power ratios are 1.00000-1.00001, which checks the curved-power-law mapping.
