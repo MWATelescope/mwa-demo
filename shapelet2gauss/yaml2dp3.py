@@ -28,7 +28,7 @@ LN10 = math.log(10.0)
 def fmt_ra(deg):
     h = (deg % 360) / 15.0
     hh = int(h); m = (h - hh) * 60; mm = int(m); ss = (m - mm) * 60
-    if ss >= 59.9995:
+    if ss >= 59.999995:                      # would print as 60.00000
         ss = 0.0; mm += 1
     if mm == 60:
         mm = 0; hh = (hh + 1) % 24
@@ -39,7 +39,7 @@ def fmt_dec(deg):
     sgn = "-" if deg < 0 else "+"
     d = abs(deg)
     dd = int(d); m = (d - dd) * 60; mm = int(m); ss = (m - mm) * 60
-    if ss >= 59.9995:
+    if ss >= 59.999995:
         ss = 0.0; mm += 1
     if mm == 60:
         mm = 0; dd += 1
@@ -97,7 +97,7 @@ def main():
                     typ, shape = "POINT", ", , , "
                 elif ct == "gaussian":
                     g = c["comp_type"]["gaussian"]
-                    typ, shape = "GAUSSIAN", f"{g['maj']:.6g}, {g['min']:.6g}, {g['pa']:.6g}"
+                    typ, shape = "GAUSSIAN", f"{g['maj']:.9g}, {g['min']:.9g}, {g['pa']:.9g}"
                 else:
                     sys.exit(f"{name}: component type {ct} not supported; run shapelet2gauss.py first")
                 out.write(f"{pname}_{ci}, {typ}, {patch}, {fmt_ra(c['ra'])}, {fmt_dec(c['dec'])}, "
