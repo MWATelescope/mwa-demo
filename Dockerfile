@@ -169,9 +169,12 @@ RUN --mount=type=cache,target=${CARGO_HOME}/git/db \
 # the line never changes, cache-from reuses it, and the image silently keeps
 # whatever mwa_qa it was first built with:
 #   --build-arg MWA_QA_REF=$(git ls-remote https://github.com/d3v-null/mwa_qa.git main | cut -f1)
+# - debian's python3-packaging (pulled in by libglib2.0-dev-bin) can't be
+#   uninstalled by pip, so install pip's own copy alongside it first.
 ARG MWA_QA_REF=main
 RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip config set global.break-system-packages true && \
+    python -m pip install --ignore-installed 'packaging>=24.0' && \
     python -m pip install \
     'cython<3.0' \
     'scikit_build_core' \
