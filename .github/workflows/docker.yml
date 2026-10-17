@@ -4,6 +4,21 @@ on:
   pull_request:
   push:
     branches: [main]
+  # Rebuild on a given hyperdrive image, e.g. a GPU build for Setonix/Garrawarla.
+  workflow_dispatch:
+    inputs:
+      hyperdrive_image:
+        description: "hyperdrive base image"
+        required: true
+        default: "mwatelescope/hyperdrive:test-bmetrics-8bd6e99-cuda12.5.1-ubuntu24.04"
+      variant_tag:
+        description: "Also tag as the GPU variant (e.g. cuda12.5.1), the tag Singularity pulls use"
+        type: boolean
+        default: true
+      push:
+        description: "Push to Docker Hub"
+        type: boolean
+        default: true
 
 name: Docker Multiplatform
 
@@ -12,6 +27,7 @@ env:
 
 jobs:
   build:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     environment: CI
     strategy:
@@ -93,6 +109,7 @@ jobs:
           retention-days: 1
 
   merge:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs:
       - build
@@ -132,6 +149,93 @@ jobs:
       - name: Inspect image
         run: |
           docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+
+  # amd64 only: the GPU hyperdrive images are single-platform.
+  hyperdrive-base:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    environment: CI
+    env:
+      BASE_IMAGE: ${{ inputs.hyperdrive_image }}
+    steps:
+      # GPU bases are 5-8 GB and the image ends up ~14 GB, more than the root disk has free.
+      - name: Free disk space
+        run: |
+          sudo docker system prune -af --volumes
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/share/boost \
+            /usr/local/lib/android /usr/share/swift /usr/lib/jvm /usr/local/share/powershell \
+            /usr/share/miniconda /opt/hostedtoolcache
+          root_free=$(df --output=avail / | tail -1)
+          mnt_free=$(df --output=avail /mnt | tail -1)
+          if (( mnt_free > root_free )); then
+            sudo systemctl stop docker docker.socket
+            sudo mkdir -p /mnt/docker /etc/docker
+            [[ -s /etc/docker/daemon.json ]] || echo '{}' | sudo tee /etc/docker/daemon.json
+            jq '. + {"data-root": "/mnt/docker"}' /etc/docker/daemon.json > /tmp/daemon.json
+            sudo mv /tmp/daemon.json /etc/docker/daemon.json
+            sudo systemctl start docker
+          fi
+          df -h / /mnt
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # e.g. 635acdf-hyperdrive-0.8.1-bmetrics-ae199d7-cuda12.5.1-ubuntu24.04, and cuda12.5.1
+      - name: Tags
+        env:
+          VARIANT_TAG: ${{ inputs.variant_tag }}
+        run: |
+          hyp_tag="${BASE_IMAGE##*:}"
+          tags="$REGISTRY_IMAGE:${GITHUB_SHA::7}-hyperdrive-$hyp_tag"
+          variant=$(grep -oE '(cuda|rocm)[0-9.]+[0-9]' <<< "$hyp_tag" | head -1 || true)
+          if [[ "$VARIANT_TAG" == true && -n "$variant" ]]; then
+            tags+=",$REGISTRY_IMAGE:$variant"
+          fi
+          echo "TAGS=$tags" | tee -a "$GITHUB_ENV"
+          echo "MWA_QA_REF=$(git ls-remote https://github.com/d3v-null/mwa_qa.git main | cut -f1)" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          build-args: |
+            BASE_IMAGE=${{ env.BASE_IMAGE }}
+            MWA_QA_REF=${{ env.MWA_QA_REF }}
+          labels: org.opencontainers.image.base.name=${{ env.BASE_IMAGE }}
+          tags: ${{ env.TAGS }}
+          load: true
+
+      - name: Smoke test
+        run: |
+          img="${TAGS%%,*}"
+          # wsclean refuses to start with multi-threaded OpenBLAS (00_env.sh sets this)
+          docker run --rm --entrypoint bash -e OPENBLAS_NUM_THREADS=1 "$img" -c '
+            set -e
+            hyperdrive --version
+            hyperdrive bmetrics --help > /dev/null
+            birli --version
+            wsclean -version
+            aoflagger --version
+            giant-squid --version
+            python -c "import pyuvdata, SSINS, mwa_qa, mwalib, casacore.tables; print(\"python ok\")"
+          '
+
+      - name: Login to Docker Hub
+        if: inputs.push
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push
+        if: inputs.push
+        run: |
+          IFS=, read -ra tags <<< "$TAGS"
+          for t in "${tags[@]}"; do docker push "$t"; done
 
   # TODO:
   # demo_1121334536:
