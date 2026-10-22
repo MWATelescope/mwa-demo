@@ -1,0 +1,18 @@
+on: push
+
+name: CI
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # errors only for now: the existing scripts have plenty of style and
+      # warning-level findings, tighten these once those are cleaned up
+      - name: shellcheck
+        run: shellcheck --severity=error demo/*.sh
+
+      - name: ruff
+        run: pipx run ruff check --select E9,F63,F7,F82 .

@@ -212,7 +212,10 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 #     git+https://github.com/PaulHancock/Aegean.git
 
 # # download latest Leap_Second.dat, IERS finals2000A.all
-RUN python -c "from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
+# best effort: the IERS mirrors are flaky (HTTP 400 / connection resets), and
+# without them the bundled IERS-B table doesn't reach today, so t.ut1 raises
+# IERSRangeError and fails the build; warn instead, astropy retries at runtime
+RUN python -c "from astropy.utils import iers; iers.conf.iers_degraded_accuracy = 'warn'; from astropy.time import Time; t=Time.now(); from astropy.utils.data import download_file; download_file('http://data.astropy.org/coordinates/sites.json', cache=True); print(t.gps, t.ut1)"
 
 # add chips wrappers
 RUN --mount=type=cache,target=/root/.cache/pip \
