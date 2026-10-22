@@ -1,4 +1,9 @@
-on: [push, pull_request]
+# multiplatform build runs once per PR, plus on main to publish :latest;
+# branch pushes only get the lint job in ci.yml
+on:
+  pull_request:
+  push:
+    branches: [main]
 
 name: Docker Multiplatform
 
