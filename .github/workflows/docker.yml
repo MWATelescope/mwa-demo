@@ -67,8 +67,11 @@ jobs:
             MWA_QA_REF=${{ env.MWA_QA_REF }}
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # one cache scope per platform: with the default shared scope each
+          # leg overwrites the other's cache manifest, so only the platform
+          # that finished last in the previous run got cache hits
+          cache-from: type=gha,scope=build-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,mode=max,scope=build-${{ env.PLATFORM_PAIR }}
 
       - name: Export digest
         run: |
