@@ -40,7 +40,12 @@ fi
 # export freqres_khz=10   # frequency resolution to average to in kHz
 # export birli_args=""    # extra birli args if any
 # export timeres_s=4      # time resolution to average to in seconds
-export edgewidth_khz=${edgewidth_khz:-80} # edge width to flag on each coarse channel in kHz
+# edge width to flag on each coarse channel in kHz. Only critically sampled
+# observations need edge flags; oversampled ones (OVERSAMP=1) don't.
+oversamp=$(head -c 28800 "$metafits" 2>/dev/null | fold -b -w 80 | grep -a '^OVERSAMP=' | awk '{print $2}' || true)
+if [[ -z "${edgewidth_khz:-}" && "$oversamp" != 1 && "$oversamp" != T ]]; then
+    export edgewidth_khz=80
+fi
 
 mkdir -p "${outdir}/${obsid}/prep"
 
