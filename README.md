@@ -97,6 +97,11 @@ subgraph s08["08 postimage"]
 end
 ```
 
+## Extras
+
+* [`shapelet2gauss/`](shapelet2gauss/): convert the shapelet components of a hyperdrive
+  source list into Gaussians (for DP3 and other predictors without shapelet support).
+
 ## Setup
 
 This demo requires some software and data to be available on your machine.
