@@ -38,6 +38,7 @@ echo ""
 
 echo " -> (or) submit preprocessed visibility conversion jobs (uvfits or ms)"
 echo "giant-squid submit-conv $obsids_csv -p output=uvfits,avg_freq_res=40,avg_time_res=2,flag_edge_width=80"
+echo "    (drop flag_edge_width=80 for oversampled observations, OVERSAMP=1 in the metafits)"
 echo ""
 
 echo " -> get human-readable list of jobs that are queued or processing"
