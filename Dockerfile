@@ -4,7 +4,8 @@
 # ref: https://docs.docker.com/build/building/multi-platform/
 ARG BASE_IMAGE=docker.io/mwatelescope/hyperdrive:v0.7.0-devel
 FROM $BASE_IMAGE AS base
-# docker build . --build-arg=BASE_IMAGE=mwatelescope/hyperdrive:0.7.0-bmetrics-cuda12.5.1-ubuntu24.04 --tag=mwatelescope/mwa-demo:cuda12.5.1 --push
+# GPU builds: run the Docker workflow manually with hyperdrive_image set, or
+# docker build . --build-arg=BASE_IMAGE=mwatelescope/hyperdrive:0.8.1-bmetrics-cuda12.5.1-ubuntu24.04 --tag=mwatelescope/mwa-demo:cuda12.5.1 --push
 # module load singularity/default; singularity pull -F /data/curtin_mwaeor/singularity/mwatelescope-mwa-demo-cuda12.5.1.img docker://mwatelescope/mwa-demo:cuda12.5.1
 
 # Suppress perl locale errors
