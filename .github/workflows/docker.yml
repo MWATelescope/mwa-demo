@@ -166,7 +166,6 @@ jobs:
             /usr/local/lib/android /usr/share/swift /usr/lib/jvm /usr/local/share/powershell \
             /usr/share/miniconda /opt/hostedtoolcache /opt/microsoft /opt/google /opt/az \
             /usr/local/lib/node_modules /usr/local/share/chromium /usr/local/julia* /opt/pipx
-          sudo swapoff -a && sudo rm -f /swapfile /mnt/swapfile
           root_free=$(df --output=avail / | tail -1)
           mnt_free=$(df --output=avail /mnt | tail -1)
           if (( mnt_free > root_free )); then
