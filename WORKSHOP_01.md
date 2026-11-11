@@ -123,6 +123,12 @@ rm -rf ${outdir}/combined/img/
 obsid="combined" cal_ms=$(ls -1d ${outdir}/{1121334536,1303134032,1341914000}/cal/hyp_cal_*.ms ) demo/07_img.sh
 ```
 
+## Simulated configurations
+
+[Part 6](WORKSHOP_06.md) repeats this comparison with simulated data: SKA-Low
+AA2, the 256-tile MWA Phase III, and both together, all observing the same
+simulated sky with OSKAR.
+
 ## Cleanup
 
 clean up outdir to start fresh

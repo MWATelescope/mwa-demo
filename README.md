@@ -132,3 +132,12 @@ We'll take a closer look at one of the observations from part 1 using SSINS to l
 We'll explore the nuances of calibration.
 
 [WORKSHOP_03.md](WORKSHOP_03.md)
+
+### Part 6: Simulated configurations
+
+Simulate SKA-Low AA2 and the 256-tile MWA Phase III with OSKAR, observing a
+mirrored LoTSS field on EoR1 through a mild ionosphere, then image and peel
+each one with wsclean, hyperdrive and rapthor and measure how much of the true
+sky the peeling removed.
+
+[WORKSHOP_06.md](WORKSHOP_06.md)
