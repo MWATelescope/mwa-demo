@@ -223,6 +223,23 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install  \
     git+https://github.com/d3v-null/CHIPS_wrappers.git@rn-changes
 
+# bayesian-rfi (https://github.com/d3v-null/bayesian-rfi, branch feat/mwax-night-stack), the mixture
+# model behind the night-level RFI time masks (MWAEoR-Pipeline `brfiFit`). It is not a package, so
+# it is cloned to /opt/bayesian-rfi and left off the python path: its module names (cli, utils,
+# fit) are too general to put ahead of site-packages. Use it with
+#   sys.path.insert(0, "/opt/bayesian-rfi"); import mixture_model
+# numpyro and jax are pinned to the versions the published night fits were made with.
+ARG BAYESIAN_RFI_REF=a7d3881d1218ee5644f6e6a581453b0a5e48bae4
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install \
+    'numpyro==0.15.3' \
+    'jax==0.4.35' \
+    'jaxlib==0.4.35' \
+    && git clone https://github.com/d3v-null/bayesian-rfi.git /opt/bayesian-rfi \
+    && git -C /opt/bayesian-rfi checkout ${BAYESIAN_RFI_REF} \
+    && rm -rf /opt/bayesian-rfi/.git \
+    && python -c "import sys; sys.path.insert(0, '/opt/bayesian-rfi'); import mixture_model, numpy, scipy; print(numpy.__version__, scipy.__version__)"
+
 # Copy the lofar files
 COPY ./lofar /lofar
 ENV PATH="/lofar:${PATH}"
